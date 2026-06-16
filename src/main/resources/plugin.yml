@@ -1,0 +1,17 @@
+name: Kingdom
+version: ${project.version}
+main: dev.leo.kingdom.KingdomPlugin
+api-version: '1.21'
+description: Noble titles and kingdom membership
+authors: [ leo ]
+
+commands:
+  kingdom:
+    description: Kingdom membership and noble titles
+    usage: /kingdom <join|list|info|create|move|title|setregion|setworld>
+    aliases: [ kdm ]
+
+permissions:
+  kingdom.admin:
+    description: Create kingdoms, move players, and assign titles
+    default: op

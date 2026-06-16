@@ -1,0 +1,9 @@
+# Kingdom plugin configuration (v0.1 tracer bullet)
+
+join-reminder: true
+
+join-message:
+  - "&6Welcome! Choose your realm with &e/kingdom list&6, then &e/kingdom join <name>&6."
+
+# Kingdoms are created in-game with /kingdom create or listed here:
+kingdoms: {}
