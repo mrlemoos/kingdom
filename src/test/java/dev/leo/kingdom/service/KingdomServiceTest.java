@@ -19,6 +19,7 @@ class KingdomServiceTest {
     private final UUID alice = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private final UUID bob = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private final UUID carol = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private final UUID dave = UUID.fromString("00000000-0000-0000-0000-000000000004");
 
     @BeforeEach
     void setUp() {
@@ -86,6 +87,40 @@ class KingdomServiceTest {
         service.joinKingdom(alice, "northmarch");
 
         assertEquals("", service.nobleChatPrefix(alice));
+    }
+
+    @Test
+    void premierSlotsAreLimitedToOne() {
+        service.joinKingdom(alice, "northmarch");
+        service.joinKingdom(bob, "northmarch");
+
+        service.assignTitle(alice, NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        KingdomResult secondPremier = service.assignTitle(bob, NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        assertInstanceOf(KingdomResult.Failure.class, secondPremier);
+    }
+
+    @Test
+    void knightSlotsAreUnlimited() {
+        service.joinKingdom(alice, "northmarch");
+        service.joinKingdom(bob, "northmarch");
+        service.joinKingdom(carol, "northmarch");
+        service.joinKingdom(dave, "northmarch");
+
+        assertInstanceOf(KingdomResult.Success.class, service.assignTitle(alice, NobleRank.KNIGHT, TitleStyle.MASCULINE));
+        assertInstanceOf(KingdomResult.Success.class, service.assignTitle(bob, NobleRank.KNIGHT, TitleStyle.MASCULINE));
+        assertInstanceOf(KingdomResult.Success.class, service.assignTitle(carol, NobleRank.KNIGHT, TitleStyle.MASCULINE));
+        assertInstanceOf(KingdomResult.Success.class, service.assignTitle(dave, NobleRank.KNIGHT, TitleStyle.FEMININE));
+    }
+
+    @Test
+    void ladyUsesLordSlotWithFeminineDisplay() {
+        service.joinKingdom(alice, "northmarch");
+
+        service.assignTitle(alice, NobleRank.LORD, TitleStyle.FEMININE);
+
+        assertEquals(ChatColor.BOLD + "LADY ", service.nobleChatPrefix(alice));
     }
 
     @Test

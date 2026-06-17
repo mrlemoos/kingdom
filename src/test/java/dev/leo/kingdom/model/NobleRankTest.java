@@ -43,4 +43,51 @@ class NobleRankTest {
 
         assertEquals(ChatColor.RED + "" + ChatColor.BOLD + "COUNT ", membership.coloredChatPrefix());
     }
+
+    @Test
+    void premierTitlePrefixIsDarkGreen() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        assertEquals(ChatColor.DARK_GREEN + "" + ChatColor.BOLD + "PREMIER ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void ladyTitlePrefixIsLightPurple() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.LORD, TitleStyle.FEMININE);
+
+        assertEquals(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "LADY ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void mpTitlePrefixIsGray() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.MP, TitleStyle.MASCULINE);
+
+        assertEquals(ChatColor.GRAY + "" + ChatColor.BOLD + "MP ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void knightTitlePrefixIsWhite() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.KNIGHT, TitleStyle.MASCULINE);
+
+        assertEquals(ChatColor.WHITE + "" + ChatColor.BOLD + "KNIGHT ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void dameUsesKnightDisplay() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.KNIGHT, TitleStyle.FEMININE);
+
+        assertEquals(ChatColor.WHITE + "" + ChatColor.BOLD + "DAME ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void hierarchyOrdersPremierAboveDuke() {
+        assertTrue(NobleRank.PREMIER.hierarchyOrder() < NobleRank.DUKE.hierarchyOrder());
+        assertTrue(NobleRank.DUKE.hierarchyOrder() < NobleRank.MP.hierarchyOrder());
+        assertTrue(NobleRank.MP.hierarchyOrder() < NobleRank.KNIGHT.hierarchyOrder());
+    }
 }

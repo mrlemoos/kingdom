@@ -6,8 +6,8 @@ Spigot plugin for admin-defined kingdoms, one-time player membership, and noble 
 
 - `/kingdom create`, `move`, `title`, `setregion`, `setworld` (operators)
 - `/kingdom join`, `list`, `info` (players)
-- Fixed slots per kingdom: 1 King, 1 Queen, 2 Dukes, 4 Counts
-- Duchess / Countess via `feminine` style on duke/count slots
+- Fixed slots per kingdom: 1 King, 1 Queen, 1 Premier, 1 Speaker, 2 Dukes, 2 Lords, 4 Counts, 8 MPs, unlimited Knights
+- Duchess / Countess / Lady / Dame via `feminine` style (or `lady` for Lord)
 - Noble prefixes in chat, tab list, and nametags (scoreboard teams)
 - Optional WorldGuard region linking per kingdom (soft dependency)
 - YAML persistence in `plugins/Kingdom/data.yml`

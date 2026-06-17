@@ -148,6 +148,9 @@ public class KingdomService {
     }
 
     private boolean isSlotTakenByAnother(PlayerMembership membership, NobleRank rank, UUID playerId) {
+        if (!rank.hasSlotLimit()) {
+            return false;
+        }
         String kingdomId = membership.getKingdomId();
         long occupied = memberships.values().stream()
                 .filter(other -> kingdomId.equals(other.getKingdomId()))

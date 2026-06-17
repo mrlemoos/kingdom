@@ -6,15 +6,15 @@ public enum TitleStyle {
 
     public static TitleStyle fromCommand(String input) {
         return switch (input.toLowerCase()) {
-            case "duchess", "countess", "feminine", "f" -> FEMININE;
-            case "duke", "count", "masculine", "m" -> MASCULINE;
+            case "duchess", "countess", "lady", "feminine", "f" -> FEMININE;
+            case "duke", "count", "lord", "masculine", "m" -> MASCULINE;
             default -> throw new IllegalArgumentException("Unknown title style: " + input);
         };
     }
 
     public static boolean isStyleToken(String input) {
         return switch (input.toLowerCase()) {
-            case "duchess", "countess", "feminine", "f", "duke", "count", "masculine", "m" -> true;
+            case "duchess", "countess", "lady", "feminine", "f", "duke", "count", "lord", "masculine", "m" -> true;
             default -> false;
         };
     }

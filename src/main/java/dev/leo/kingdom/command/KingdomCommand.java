@@ -137,7 +137,9 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         List<PlayerMembership> members = service.getMembershipsView().values().stream()
                 .filter(m -> kingdom.getId().equals(m.getKingdomId()))
                 .sorted(Comparator.comparing((PlayerMembership m) -> m.hasNobleTitle() ? 0 : 1)
-                        .thenComparing(m -> Optional.ofNullable(m.getRank()).map(Enum::name).orElse("")))
+                        .thenComparing(m -> Optional.ofNullable(m.getRank())
+                                .map(NobleRank::hierarchyOrder)
+                                .orElse(Integer.MAX_VALUE)))
                 .toList();
         for (PlayerMembership membership : members) {
             OfflinePlayer member = Bukkit.getOfflinePlayer(membership.getPlayerId());
@@ -208,7 +210,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length < 3) {
-            sender.sendMessage(error("Usage: /kingdom title <player> <king|queen|duke|count|none> [masculine|feminine]"));
+            sender.sendMessage(error("Usage: /kingdom title <player> <rank|none> [masculine|feminine]"));
             return true;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
@@ -370,14 +372,18 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         if (args.length == 3 && sender.isOp()) {
             return switch (sub) {
                 case "move" -> filter(kingdomIds(), args[2]);
-                case "title" -> filter(List.of("king", "queen", "duke", "count", "none"), args[2]);
+                case "title" -> {
+                    List<String> ranks = new ArrayList<>(NobleRank.commandTokens());
+                    ranks.add("none");
+                    yield filter(ranks, args[2]);
+                }
                 case "setworld" -> filter(
                         Bukkit.getWorlds().stream().map(world -> world.getName()).sorted().toList(), args[2]);
                 default -> Collections.emptyList();
             };
         }
         if (args.length == 4 && sender.isOp() && "title".equals(sub)) {
-            return filter(List.of("masculine", "feminine", "duke", "duchess", "count", "countess"), args[3]);
+            return filter(List.of("masculine", "feminine", "duke", "duchess", "lord", "lady", "count", "countess"), args[3]);
         }
         return Collections.emptyList();
     }
