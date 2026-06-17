@@ -3,7 +3,6 @@ package dev.leo.kingdom.display;
 import dev.leo.kingdom.service.KingdomService;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -37,7 +36,7 @@ public final class NoblePrefixDisplay {
         if (team == null) {
             team = board.registerNewTeam(teamName);
         }
-        team.setPrefix(ChatColor.GOLD + prefix);
+        team.setPrefix(service.coloredNobleChatPrefix(player.getUniqueId()));
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }

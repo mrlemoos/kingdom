@@ -1,7 +1,9 @@
 package dev.leo.kingdom.model;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
+import org.bukkit.ChatColor;
 
 public final class PlayerMembership {
     private final UUID playerId;
@@ -40,11 +42,28 @@ public final class PlayerMembership {
     }
 
     public String chatPrefix() {
+        return formattedTitle(null);
+    }
+
+    public String coloredChatPrefix() {
+        if (rank == null) {
+            return "";
+        }
+        return formattedTitle(rank.chatColor());
+    }
+
+    private String formattedTitle(ChatColor color) {
         if (rank == null) {
             return "";
         }
         TitleStyle style = titleStyle != null ? titleStyle : TitleStyle.MASCULINE;
-        return "[" + rank.displayTitle(style) + "] ";
+        String title = rank.displayTitle(style).toUpperCase(Locale.ROOT);
+        StringBuilder prefix = new StringBuilder();
+        if (color != null) {
+            prefix.append(color);
+        }
+        prefix.append(ChatColor.BOLD).append(title).append(' ');
+        return prefix.toString();
     }
 
     public void assignTitle(NobleRank rank, TitleStyle style) {

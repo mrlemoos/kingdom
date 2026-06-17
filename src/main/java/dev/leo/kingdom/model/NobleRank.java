@@ -1,5 +1,7 @@
 package dev.leo.kingdom.model;
 
+import org.bukkit.ChatColor;
+
 public enum NobleRank {
     KING(1, "King", "Queen"),
     QUEEN(1, "Queen", "Queen"),
@@ -24,6 +26,14 @@ public enum NobleRank {
         return switch (style) {
             case MASCULINE -> defaultMasculineTitle;
             case FEMININE -> defaultFeminineTitle;
+        };
+    }
+
+    public ChatColor chatColor() {
+        return switch (this) {
+            case KING, QUEEN -> ChatColor.GOLD;
+            case DUKE -> ChatColor.BLUE;
+            case COUNT -> ChatColor.RED;
         };
     }
 

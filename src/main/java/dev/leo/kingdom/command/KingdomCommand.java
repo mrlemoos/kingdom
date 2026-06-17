@@ -143,7 +143,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             OfflinePlayer member = Bukkit.getOfflinePlayer(membership.getPlayerId());
             String name = member.getName() != null ? member.getName() : membership.getPlayerId().toString();
             if (membership.hasNobleTitle()) {
-                sender.sendMessage(ChatColor.GOLD + membership.chatPrefix().trim() + ChatColor.WHITE + " " + name);
+                sender.sendMessage(membership.coloredChatPrefix().trim() + ChatColor.WHITE + " " + name);
             } else {
                 sender.sendMessage(ChatColor.GRAY + "  " + name);
             }

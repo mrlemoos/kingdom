@@ -17,10 +17,10 @@ public final class ChatPrefixListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent event) {
-        String prefix = service.nobleChatPrefix(event.getPlayer().getUniqueId());
-        if (prefix.isEmpty()) {
+        String coloredPrefix = service.coloredNobleChatPrefix(event.getPlayer().getUniqueId());
+        if (coloredPrefix.isEmpty()) {
             return;
         }
-        event.setFormat(ChatColor.GOLD + prefix + ChatColor.RESET + "%s" + ChatColor.WHITE + ": %s");
+        event.setFormat(coloredPrefix + ChatColor.RESET + "%s" + ChatColor.WHITE + ": %s");
     }
 }

@@ -9,6 +9,7 @@ import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
 import dev.leo.kingdom.model.TitleStyle;
 import java.util.UUID;
+import org.bukkit.ChatColor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -77,7 +78,7 @@ class KingdomServiceTest {
 
         service.assignTitle(alice, NobleRank.DUKE, TitleStyle.FEMININE);
 
-        assertEquals("[Duchess] ", service.nobleChatPrefix(alice));
+        assertEquals(ChatColor.BOLD + "DUCHESS ", service.nobleChatPrefix(alice));
     }
 
     @Test

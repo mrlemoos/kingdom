@@ -92,6 +92,10 @@ public class KingdomService {
         return getMembership(playerId).map(PlayerMembership::chatPrefix).orElse("");
     }
 
+    public String coloredNobleChatPrefix(UUID playerId) {
+        return getMembership(playerId).map(PlayerMembership::coloredChatPrefix).orElse("");
+    }
+
     public String resolveWorldName(Kingdom kingdom) {
         String worldName = kingdom.getWorldName();
         if (worldName == null || worldName.isBlank()) {
