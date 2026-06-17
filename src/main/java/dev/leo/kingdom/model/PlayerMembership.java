@@ -1,6 +1,5 @@
 package dev.leo.kingdom.model;
 
-import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import org.bukkit.ChatColor;
@@ -57,12 +56,12 @@ public final class PlayerMembership {
             return "";
         }
         TitleStyle style = titleStyle != null ? titleStyle : TitleStyle.MASCULINE;
-        String title = rank.displayTitle(style).toUpperCase(Locale.ROOT);
+        String title = rank.displayTitle(style);
         StringBuilder prefix = new StringBuilder();
         if (color != null) {
             prefix.append(color);
         }
-        prefix.append(ChatColor.BOLD).append(title).append(' ');
+        prefix.append('[').append(title).append("] ");
         return prefix.toString();
     }
 
