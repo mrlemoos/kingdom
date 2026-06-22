@@ -1,4 +1,4 @@
-# Kingdom plugin configuration (v0.1 tracer bullet)
+# Kingdom plugin configuration
 
 join-reminder: true
 
@@ -7,3 +7,30 @@ join-message:
 
 # Kingdoms are created in-game with /kingdom create or listed here:
 kingdoms: {}
+
+economy:
+  starting-treasury: 100.0
+  mint-placement-cost: 50.0
+  max-mints-per-kingdom: 3
+  villager-gdp:
+    tick-interval-ticks: 24000
+  activity:
+    harvest-cooldown-ms: 3000
+    craft-cooldown-ms: 1000
+    villager-trade-cooldown-ms: 5000
+    player-trade-cooldown-ms: 10000
+    harvest-diminishing-threshold-per-hour: 100
+    harvest-diminishing-multiplier: 0.5
+    villager-trade-emerald-rate: 0.10
+    player-trade-bonus: 0.05
+  life-events:
+    daily-cap: 2.0
+    sleep-reward: 0.8
+    eat-reward: 0.2
+    max-eats-per-day: 3
+    build-reward-per-block: 0.01
+    build-daily-cap: 0.5
+    social-reward: 0.1
+    social-interval-ms: 300000
+    social-proximity-blocks: 16
+    own-kingdom-multiplier: 1.5

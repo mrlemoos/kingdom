@@ -1,13 +1,26 @@
 package dev.leo.kingdom;
 
+import dev.leo.kingdom.command.CoronaCommand;
 import dev.leo.kingdom.command.KingdomCommand;
+import dev.leo.kingdom.command.KingdomFiscalHandler;
 import dev.leo.kingdom.display.NoblePrefixDisplay;
+import dev.leo.kingdom.economy.EconomyCoordinator;
+import dev.leo.kingdom.economy.income.EconomyConfig;
+import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.leo.kingdom.listener.ChatPrefixListener;
+import dev.leo.kingdom.listener.EconomyActivityListener;
 import dev.leo.kingdom.listener.JoinReminderListener;
+import dev.leo.kingdom.listener.LifeEventListener;
+import dev.leo.kingdom.listener.MintInteractListener;
+import dev.leo.kingdom.listener.TreasuryBriefingListener;
 import dev.leo.kingdom.listener.NobleDisplayListener;
+import dev.leo.kingdom.listener.TreasuryLordListener;
+import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.service.KingdomService;
+import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
-import java.util.List;
+import dev.leo.kingdom.task.VillagerGdpTask;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class KingdomPlugin extends JavaPlugin {
@@ -15,6 +28,9 @@ public final class KingdomPlugin extends JavaPlugin {
     private KingdomService kingdomService;
     private YamlKingdomStore store;
     private NoblePrefixDisplay nobleDisplay;
+    private EconomyService economyService;
+    private YamlEconomyStore economyStore;
+    private EconomyCoordinator economyCoordinator;
 
     @Override
     public void onEnable() {
@@ -25,15 +41,40 @@ public final class KingdomPlugin extends JavaPlugin {
         store.loadInto(kingdomService);
         nobleDisplay = new NoblePrefixDisplay(kingdomService);
 
-        KingdomCommand kingdomCommand = new KingdomCommand(kingdomService, store, nobleDisplay);
-        var command = getCommand("kingdom");
-        if (command == null) {
+        economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
+        economyStore = new YamlEconomyStore(this);
+        economyStore.loadInto(economyService);
+
+        EconomyConfig economyConfig = EconomyConfig.fromPluginConfig(getConfig());
+        KingdomTerritoryResolver territoryResolver = new KingdomTerritoryResolver(kingdomService);
+        economyCoordinator = new EconomyCoordinator(
+                economyService, kingdomService, territoryResolver, economyConfig);
+        economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
+
+        TreasuryLordService treasuryLordService = new TreasuryLordService(this, economyService, economyStore);
+        KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
+                economyService, kingdomService, economyStore, territoryResolver, treasuryLordService, this);
+
+        KingdomCommand kingdomCommand = new KingdomCommand(
+                kingdomService, store, nobleDisplay, fiscalHandler, economyService);
+        var kingdom = getCommand("kingdom");
+        if (kingdom == null) {
             getLogger().severe("Command 'kingdom' missing from plugin.yml");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        command.setExecutor(kingdomCommand);
-        command.setTabCompleter(kingdomCommand);
+        kingdom.setExecutor(kingdomCommand);
+        kingdom.setTabCompleter(kingdomCommand);
+
+        CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore, economyCoordinator);
+        var corona = getCommand("corona");
+        if (corona == null) {
+            getLogger().severe("Command 'corona' missing from plugin.yml");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        corona.setExecutor(coronaCommand);
+        corona.setTabCompleter(coronaCommand);
 
         getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService), this);
         getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
@@ -43,6 +84,21 @@ public final class KingdomPlugin extends JavaPlugin {
                         getConfig().getBoolean("join-reminder", true),
                         getConfig().getStringList("join-message")),
                 this);
+        getServer().getPluginManager().registerEvents(new EconomyActivityListener(economyCoordinator), this);
+        getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
+        getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
+        getServer().getPluginManager().registerEvents(
+                new TreasuryBriefingListener(kingdomService, economyService, territoryResolver, this),
+                this);
+        getServer().getPluginManager().registerEvents(
+                new TreasuryLordListener(treasuryLordService, economyService, kingdomService, economyStore),
+                this);
+
+        getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
+
+        long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks", VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
+        VillagerGdpTask gdpTask = new VillagerGdpTask(this, economyCoordinator, kingdomService, economyStore);
+        gdpTask.schedule(gdpInterval);
 
         nobleDisplay.refreshAllOnline();
 
@@ -54,9 +110,20 @@ public final class KingdomPlugin extends JavaPlugin {
         if (store != null && kingdomService != null) {
             store.saveFrom(kingdomService);
         }
+        if (economyStore != null && economyService != null) {
+            economyStore.saveFrom(economyService);
+        }
     }
 
     public KingdomService getKingdomService() {
         return kingdomService;
+    }
+
+    public EconomyService getEconomyService() {
+        return economyService;
+    }
+
+    public EconomyCoordinator getEconomyCoordinator() {
+        return economyCoordinator;
     }
 }

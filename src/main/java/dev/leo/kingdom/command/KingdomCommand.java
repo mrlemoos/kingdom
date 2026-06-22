@@ -1,6 +1,7 @@
 package dev.leo.kingdom.command;
 
 import dev.leo.kingdom.display.NoblePrefixDisplay;
+import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
@@ -31,11 +32,32 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
     private final KingdomService service;
     private final YamlKingdomStore store;
     private final NoblePrefixDisplay nobleDisplay;
+    private final KingdomFiscalHandler fiscalHandler;
+    private final EconomyService economyService;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
+        this(service, store, nobleDisplay, null, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler) {
+        this(service, store, nobleDisplay, fiscalHandler, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
+        this.fiscalHandler = fiscalHandler;
+        this.economyService = economyService;
     }
 
     @Override
@@ -55,6 +77,10 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             case "title" -> handleTitle(sender, args);
             case "setregion" -> handleSetRegion(sender, args);
             case "setworld" -> handleSetWorld(sender, args);
+            case "fiscal" -> handleFiscal(sender, args);
+            case "budget" -> handleBudget(sender, args);
+            case "mint" -> handleMint(sender, args);
+            case "treasury" -> handleTreasury(sender, args);
             default -> {
                 sender.sendMessage(help(sender));
                 yield true;
@@ -129,6 +155,18 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(info(kingdom.getDisplayName()));
         service.territoryLabel(kingdom).ifPresent(label ->
                 sender.sendMessage(ChatColor.GRAY + "Territory: " + ChatColor.WHITE + label));
+        if (economyService != null) {
+            String kingdomId = kingdom.getId();
+            sender.sendMessage(ChatColor.GRAY + "Tax revenue: "
+                    + ChatColor.WHITE + formatCorona(economyService.getTotalTaxRevenue(kingdomId)) + " Corona");
+            sender.sendMessage(ChatColor.GRAY + "GDP: "
+                    + ChatColor.WHITE + formatCorona(economyService.getLastDailyGdp(kingdomId)) + " Corona/day");
+            double totalGdpRevenue = economyService.getTotalGdpRevenue(kingdomId);
+            if (totalGdpRevenue > 0.0) {
+                sender.sendMessage(ChatColor.GRAY + "Total GDP revenue: "
+                        + ChatColor.WHITE + formatCorona(totalGdpRevenue) + " Corona");
+            }
+        }
         if (sender instanceof Player player
                 && kingdom.getWorldGuardRegion() != null
                 && service.resolveWorldName(kingdom).equals(player.getWorld().getName())) {
@@ -266,9 +304,23 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(error("World '" + worldName + "' is not loaded."));
             return true;
         }
-        String regionId = args[2];
+        String regionId = Kingdom.normaliseId(args[2]);
+        Optional<String> regionWorld = WorldGuardBridge.findWorldContainingRegion(regionId);
+        if (regionWorld.isPresent()) {
+            if (!regionWorld.get().equals(worldName)) {
+                sender.sendMessage(info("Linked kingdom world to '" + regionWorld.get() + "' (region found there)."));
+            }
+            kingdom.get().setWorldName(regionWorld.get());
+            worldName = regionWorld.get();
+        }
         if (!WorldGuardBridge.regionExists(worldName, regionId)) {
-            sender.sendMessage(error("Region '" + regionId + "' not found in " + worldName + "."));
+            if (regionWorld.isEmpty()) {
+                sender.sendMessage(error("Region '" + regionId + "' not found in any loaded world. "
+                        + "Run /rg list in the overworld and use the exact id."));
+            } else {
+                sender.sendMessage(error("Region '" + regionId + "' could not be verified in " + worldName + ". "
+                        + "Check server console for WorldGuard errors."));
+            }
             return true;
         }
         KingdomResult result = service.setKingdomRegion(args[1], regionId);
@@ -277,6 +329,42 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             store.saveFrom(service);
         }
         return true;
+    }
+
+    private boolean handleFiscal(CommandSender sender, String[] args) {
+        if (fiscalHandler == null) {
+            sender.sendMessage(error("Economy commands are not enabled."));
+            return true;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return fiscalHandler.handleFiscal(sender, subArgs);
+    }
+
+    private boolean handleBudget(CommandSender sender, String[] args) {
+        if (fiscalHandler == null) {
+            sender.sendMessage(error("Economy commands are not enabled."));
+            return true;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return fiscalHandler.handleBudget(sender, subArgs);
+    }
+
+    private boolean handleTreasury(CommandSender sender, String[] args) {
+        if (fiscalHandler == null) {
+            sender.sendMessage(error("Economy commands are not enabled."));
+            return true;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return fiscalHandler.handleTreasury(sender, subArgs);
+    }
+
+    private boolean handleMint(CommandSender sender, String[] args) {
+        if (fiscalHandler == null) {
+            sender.sendMessage(error("Economy commands are not enabled."));
+            return true;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return fiscalHandler.handleMint(sender, subArgs);
     }
 
     private boolean handleSetWorld(CommandSender sender, String[] args) {
@@ -318,12 +406,21 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         builder.append(ChatColor.GRAY).append(" — choose your kingdom once");
         builder.append("\n").append(ChatColor.YELLOW).append("/kingdom info [name]");
         builder.append(ChatColor.GRAY).append(" — realm or player details");
+        if (fiscalHandler != null) {
+            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom fiscal ...");
+            builder.append(ChatColor.GRAY).append(" — propose and approve tax rates");
+            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom budget ...");
+            builder.append(ChatColor.GRAY).append(" — treasury budget");
+            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom mint ...");
+            builder.append(ChatColor.GRAY).append(" — kingdom mints");
+        }
         if (sender.isOp()) {
             builder.append("\n").append(ChatColor.GOLD).append("/kingdom create <id> [display]");
             builder.append("\n").append(ChatColor.GOLD).append("/kingdom move <player> <kingdom>");
             builder.append("\n").append(ChatColor.GOLD).append("/kingdom title <player> <rank|none> [style]");
             builder.append("\n").append(ChatColor.GOLD).append("/kingdom setregion <kingdom> <region>");
             builder.append("\n").append(ChatColor.GOLD).append("/kingdom setworld <kingdom> <world>");
+            builder.append("\n").append(ChatColor.GOLD).append("/kingdom treasury credit <kingdom> <amount>");
         }
         return builder.toString();
     }
@@ -347,12 +444,22 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         return ChatColor.AQUA + message;
     }
 
+    private static String formatCorona(double amount) {
+        if (Math.rint(amount) == amount) {
+            return String.format(Locale.UK, "%.0f", amount);
+        }
+        return String.format(Locale.UK, "%.2f", amount);
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> subs = new ArrayList<>(List.of("join", "list", "info"));
+            if (fiscalHandler != null) {
+                subs.addAll(List.of("fiscal", "budget", "mint"));
+            }
             if (sender.isOp()) {
-                subs.addAll(List.of("create", "move", "title", "setregion", "setworld"));
+                subs.addAll(List.of("create", "move", "title", "setregion", "setworld", "treasury"));
             }
             return filter(subs, args[0]);
         }
@@ -366,8 +473,18 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                     combined.addAll(onlineNames());
                     yield filter(combined, args[1]);
                 }
+                case "fiscal" -> filter(List.of("propose", "approve", "reject", "show"), args[1]);
+                case "budget" -> filter(List.of("approve", "spend", "status"), args[1]);
+                case "mint" -> filter(List.of("place", "list", "remove"), args[1]);
+                case "treasury" -> filter(List.of("credit"), args[1]);
                 default -> Collections.emptyList();
             };
+        }
+        if (args.length == 3 && sender.isOp() && "treasury".equals(sub) && "credit".equalsIgnoreCase(args[1])) {
+            return filter(kingdomIds(), args[2]);
+        }
+        if (args.length == 3 && "budget".equals(sub) && "spend".equalsIgnoreCase(args[1])) {
+            return filter(onlineNames(), args[2]);
         }
         if (args.length == 3 && sender.isOp()) {
             return switch (sub) {
