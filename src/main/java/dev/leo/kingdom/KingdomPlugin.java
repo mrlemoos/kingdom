@@ -3,6 +3,7 @@ package dev.leo.kingdom;
 import dev.leo.kingdom.command.CoronaCommand;
 import dev.leo.kingdom.command.KingdomCommand;
 import dev.leo.kingdom.command.KingdomFiscalHandler;
+import dev.leo.kingdom.command.TpCommand;
 import dev.leo.kingdom.display.NoblePrefixDisplay;
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
@@ -18,6 +19,7 @@ import dev.leo.kingdom.listener.NobleDisplayListener;
 import dev.leo.kingdom.listener.TreasuryLordListener;
 import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.service.KingdomService;
+import dev.leo.kingdom.service.TeleportService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
 import dev.leo.kingdom.task.VillagerGdpTask;
@@ -75,6 +77,17 @@ public final class KingdomPlugin extends JavaPlugin {
         }
         corona.setExecutor(coronaCommand);
         corona.setTabCompleter(coronaCommand);
+
+        TeleportService teleportService = new TeleportService(kingdomService);
+        TpCommand tpCommand = new TpCommand(teleportService, kingdomService, store, territoryResolver);
+        var tp = getCommand("tp");
+        if (tp == null) {
+            getLogger().severe("Command 'tp' missing from plugin.yml");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        tp.setExecutor(tpCommand);
+        tp.setTabCompleter(tpCommand);
 
         getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService), this);
         getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);

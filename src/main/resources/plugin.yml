@@ -14,8 +14,15 @@ commands:
     description: Player Corona wallet and mint transactions
     usage: /corona <balance|pay|deposit>
     aliases: [ cr ]
+  tp:
+    description: Teleport to players, coordinates, or kingdom checkpoints
+    usage: /tp <player|checkpoint|x> <y> <z>
+    aliases: [ teleport ]
 
 permissions:
+  kingdom.teleport.checkpoint:
+    description: Teleport to named kingdom checkpoints
+    default: true
   kingdom.admin:
     description: Create kingdoms, move players, and assign titles
     default: op

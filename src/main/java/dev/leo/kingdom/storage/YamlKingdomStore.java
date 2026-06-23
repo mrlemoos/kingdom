@@ -3,6 +3,7 @@ package dev.leo.kingdom.storage;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
+import dev.leo.kingdom.model.TeleportPlace;
 import dev.leo.kingdom.model.TitleStyle;
 import dev.leo.kingdom.service.KingdomService;
 import java.io.File;
@@ -44,6 +45,7 @@ public final class YamlKingdomStore {
                 Kingdom kingdom = new Kingdom(id, entry.getString("display-name", id));
                 kingdom.setWorldName(entry.getString("world"));
                 kingdom.setWorldGuardRegion(entry.getString("worldguard-region"));
+                kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
                 kingdoms.put(kingdom.getId(), kingdom);
             }
         }
@@ -92,6 +94,7 @@ public final class YamlKingdomStore {
             data.set(path + ".display-name", kingdom.getDisplayName());
             data.set(path + ".world", kingdom.getWorldName());
             data.set(path + ".worldguard-region", kingdom.getWorldGuardRegion());
+            writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
         }
 
         for (PlayerMembership membership : service.getMembershipsView().values()) {
@@ -124,5 +127,46 @@ public final class YamlKingdomStore {
             String displayName = entry != null ? entry.getString("display-name", id) : id;
             service.createKingdom(id, displayName);
         }
+    }
+
+    static void writeTeleports(FileConfiguration config, String path, Map<String, TeleportPlace> teleports) {
+        for (TeleportPlace place : teleports.values()) {
+            String placePath = path + "." + place.name();
+            config.set(placePath + ".world", place.worldName());
+            config.set(placePath + ".x", place.x());
+            config.set(placePath + ".y", place.y());
+            config.set(placePath + ".z", place.z());
+            config.set(placePath + ".yaw", place.yaw());
+            config.set(placePath + ".pitch", place.pitch());
+        }
+    }
+
+    static Map<String, TeleportPlace> readTeleports(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+
+        Map<String, TeleportPlace> teleports = new HashMap<>();
+        for (String name : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(name);
+            if (entry == null) {
+                continue;
+            }
+            String worldName = entry.getString("world");
+            if (worldName == null) {
+                continue;
+            }
+            teleports.put(
+                    Kingdom.normaliseId(name),
+                    TeleportPlace.of(
+                            name,
+                            worldName,
+                            entry.getDouble("x"),
+                            entry.getDouble("y"),
+                            entry.getDouble("z"),
+                            (float) entry.getDouble("yaw"),
+                            (float) entry.getDouble("pitch")));
+        }
+        return teleports;
     }
 }
