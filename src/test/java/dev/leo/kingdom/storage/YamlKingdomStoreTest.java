@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.TeleportPlace;
+import dev.leo.kingdom.model.parliament.ChamberSite;
+import dev.leo.kingdom.model.parliament.RegistrarSite;
 import java.util.HashMap;
 import java.util.Map;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -50,5 +52,23 @@ class YamlKingdomStoreTest {
         YamlKingdomStore.writeTeleports(config, "kingdoms.northmarch.teleports", new HashMap<>());
         assertEquals(Map.of(), YamlKingdomStore.readTeleports(
                 config.getConfigurationSection("kingdoms.northmarch.teleports")));
+    }
+
+    @Test
+    void roundTripPreservesParliamentState() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.getParliamentSites().setCommons(ChamberSite.of("world", 10, 64, 20));
+        kingdom.getParliamentSites().setLords(ChamberSite.of("world", 30, 70, 40));
+        kingdom.getParliamentSites().setRegistrar(RegistrarSite.of("world", 5, 64, 5));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlKingdomStore.writeParliament(config, "kingdoms.northmarch.parliament", kingdom);
+
+        Kingdom loaded = new Kingdom("northmarch", "Northmarch");
+        YamlKingdomStore.readParliament(config.getConfigurationSection("kingdoms.northmarch.parliament"), loaded);
+
+        assertEquals(10, loaded.getParliamentSites().commons().orElseThrow().x(), 1e-9);
+        assertEquals(30, loaded.getParliamentSites().lords().orElseThrow().x(), 1e-9);
+        assertEquals(5, loaded.getParliamentSites().registrar().orElseThrow().blockX());
     }
 }

@@ -1,5 +1,7 @@
 package dev.leo.kingdom.model;
 
+import dev.leo.kingdom.model.parliament.ParliamentSites;
+import dev.leo.kingdom.model.parliament.ParliamentState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -11,6 +13,8 @@ public final class Kingdom {
     private String worldName;
     private String worldGuardRegion;
     private final Map<String, TeleportPlace> teleports = new HashMap<>();
+    private final ParliamentSites parliamentSites = new ParliamentSites();
+    private final ParliamentState parliamentState = new ParliamentState();
 
     public Kingdom(String id, String displayName) {
         this.id = normaliseId(id);
@@ -75,5 +79,13 @@ public final class Kingdom {
         if (loadedTeleports != null) {
             teleports.putAll(loadedTeleports);
         }
+    }
+
+    public ParliamentSites getParliamentSites() {
+        return parliamentSites;
+    }
+
+    public ParliamentState getParliamentState() {
+        return parliamentState;
     }
 }

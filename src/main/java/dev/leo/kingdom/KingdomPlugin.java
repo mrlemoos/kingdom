@@ -14,11 +14,15 @@ import dev.leo.kingdom.listener.EconomyActivityListener;
 import dev.leo.kingdom.listener.JoinReminderListener;
 import dev.leo.kingdom.listener.LifeEventListener;
 import dev.leo.kingdom.listener.MintInteractListener;
+import dev.leo.kingdom.listener.MintPrepareListener;
+import dev.leo.kingdom.listener.ParliamentGuiListener;
 import dev.leo.kingdom.listener.TreasuryBriefingListener;
 import dev.leo.kingdom.listener.NobleDisplayListener;
 import dev.leo.kingdom.listener.TreasuryLordListener;
 import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.service.KingdomService;
+import dev.leo.kingdom.command.ParliamentHandler;
+import dev.leo.kingdom.service.ParliamentService;
 import dev.leo.kingdom.service.TeleportService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
@@ -54,11 +58,23 @@ public final class KingdomPlugin extends JavaPlugin {
         economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
 
         TreasuryLordService treasuryLordService = new TreasuryLordService(this, economyService, economyStore);
+        ParliamentService parliamentService = new ParliamentService(kingdomService);
         KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService, this);
+        ParliamentHandler parliamentHandler = new ParliamentHandler(
+                parliamentService,
+                kingdomService,
+                economyService,
+                store,
+                economyStore,
+                territoryResolver,
+                treasuryLordService,
+                this);
+        ParliamentGuiListener parliamentGuiListener = new ParliamentGuiListener(parliamentHandler);
+        parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
 
         KingdomCommand kingdomCommand = new KingdomCommand(
-                kingdomService, store, nobleDisplay, fiscalHandler, economyService);
+                kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler);
         var kingdom = getCommand("kingdom");
         if (kingdom == null) {
             getLogger().severe("Command 'kingdom' missing from plugin.yml");
@@ -105,6 +121,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 this);
         getServer().getPluginManager().registerEvents(
                 new TreasuryLordListener(treasuryLordService, economyService, kingdomService, economyStore),
+                this);
+        getServer().getPluginManager().registerEvents(parliamentGuiListener, this);
+        getServer().getPluginManager().registerEvents(
+                new MintPrepareListener(parliamentHandler, parliamentGuiListener),
                 this);
 
         getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);

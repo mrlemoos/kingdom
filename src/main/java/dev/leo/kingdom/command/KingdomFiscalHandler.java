@@ -106,60 +106,12 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleFiscalPropose(CommandSender sender, String[] args) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!hasRank(membership.get(), NobleRank.PREMIER)) {
-            sender.sendMessage(error("Only the Premier may propose fiscal rates."));
-            return true;
-        }
-        if (args.length < 5) {
-            sender.sendMessage(error("Usage: /kingdom fiscal propose <base> <foreign> <transferFee> <crossFee>"));
-            return true;
-        }
-
-        try {
-            double base = Double.parseDouble(args[1]);
-            double foreign = Double.parseDouble(args[2]);
-            double transferFee = Double.parseDouble(args[3]);
-            double crossFee = Double.parseDouble(args[4]);
-            FiscalRates defaults = FiscalRates.defaults();
-            FiscalRates proposed = new FiscalRates(base, foreign, transferFee, crossFee, defaults.rankModifiers());
-            EconomyResult result = economyService.submitProposal(
-                    membership.get().getKingdomId(),
-                    NobleRank.PREMIER,
-                    player.get().getUniqueId(),
-                    proposed);
-            sender.sendMessage(formatEconomy(result));
-            if (result instanceof EconomyResult.Success) {
-                economyStore.saveFrom(economyService);
-            }
-        } catch (NumberFormatException ex) {
-            sender.sendMessage(error("All fiscal rates must be numbers."));
-        }
+        sender.sendMessage(error("Fiscal rates must be tabled in Parliament: /kingdom parliament table fiscal ..."));
         return true;
     }
 
     private boolean handleFiscalApprove(CommandSender sender) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        NobleRank rank = membership.get().getRank();
-        EconomyResult result = economyService.approveProposal(membership.get().getKingdomId(), rank);
-        sender.sendMessage(formatEconomy(result));
-        if (result instanceof EconomyResult.Success) {
-            economyStore.saveFrom(economyService);
-        }
+        sender.sendMessage(error("Fiscal rates require royal assent in Parliament: /kingdom parliament assent"));
         return true;
     }
 
@@ -218,91 +170,12 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleBudgetApprove(CommandSender sender, String[] args) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!isRoyal(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King or Queen may approve a treasury budget."));
-            return true;
-        }
-        if (args.length < 2) {
-            sender.sendMessage(error("Usage: /kingdom budget approve <amount>"));
-            return true;
-        }
-
-        try {
-            double amount = Double.parseDouble(args[1]);
-            EconomyResult result = economyService.approveBudget(membership.get().getKingdomId(), amount);
-            sender.sendMessage(formatEconomy(result));
-            if (result instanceof EconomyResult.Success) {
-                economyStore.saveFrom(economyService);
-                String kingdomId = membership.get().getKingdomId();
-                double treasury = economyService.getTreasuryBalance(kingdomId);
-                sender.sendMessage(info("Treasury holds " + formatCorona(treasury)
-                        + " Corona. Budget approval sets a spending cap; mints and stipends still spend from the treasury."));
-            }
-        } catch (NumberFormatException ex) {
-            sender.sendMessage(error("Budget amount must be a number."));
-        }
+        sender.sendMessage(error("Treasury budget must be tabled in Parliament: /kingdom parliament table budget <amount>"));
         return true;
     }
 
     private boolean handleBudgetSpend(CommandSender sender, String[] args) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!hasRank(membership.get(), NobleRank.PREMIER)) {
-            sender.sendMessage(error("Only the Premier may spend from the treasury budget."));
-            return true;
-        }
-        if (args.length < 3) {
-            sender.sendMessage(error("Usage: /kingdom budget spend <player> <amount> [reason]"));
-            return true;
-        }
-
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (!target.hasPlayedBefore() && !target.isOnline()) {
-            sender.sendMessage(error("Unknown player."));
-            return true;
-        }
-
-        try {
-            double amount = Double.parseDouble(args[2]);
-            String kingdomId = membership.get().getKingdomId();
-            EconomyResult result = economyService.spendFromBudget(kingdomId, amount);
-            if (result instanceof EconomyResult.Failure failure) {
-                sender.sendMessage(error(failure.message()));
-                return true;
-            }
-
-            economyService.creditWalletDirect(target.getUniqueId(), amount);
-            economyStore.saveFrom(economyService);
-
-            String reason = args.length > 3
-                    ? String.join(" ", java.util.Arrays.copyOfRange(args, 3, args.length))
-                    : null;
-            String targetName = target.getName() != null ? target.getName() : args[1];
-            if (reason != null && !reason.isBlank()) {
-                sender.sendMessage(success("Paid " + formatCorona(amount) + " Corona to " + targetName + ": " + reason));
-            } else {
-                sender.sendMessage(success("Paid " + formatCorona(amount) + " Corona to " + targetName + "."));
-            }
-            if (target.isOnline()) {
-                target.getPlayer().sendMessage(info("You received " + formatCorona(amount) + " Corona from your kingdom treasury."));
-            }
-        } catch (NumberFormatException ex) {
-            sender.sendMessage(error("Spend amount must be a number."));
-        }
+        sender.sendMessage(error("Treasury spending must be tabled in Parliament: /kingdom parliament table spend ..."));
         return true;
     }
 
@@ -330,53 +203,7 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleMintPlace(CommandSender sender) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!hasRank(membership.get(), NobleRank.PREMIER)) {
-            sender.sendMessage(error("Only the Premier may place a mint."));
-            return true;
-        }
-
-        Player pl = player.get();
-        Block lectern = findLecternBlock(pl);
-        if (lectern == null || lectern.getType() != Material.LECTERN) {
-            sender.sendMessage(error("You must stand at a lectern in your kingdom's territory."));
-            return true;
-        }
-
-        Location location = lectern.getLocation();
-        TerritoryLocation territory = territoryResolver.resolve(
-                location.getWorld().getName(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ(),
-                membership.get().getKingdomId());
-        if (territory.type() != TerritoryLocation.IncomeLocation.OWN_KINGDOM) {
-            sender.sendMessage(error(mintTerritoryError(membership.get().getKingdomId(), location, territory)));
-            return true;
-        }
-
-        String kingdomId = membership.get().getKingdomId();
-        MintLocation mintLocation = new MintLocation(
-                location.getWorld().getName(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ());
-        double cost = plugin.getConfig().getDouble("economy.mint-placement-cost", 50.0);
-        int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
-
-        EconomyResult result = economyService.placeMint(kingdomId, mintLocation, cost, maxMints);
-        sender.sendMessage(formatEconomy(result));
-        if (result instanceof EconomyResult.Success) {
-            treasuryLordService.ensureLord(kingdomId, mintLocation);
-            economyStore.saveFrom(economyService);
-        }
+        sender.sendMessage(error("Mint placement requires a supply bill: /kingdom parliament prepare mint then table spend mint"));
         return true;
     }
 
@@ -594,24 +421,21 @@ public final class KingdomFiscalHandler {
 
     private String fiscalHelp() {
         return info("Fiscal commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom fiscal propose <base> <foreign> <transferFee> <crossFee>"
-                + "\n" + ChatColor.YELLOW + "/kingdom fiscal approve"
-                + "\n" + ChatColor.YELLOW + "/kingdom fiscal reject"
-                + "\n" + ChatColor.YELLOW + "/kingdom fiscal show";
+                + "\n" + ChatColor.YELLOW + "/kingdom fiscal show"
+                + "\n" + ChatColor.GRAY + " — view active and pending rates (pending via Parliament)";
     }
 
     private String budgetHelp() {
         return info("Budget commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom budget approve <amount>"
-                + "\n" + ChatColor.YELLOW + "/kingdom budget spend <player> <amount> [reason]"
-                + "\n" + ChatColor.YELLOW + "/kingdom budget status";
+                + "\n" + ChatColor.YELLOW + "/kingdom budget status"
+                + "\n" + ChatColor.GRAY + " — view approved cap and spending";
     }
 
     private String mintHelp() {
         return info("Mint commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom mint place"
                 + "\n" + ChatColor.YELLOW + "/kingdom mint list"
-                + "\n" + ChatColor.YELLOW + "/kingdom mint remove";
+                + "\n" + ChatColor.YELLOW + "/kingdom mint remove"
+                + "\n" + ChatColor.GRAY + " — placement via /kingdom parliament";
     }
 
     private String rateLine(String label, double rate) {

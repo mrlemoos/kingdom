@@ -174,19 +174,7 @@ public class EconomyService {
     }
 
     public EconomyResult approveProposal(String kingdomId, NobleRank approverRank) {
-        if (approverRank != NobleRank.KING && approverRank != NobleRank.QUEEN) {
-            return EconomyResult.fail("Only the King or Queen may approve a fiscal proposal.");
-        }
-
-        KingdomEconomy economy = economyFor(kingdomId);
-        FiscalProposal proposal = economy.pendingProposal().orElse(null);
-        if (proposal == null) {
-            return EconomyResult.fail("No fiscal proposal is pending approval.");
-        }
-
-        economy.setActiveRates(proposal.proposedRates());
-        economy.clearPendingProposal();
-        return EconomyResult.ok("Fiscal proposal approved.");
+        return EconomyResult.fail("Fiscal rates must pass through Parliament. Use /kingdom parliament assent.");
     }
 
     public EconomyResult rejectProposal(String kingdomId, NobleRank approverRank) {
@@ -203,12 +191,26 @@ public class EconomyService {
         return EconomyResult.ok("Fiscal proposal rejected.");
     }
 
+    public EconomyResult applyFiscalRates(String kingdomId, FiscalRates rates) {
+        if (rates == null) {
+            return EconomyResult.fail("Fiscal rates are required.");
+        }
+        KingdomEconomy economy = economyFor(kingdomId);
+        economy.setActiveRates(rates);
+        economy.clearPendingProposal();
+        return EconomyResult.ok("Fiscal rates enacted.");
+    }
+
     public EconomyResult approveBudget(String kingdomId, double amount) {
+        return EconomyResult.fail("Treasury budget must pass through Parliament. Use /kingdom parliament assent.");
+    }
+
+    public EconomyResult enactBudget(String kingdomId, double amount) {
         if (amount < 0) {
             return EconomyResult.fail("Approved budget cannot be negative.");
         }
         economyFor(kingdomId).budget().approve(amount);
-        return EconomyResult.ok("Treasury budget approved.");
+        return EconomyResult.ok("Treasury budget enacted.");
     }
 
     public EconomyResult spendFromBudget(String kingdomId, double amount) {

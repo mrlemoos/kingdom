@@ -91,3 +91,45 @@ _Avoid_: Payment, remittance, wire
 **Transfer fee**:
 The percentage charged on player-to-player Corona transfers. Proposed by the Premier and enacted after King or Queen approval, alongside tax rates.
 _Avoid_: Transaction fee, service charge, commission
+
+## Parliament
+
+**Parliament**:
+The kingdom legislature. Fiscal rates, treasury budget caps, and treasury spending pass as Acts through the House of Commons and receive royal assent in the House of Lords.
+_Avoid_: Congress, senate, government
+
+**House of Commons**:
+The elected chamber where the Premier tables bills and Members of Parliament vote. Debate and divisions take place within the chamber bounds set by the monarch.
+_Avoid_: Lower house (in player-facing text), assembly
+
+**House of Lords**:
+The chamber where the King or Queen grants or withholds royal assent on bills passed by the Commons. Assent and rejection both require the monarch to be present in the Lords.
+_Avoid_: Upper house (in player-facing text), senate
+
+**Act**:
+A bill that has passed the Commons and received royal assent. Enacts fiscal rates, a budget cap, or an authorised treasury spend. Recorded as a written book in the registrar.
+_Avoid_: Law, statute, decree
+
+**Bill**:
+A formal proposal before Parliament: fiscal rates, treasury budget, or treasury spend (including mint placement). Only one bill may be in progress per kingdom at a time.
+_Avoid_: Proposal, motion, decree
+
+**Division**:
+A Commons vote on the bill before the House. The Speaker opens and closes the division; MPs vote aye, nay, or abstain while the division is open.
+_Avoid_: Poll, ballot, referendum
+
+**Casting vote**:
+The Speaker's tie-breaking vote when aye and nay are equal. Required before a tied division can pass or fail.
+_Avoid_: Tie-breaker, deciding vote
+
+**Royal assent**:
+The monarch's approval of a bill passed by the Commons, given in the House of Lords. Withholding assent rejects the bill without enacting it.
+_Avoid_: Signature, ratification, approval
+
+**Registrar**:
+The archive where assented Acts are stored as written books on chiseled bookshelves. The monarch sets the anchor bookshelf; further Acts fill slots and extend to adjacent shelves.
+_Avoid_: Archive, library, record office
+
+**Member of Parliament**:
+A seated MP who may vote in Commons divisions. Citizens without the MP title cannot vote.
+_Avoid_: Representative, congressman, delegate

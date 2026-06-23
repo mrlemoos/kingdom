@@ -149,15 +149,23 @@ class EconomyServiceTest {
     }
 
     @Test
-    void kingApprovesPendingFiscalProposal() {
+    void kingApproveProposalRedirectsToParliament() {
         FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, Map.of());
         service.submitProposal("northmarch", NobleRank.PREMIER, premier, proposed);
 
         EconomyResult approved = service.approveProposal("northmarch", NobleRank.KING);
 
-        assertInstanceOf(EconomyResult.Success.class, approved);
+        assertInstanceOf(EconomyResult.Failure.class, approved);
+    }
+
+    @Test
+    void applyFiscalRatesEnactsDirectly() {
+        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, Map.of());
+
+        EconomyResult enacted = service.applyFiscalRates("northmarch", proposed);
+
+        assertInstanceOf(EconomyResult.Success.class, enacted);
         assertEquals(proposed, service.kingdomEconomies().get("northmarch").activeRates());
-        assertTrue(service.kingdomEconomies().get("northmarch").pendingProposal().isEmpty());
     }
 
     @Test
@@ -171,12 +179,19 @@ class EconomyServiceTest {
     }
 
     @Test
-    void approveBudgetDoesNotRequireTreasuryFunds() {
-        EconomyResult result = service.approveBudget("northmarch", 100.0);
+    void enactBudgetDoesNotRequireTreasuryFunds() {
+        EconomyResult result = service.enactBudget("northmarch", 100.0);
 
         assertInstanceOf(EconomyResult.Success.class, result);
         assertEquals(0.0, service.getTreasuryBalance("northmarch"));
         assertEquals(100.0, service.kingdomEconomies().get("northmarch").budget().approvedAmount());
+    }
+
+    @Test
+    void approveBudgetRedirectsToParliament() {
+        EconomyResult result = service.approveBudget("northmarch", 100.0);
+
+        assertInstanceOf(EconomyResult.Failure.class, result);
     }
 
     @Test
@@ -188,7 +203,7 @@ class EconomyServiceTest {
 
     @Test
     void mintPlacementFailsWhenTreasuryEmptyDespiteApprovedBudget() {
-        service.approveBudget("northmarch", 200.0);
+        service.enactBudget("northmarch", 200.0);
 
         EconomyResult result = service.placeMint("northmarch", new MintLocation("world", 10, 64, 10), 50.0, 3);
 
@@ -207,7 +222,7 @@ class EconomyServiceTest {
     @Test
     void budgetSpendIsLimitedToApprovedAmount() {
         service.creditTreasury("northmarch", 500.0);
-        service.approveBudget("northmarch", 100.0);
+        service.enactBudget("northmarch", 100.0);
 
         EconomyResult firstSpend = service.spendFromBudget("northmarch", 60.0);
         EconomyResult secondSpend = service.spendFromBudget("northmarch", 50.0);
@@ -221,7 +236,7 @@ class EconomyServiceTest {
     @Test
     void mintPlacementRespectsCapAndBudgetCost() {
         service.creditTreasury("northmarch", 500.0);
-        service.approveBudget("northmarch", 200.0);
+        service.enactBudget("northmarch", 200.0);
         MintLocation firstMint = new MintLocation("world", 10, 64, 10);
         MintLocation secondMint = new MintLocation("world", 20, 64, 20);
 
