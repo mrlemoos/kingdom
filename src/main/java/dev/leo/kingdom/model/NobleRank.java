@@ -50,7 +50,7 @@ public enum NobleRank {
     public ChatColor chatColor() {
         return switch (this) {
             case KING, QUEEN -> ChatColor.GOLD;
-            case PREMIER -> ChatColor.DARK_GREEN;
+            case PREMIER -> ChatColor.GREEN;
             case SPEAKER -> ChatColor.AQUA;
             case DUKE -> ChatColor.BLUE;
             case LORD -> ChatColor.LIGHT_PURPLE;
