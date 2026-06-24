@@ -276,11 +276,12 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         }
 
         try {
-            NobleRank rank = NobleRank.fromCommand(args[2]);
+            String rankArg = args[2];
+            NobleRank rank = NobleRank.fromCommand(rankArg);
             TitleStyle style = TitleStyle.MASCULINE;
             if (args.length >= 4) {
                 style = TitleStyle.fromCommand(args[3]);
-            } else if (rank == NobleRank.QUEEN) {
+            } else if (rank == NobleRank.QUEEN || "princess".equalsIgnoreCase(rankArg)) {
                 style = TitleStyle.FEMININE;
             }
             KingdomResult result = service.assignTitle(target.getUniqueId(), rank, style);

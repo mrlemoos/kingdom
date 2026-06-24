@@ -76,4 +76,9 @@ class TaxCalculatorTest {
 
         assertEquals(1.0, effectiveRate);
     }
+
+    @Test
+    void princeDefaultRankModifierIsMinusThreePercent() {
+        assertEquals(-0.03, FiscalRates.defaults().rankModifier(NobleRank.PRINCE), 1e-9);
+    }
 }

@@ -114,6 +114,29 @@ class KingdomServiceTest {
     }
 
     @Test
+    void princeSlotsAreLimitedToTwo() {
+        service.joinKingdom(alice, "northmarch");
+        service.joinKingdom(bob, "northmarch");
+        service.joinKingdom(carol, "northmarch");
+
+        service.assignTitle(alice, NobleRank.PRINCE, TitleStyle.MASCULINE);
+        service.assignTitle(bob, NobleRank.PRINCE, TitleStyle.FEMININE);
+
+        KingdomResult thirdPrince = service.assignTitle(carol, NobleRank.PRINCE, TitleStyle.MASCULINE);
+
+        assertInstanceOf(KingdomResult.Failure.class, thirdPrince);
+    }
+
+    @Test
+    void princessUsesPrinceSlotWithFeminineDisplay() {
+        service.joinKingdom(alice, "northmarch");
+
+        service.assignTitle(alice, NobleRank.PRINCE, TitleStyle.FEMININE);
+
+        assertEquals("[Princess] ", service.nobleChatPrefix(alice));
+    }
+
+    @Test
     void ladyUsesLordSlotWithFeminineDisplay() {
         service.joinKingdom(alice, "northmarch");
 

@@ -6,13 +6,14 @@ import org.bukkit.ChatColor;
 public enum NobleRank {
     KING(1, 1, "King", "Queen"),
     QUEEN(2, 1, "Queen", "Queen"),
-    PREMIER(3, 1, "Premier", "Premier"),
-    SPEAKER(4, 1, "Speaker", "Speaker"),
-    DUKE(5, 2, "Duke", "Duchess"),
-    LORD(6, 2, "Lord", "Lady"),
-    COUNT(7, 4, "Count", "Countess"),
-    MP(8, 8, "MP", "MP"),
-    KNIGHT(9, -1, "Knight", "Dame");
+    PRINCE(3, 2, "Prince", "Princess"),
+    PREMIER(4, 1, "Premier", "Premier"),
+    SPEAKER(5, 1, "Speaker", "Speaker"),
+    DUKE(6, 2, "Duke", "Duchess"),
+    LORD(7, 2, "Lord", "Lady"),
+    COUNT(8, 4, "Count", "Countess"),
+    MP(9, 8, "MP", "MP"),
+    KNIGHT(10, -1, "Knight", "Dame");
 
     private static final int UNLIMITED = -1;
 
@@ -50,6 +51,7 @@ public enum NobleRank {
     public ChatColor chatColor() {
         return switch (this) {
             case KING, QUEEN -> ChatColor.GOLD;
+            case PRINCE -> ChatColor.YELLOW;
             case PREMIER -> ChatColor.DARK_GREEN;
             case SPEAKER -> ChatColor.AQUA;
             case DUKE -> ChatColor.BLUE;
@@ -64,6 +66,7 @@ public enum NobleRank {
         return switch (input.toLowerCase()) {
             case "king" -> KING;
             case "queen" -> QUEEN;
+            case "prince", "princess" -> PRINCE;
             case "premier" -> PREMIER;
             case "speaker" -> SPEAKER;
             case "duke" -> DUKE;
@@ -76,6 +79,6 @@ public enum NobleRank {
     }
 
     public static List<String> commandTokens() {
-        return List.of("king", "queen", "premier", "speaker", "duke", "lord", "count", "mp", "knight");
+        return List.of("king", "queen", "prince", "princess", "premier", "speaker", "duke", "lord", "count", "mp", "knight");
     }
 }

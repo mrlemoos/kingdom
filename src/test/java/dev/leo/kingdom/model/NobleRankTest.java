@@ -85,7 +85,29 @@ class NobleRankTest {
     }
 
     @Test
-    void hierarchyOrdersPremierAboveDuke() {
+    void princeTitlePrefixIsYellow() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.PRINCE, TitleStyle.MASCULINE);
+
+        assertEquals(ChatColor.YELLOW + "[Prince] ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void princessTitlePrefixIsYellow() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.PRINCE, TitleStyle.FEMININE);
+
+        assertEquals(ChatColor.YELLOW + "[Princess] ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void princessResolvesFromCommandAsPrinceRank() {
+        assertEquals(NobleRank.PRINCE, NobleRank.fromCommand("princess"));
+    }
+
+    @Test
+    void hierarchyOrdersPrinceAbovePremier() {
+        assertTrue(NobleRank.PRINCE.hierarchyOrder() < NobleRank.PREMIER.hierarchyOrder());
         assertTrue(NobleRank.PREMIER.hierarchyOrder() < NobleRank.DUKE.hierarchyOrder());
         assertTrue(NobleRank.DUKE.hierarchyOrder() < NobleRank.MP.hierarchyOrder());
         assertTrue(NobleRank.MP.hierarchyOrder() < NobleRank.KNIGHT.hierarchyOrder());

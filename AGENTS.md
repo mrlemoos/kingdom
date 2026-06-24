@@ -18,7 +18,7 @@
 - GitHub repo: `https://github.com/mrlemoos/kingdom`.
 - Game server SFTP: `admin@srv1753557.hstgr.cloud:2224`; upload via `scp -P 2224 … admin@srv1753557.hstgr.cloud:/plugins/`.
 - Admin-defined kingdoms; players join once via `/kingdom join`; only OP can move members.
-- Noble titles are admin-assigned with fixed slots; Knight has unlimited slots; hierarchy sort in `/kingdom info`; title ladder: King/Queen, Premier, Speaker, Duke/Duchess, Lord/Lady, Count/Countess, MP, Knight/Dame.
+- Noble titles are admin-assigned with fixed slots; Knight has unlimited slots; hierarchy sort in `/kingdom info`; title ladder: King/Queen, Prince/Princess, Premier, Speaker, Duke/Duchess, Lord/Lady, Count/Countess, MP, Knight/Dame.
 - Noble chat/tab/nametag prefixes are bold uppercase with per-rank colours; citizens have no prefix.
 - Kingdom persistence in `plugins/Kingdom/data.yml`; economy state in `plugins/Kingdom/economy.yml`.
 - Full Corona economy implemented (wallets, treasuries, tax, fiscal flow, villager GDP, activity/life-event income, mints); domain glossary in `CONTEXT.md`.
