@@ -34,3 +34,32 @@ economy:
     social-interval-ms: 300000
     social-proximity-blocks: 16
     own-kingdom-multiplier: 1.5
+
+election:
+  general-interval-mc-days: 120
+  duration-mc-days: 3
+  max-player-seats: 4
+  total-seats: 8
+  ms-per-mc-day: 1200000
+  profession-vote-bias:
+    FISCAL:
+      farmer: nay
+      librarian: aye
+      armorer: nay
+      weaponsmith: nay
+      toolsmith: aye
+    BUDGET:
+      farmer: aye
+      librarian: aye
+      armorer: nay
+      cleric: aye
+    SPEND_MINT:
+      farmer: aye
+      librarian: aye
+      armorer: nay
+      cartographer: aye
+    SPEND_STIPEND:
+      farmer: aye
+      librarian: nay
+      armorer: nay
+      shepherd: aye

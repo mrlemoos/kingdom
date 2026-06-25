@@ -133,3 +133,19 @@ _Avoid_: Archive, library, record office
 **Member of Parliament**:
 A seated MP who may vote in Commons divisions. Citizens without the MP title cannot vote.
 _Avoid_: Representative, congressman, delegate
+
+**General election**:
+A kingdom-wide contest for all eight Commons seats. Citizens may stand for up to four player MP seats; remaining seats are filled by profession villager MPs from the top productive-villager professions. Called by the monarch or on a fixed in-game-day schedule.
+_Avoid_: Primary, poll, national vote
+
+**By-election**:
+A contest to fill a single vacant MP seat between general elections. Uses the same nomination and voting period as a general election.
+_Avoid_: Special election, runoff, recall
+
+**Profession MP**:
+A villager MP representing one of the kingdom's largest productive-villager professions. Stands in the Commons as a persistent villager with an MP prefix; division votes are cast automatically from profession leanings on each bill type.
+_Avoid_: NPC delegate, villager representative, profession delegate
+
+**Election casting vote**:
+The Speaker's tie-breaking choice when two or more citizen candidates tie for the last available player MP seat in an election. Required before that election can close.
+_Avoid_: Tie-breaker, deciding ballot, runoff vote

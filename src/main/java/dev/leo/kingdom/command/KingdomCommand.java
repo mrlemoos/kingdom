@@ -35,9 +35,10 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
     private final KingdomFiscalHandler fiscalHandler;
     private final EconomyService economyService;
     private final ParliamentHandler parliamentHandler;
+    private final ElectionHandler electionHandler;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
-        this(service, store, nobleDisplay, null, null, null);
+        this(service, store, nobleDisplay, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -45,7 +46,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             YamlKingdomStore store,
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, null, null, null);
     }
 
     public KingdomCommand(
@@ -54,7 +55,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null);
     }
 
     public KingdomCommand(
@@ -64,12 +65,24 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService,
             ParliamentHandler parliamentHandler) {
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService,
+            ParliamentHandler parliamentHandler,
+            ElectionHandler electionHandler) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
         this.fiscalHandler = fiscalHandler;
         this.economyService = economyService;
         this.parliamentHandler = parliamentHandler;
+        this.electionHandler = electionHandler;
     }
 
     @Override
@@ -94,6 +107,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             case "mint" -> handleMint(sender, args);
             case "treasury" -> handleTreasury(sender, args);
             case "parliament" -> handleParliament(sender, args);
+            case "election" -> handleElection(sender, args);
             default -> {
                 sender.sendMessage(help(sender));
                 yield true;
@@ -363,6 +377,15 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         return fiscalHandler.handleBudget(sender, subArgs);
     }
 
+    private boolean handleElection(CommandSender sender, String[] args) {
+        if (electionHandler == null) {
+            sender.sendMessage(error("Elections are not available."));
+            return true;
+        }
+        String[] shifted = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return electionHandler.handle(sender, shifted);
+    }
+
     private boolean handleParliament(CommandSender sender, String[] args) {
         if (parliamentHandler == null) {
             sender.sendMessage(error("Parliament is not available."));
@@ -430,6 +453,8 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         builder.append("\n").append(ChatColor.YELLOW).append("/kingdom info [name]");
         builder.append(ChatColor.GRAY).append(" — realm or player details");
         if (fiscalHandler != null) {
+            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom election ...");
+            builder.append(ChatColor.GRAY).append(" — MP elections and nominations");
             builder.append("\n").append(ChatColor.YELLOW).append("/kingdom parliament ...");
             builder.append(ChatColor.GRAY).append(" — table bills, divisions, royal assent");
             builder.append("\n").append(ChatColor.YELLOW).append("/kingdom fiscal show");
@@ -481,7 +506,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> subs = new ArrayList<>(List.of("join", "list", "info"));
             if (fiscalHandler != null) {
-                subs.addAll(List.of("fiscal", "budget", "mint", "parliament"));
+                subs.addAll(List.of("fiscal", "budget", "mint", "parliament", "election"));
             }
             if (sender.isOp()) {
                 subs.addAll(List.of("create", "move", "title", "setregion", "setworld", "treasury"));
@@ -502,6 +527,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                 case "budget" -> filter(List.of("status"), args[1]);
                 case "mint" -> filter(List.of("list", "remove"), args[1]);
                 case "parliament" -> filter(List.of("set", "status"), args[1]);
+                case "election" -> filter(ElectionHandler.tabSubcommands(), args[1]);
                 case "treasury" -> filter(List.of("credit"), args[1]);
                 default -> Collections.emptyList();
             };
@@ -517,6 +543,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                 case "move" -> filter(kingdomIds(), args[2]);
                 case "title" -> {
                     List<String> ranks = new ArrayList<>(NobleRank.commandTokens());
+                    ranks.remove("mp");
                     ranks.add("none");
                     yield filter(ranks, args[2]);
                 }
@@ -524,6 +551,15 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                         Bukkit.getWorlds().stream().map(world -> world.getName()).sorted().toList(), args[2]);
                 default -> Collections.emptyList();
             };
+        }
+        if (args.length == 3 && "parliament".equals(sub) && "set".equalsIgnoreCase(args[1])) {
+            return filter(List.of("commons", "lords", "registrar", "mp-seat"), args[2]);
+        }
+        if (args.length == 4 && "parliament".equals(sub) && "set".equalsIgnoreCase(args[1]) && "mp-seat".equalsIgnoreCase(args[2])) {
+            return filter(List.of("1", "2", "3", "4", "5", "6", "7", "8"), args[3]);
+        }
+        if (args.length == 3 && "election".equals(sub) && ("vote".equalsIgnoreCase(args[1]) || "speaker-vote".equalsIgnoreCase(args[1]))) {
+            return filter(onlineNames(), args[2]);
         }
         if (args.length == 4 && sender.isOp() && "title".equals(sub)) {
             return filter(List.of("masculine", "feminine", "duke", "duchess", "lord", "lady", "count", "countess"), args[3]);

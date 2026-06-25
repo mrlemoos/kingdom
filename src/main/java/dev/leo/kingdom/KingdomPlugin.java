@@ -1,10 +1,16 @@
 package dev.leo.kingdom;
 
 import dev.leo.kingdom.command.CoronaCommand;
+import dev.leo.kingdom.command.ElectionHandler;
 import dev.leo.kingdom.command.KingdomCommand;
 import dev.leo.kingdom.command.KingdomFiscalHandler;
 import dev.leo.kingdom.command.TpCommand;
 import dev.leo.kingdom.display.NoblePrefixDisplay;
+import dev.leo.kingdom.election.ElectionConfig;
+import dev.leo.kingdom.election.ElectionService;
+import dev.leo.kingdom.election.ProductiveVillagerScanner;
+import dev.leo.kingdom.election.ProfessionVoteBias;
+import dev.leo.kingdom.election.VillagerMpEntityService;
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
 import dev.leo.kingdom.economy.service.EconomyService;
@@ -26,6 +32,7 @@ import dev.leo.kingdom.service.ParliamentService;
 import dev.leo.kingdom.service.TeleportService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
+import dev.leo.kingdom.task.ElectionTask;
 import dev.leo.kingdom.task.VillagerGdpTask;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -58,7 +65,20 @@ public final class KingdomPlugin extends JavaPlugin {
         economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
 
         TreasuryLordService treasuryLordService = new TreasuryLordService(this, economyService, economyStore);
+        ElectionConfig electionConfig = ElectionConfig.fromPluginConfig(getConfig());
+        ProfessionVoteBias professionVoteBias = ProfessionVoteBias.fromPluginConfig(getConfig());
+        ElectionService electionService = new ElectionService(kingdomService, electionConfig);
+        ProductiveVillagerScanner villagerScanner = new ProductiveVillagerScanner(kingdomService);
+        VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(this, kingdomService);
         ParliamentService parliamentService = new ParliamentService(kingdomService);
+        parliamentService.setProfessionVoteBias(professionVoteBias);
+        ElectionHandler electionHandler = new ElectionHandler(
+                electionService,
+                kingdomService,
+                store,
+                villagerScanner,
+                villagerMpEntityService,
+                nobleDisplay);
         KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService, this);
         ParliamentHandler parliamentHandler = new ParliamentHandler(
@@ -74,7 +94,7 @@ public final class KingdomPlugin extends JavaPlugin {
         parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
 
         KingdomCommand kingdomCommand = new KingdomCommand(
-                kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler);
+                kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler);
         var kingdom = getCommand("kingdom");
         if (kingdom == null) {
             getLogger().severe("Command 'kingdom' missing from plugin.yml");
@@ -132,6 +152,12 @@ public final class KingdomPlugin extends JavaPlugin {
         long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks", VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
         VillagerGdpTask gdpTask = new VillagerGdpTask(this, economyCoordinator, kingdomService, economyStore);
         gdpTask.schedule(gdpInterval);
+
+        ElectionTask electionTask = new ElectionTask(
+                this, electionService, electionHandler, kingdomService, store, electionConfig);
+        electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
+
+        getServer().getScheduler().runTaskLater(this, () -> villagerMpEntityService.syncAllKingdoms(), 40L);
 
         nobleDisplay.refreshAllOnline();
 

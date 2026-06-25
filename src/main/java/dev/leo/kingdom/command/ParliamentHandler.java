@@ -132,13 +132,35 @@ public final class ParliamentHandler {
             return true;
         }
         if (args.length < 2) {
-            sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|registrar"));
+            sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|registrar|mp-seat <1-8>"));
             return true;
         }
 
         String kingdomId = membership.get().getKingdomId();
         Location location = player.get().getLocation();
         return switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "mp-seat" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(error("Usage: /kingdom parliament set mp-seat <1-8>"));
+                    yield true;
+                }
+                int seatIndex;
+                try {
+                    seatIndex = Integer.parseInt(args[2]);
+                } catch (NumberFormatException ex) {
+                    sender.sendMessage(error("Seat index must be a number from 1 to 8."));
+                    yield true;
+                }
+                var seatLocation = new dev.leo.kingdom.model.election.MpSeatLocation(
+                        location.getWorld().getName(),
+                        location.getX(),
+                        location.getY(),
+                        location.getZ(),
+                        location.getYaw(),
+                        location.getPitch());
+                ParliamentResult result = parliamentService.setMpSeat(kingdomId, seatIndex, seatLocation);
+                yield finish(sender, result);
+            }
             case "commons" -> {
                 ParliamentResult result = parliamentService.setCommons(
                         kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(), location.getZ()));
@@ -165,7 +187,7 @@ public final class ParliamentHandler {
                 yield finish(sender, result);
             }
             default -> {
-                sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|registrar"));
+                sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|registrar|mp-seat <1-8>"));
                 yield true;
             }
         };

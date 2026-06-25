@@ -2,6 +2,9 @@ package dev.leo.kingdom.service;
 
 import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.MintLocation;
+import dev.leo.kingdom.election.ProfessionVoteBias;
+import dev.leo.kingdom.election.StableSeatUuid;
+import dev.leo.kingdom.model.election.MpSeatKind;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.parliament.AssentedAct;
@@ -26,6 +29,7 @@ public final class ParliamentService {
     private final KingdomService kingdomService;
     private final java.util.function.Supplier<Long> clockMs;
     private final AtomicLong billSequence = new AtomicLong(1);
+    private ProfessionVoteBias professionVoteBias = ProfessionVoteBias.defaults();
 
     public ParliamentService(KingdomService kingdomService) {
         this(kingdomService, System::currentTimeMillis);
@@ -34,6 +38,10 @@ public final class ParliamentService {
     ParliamentService(KingdomService kingdomService, java.util.function.Supplier<Long> clockMs) {
         this.kingdomService = kingdomService;
         this.clockMs = clockMs;
+    }
+
+    public void setProfessionVoteBias(ProfessionVoteBias professionVoteBias) {
+        this.professionVoteBias = professionVoteBias != null ? professionVoteBias : ProfessionVoteBias.defaults();
     }
 
     public ParliamentResult setCommons(String kingdomId, ChamberSite site) {
@@ -54,6 +62,21 @@ public final class ParliamentService {
         }
         kingdom.get().getParliamentSites().setRegistrar(site);
         return ParliamentResult.ok("Registrar site set.");
+    }
+
+    public ParliamentResult setMpSeat(String kingdomId, int seatIndex, dev.leo.kingdom.model.election.MpSeatLocation location) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return ParliamentResult.fail("Unknown kingdom.");
+        }
+        if (seatIndex < 1 || seatIndex > 8) {
+            return ParliamentResult.fail("MP seat index must be 1–8.");
+        }
+        if (location == null) {
+            return ParliamentResult.fail("MP seat location is required.");
+        }
+        kingdom.get().getElectionState().setSeatLocation(seatIndex, location);
+        return ParliamentResult.ok("MP seat " + seatIndex + " location set.");
     }
 
     public ParliamentResult prepareMint(String kingdomId, NobleRank rank, MintLocation location) {
@@ -210,6 +233,8 @@ public final class ParliamentService {
             return ParliamentResult.fail("No division is open.");
         }
 
+        castVillagerMpVotes(kingdomId, bill.get());
+
         VoteTally tally = VoteTally.from(bill.get().votesView());
         int aye = tally.aye();
         int nay = tally.nay();
@@ -342,6 +367,19 @@ public final class ParliamentService {
 
     public void clearPreparedMintAfterTable(String kingdomId) {
         kingdomService.getKingdom(kingdomId).ifPresent(k -> k.getParliamentState().clearPreparedMint());
+    }
+
+    private void castVillagerMpVotes(String kingdomId, Bill bill) {
+        kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
+            kingdom.getElectionState().seatsView().values().stream()
+                    .filter(seat -> seat.kind() == MpSeatKind.VILLAGER)
+                    .filter(seat -> seat.profession().isPresent())
+                    .forEach(seat -> {
+                        VoteChoice choice = professionVoteBias.resolve(
+                                bill.type(), seat.profession().orElseThrow());
+                        bill.recordVote(StableSeatUuid.forSeat(kingdomId, seat.index()), choice);
+                    });
+        });
     }
 
     private ParliamentResult tableBill(

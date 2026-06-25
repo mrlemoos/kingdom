@@ -1,0 +1,86 @@
+package dev.leo.kingdom.model.election;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public final class KingdomElectionState {
+
+    private final Map<Integer, MpSeat> seats = new HashMap<>();
+    private final Map<Integer, MpSeatLocation> seatLocations = new HashMap<>();
+    private final ElectionState election = new ElectionState();
+    private long lastGeneralElectionMcDay;
+
+    public KingdomElectionState() {
+        for (int index = 1; index <= 8; index++) {
+            seats.put(index, new MpSeat(index));
+        }
+    }
+
+    public Map<Integer, MpSeat> seatsView() {
+        return Map.copyOf(seats);
+    }
+
+    public Optional<MpSeat> seat(int index) {
+        return Optional.ofNullable(seats.get(index));
+    }
+
+    public Map<Integer, MpSeatLocation> seatLocationsView() {
+        return Map.copyOf(seatLocations);
+    }
+
+    public Optional<MpSeatLocation> seatLocation(int index) {
+        return Optional.ofNullable(seatLocations.get(index));
+    }
+
+    public void setSeatLocation(int index, MpSeatLocation location) {
+        if (index < 1 || index > 8) {
+            throw new IllegalArgumentException("Seat index must be 1–8.");
+        }
+        seatLocations.put(index, location);
+    }
+
+    public ElectionState election() {
+        return election;
+    }
+
+    public long lastGeneralElectionMcDay() {
+        return lastGeneralElectionMcDay;
+    }
+
+    public void setLastGeneralElectionMcDay(long mcDay) {
+        this.lastGeneralElectionMcDay = mcDay;
+    }
+
+    public void clearAllSeats() {
+        seats.values().forEach(MpSeat::clear);
+    }
+
+    public void replaceSeats(Map<Integer, MpSeat> loaded) {
+        if (loaded == null) {
+            return;
+        }
+        for (Map.Entry<Integer, MpSeat> entry : loaded.entrySet()) {
+            MpSeat target = seats.get(entry.getKey());
+            if (target == null) {
+                continue;
+            }
+            MpSeat source = entry.getValue();
+            target.clear();
+            if (source.kind() == MpSeatKind.PLAYER) {
+                source.playerId().ifPresent(target::assignPlayer);
+            } else if (source.kind() == MpSeatKind.VILLAGER) {
+                target.assignVillager(
+                        source.profession().orElse("none"),
+                        source.entityId().orElse(null));
+            }
+        }
+    }
+
+    public void replaceSeatLocations(Map<Integer, MpSeatLocation> loaded) {
+        seatLocations.clear();
+        if (loaded != null) {
+            seatLocations.putAll(loaded);
+        }
+    }
+}

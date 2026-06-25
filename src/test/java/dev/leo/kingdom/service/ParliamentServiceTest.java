@@ -36,9 +36,9 @@ class ParliamentServiceTest {
         kingdomService.joinKingdom(KING, "northmarch");
         kingdomService.assignTitle(PREMIER, NobleRank.PREMIER, TitleStyle.MASCULINE);
         kingdomService.assignTitle(SPEAKER, NobleRank.SPEAKER, TitleStyle.MASCULINE);
-        kingdomService.assignTitle(MP_ONE, NobleRank.MP, TitleStyle.MASCULINE);
-        kingdomService.assignTitle(MP_TWO, NobleRank.MP, TitleStyle.MASCULINE);
         kingdomService.assignTitle(KING, NobleRank.KING, TitleStyle.MASCULINE);
+        kingdomService.assignTitleFromElection(MP_ONE, TitleStyle.MASCULINE);
+        kingdomService.assignTitleFromElection(MP_TWO, TitleStyle.MASCULINE);
         parliamentService = new ParliamentService(kingdomService, () -> 1_700_000_000_000L);
     }
 
@@ -111,5 +111,23 @@ class ParliamentServiceTest {
         parliamentService.closeDivision("northmarch", NobleRank.SPEAKER);
 
         assertTrue(parliamentService.currentBill("northmarch").isEmpty());
+    }
+
+    @Test
+    void villagerMpVotesAutoCastAtDivisionClose() {
+        var kingdom = kingdomService.getKingdom("northmarch").orElseThrow();
+        kingdom.getElectionState().seat(5).orElseThrow().assignVillager("farmer", null);
+        kingdom.getElectionState().seat(6).orElseThrow().assignVillager("librarian", null);
+
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 50, null);
+        parliamentService.openDivision("northmarch", NobleRank.SPEAKER);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.closeDivision("northmarch", NobleRank.SPEAKER);
+
+        var bill = parliamentService.currentBill("northmarch").orElseThrow();
+        assertEquals(VoteChoice.AYE, bill.votesView().get(
+                dev.leo.kingdom.election.StableSeatUuid.forSeat("northmarch", 5)));
+        assertEquals(VoteChoice.AYE, bill.votesView().get(
+                dev.leo.kingdom.election.StableSeatUuid.forSeat("northmarch", 6)));
     }
 }

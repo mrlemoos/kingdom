@@ -5,6 +5,11 @@ import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
 import dev.leo.kingdom.model.TeleportPlace;
 import dev.leo.kingdom.model.TitleStyle;
+import dev.leo.kingdom.model.election.ElectionPhase;
+import dev.leo.kingdom.model.election.ElectionType;
+import dev.leo.kingdom.model.election.MpSeat;
+import dev.leo.kingdom.model.election.MpSeatKind;
+import dev.leo.kingdom.model.election.MpSeatLocation;
 import dev.leo.kingdom.model.parliament.AssentedAct;
 import dev.leo.kingdom.model.parliament.Bill;
 import dev.leo.kingdom.model.parliament.BillPayload;
@@ -21,9 +26,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import org.bukkit.configuration.ConfigurationSection;
@@ -202,6 +210,7 @@ public final class YamlKingdomStore {
         });
         state.currentBill().ifPresent(bill -> writeBill(config, path + ".current-bill", bill));
         writeActs(config, path + ".acts", state.assentedActsView());
+        writeElection(config, path, kingdom);
     }
 
     static void readParliament(ConfigurationSection section, Kingdom kingdom) {
@@ -217,6 +226,149 @@ public final class YamlKingdomStore {
         readMint(section.getConfigurationSection("prepared-mint")).ifPresent(state::setPreparedMint);
         readBill(section.getConfigurationSection("current-bill")).ifPresent(state::setCurrentBill);
         state.replaceAssentedActs(readActs(section.getConfigurationSection("acts")));
+        readElection(section, kingdom);
+    }
+
+    private static void writeElection(FileConfiguration config, String path, Kingdom kingdom) {
+        var electionState = kingdom.getElectionState();
+        config.set(path + ".last-general-election-mc-day", electionState.lastGeneralElectionMcDay());
+
+        for (var entry : electionState.seatsView().entrySet()) {
+            var seat = entry.getValue();
+            if (!seat.isOccupied()) {
+                continue;
+            }
+            String seatPath = path + ".mp-seats." + entry.getKey();
+            config.set(seatPath + ".kind", seat.kind().name().toLowerCase(Locale.ROOT));
+            seat.playerId().ifPresent(id -> config.set(seatPath + ".holder", id.toString()));
+            seat.profession().ifPresent(prof -> config.set(seatPath + ".profession", prof));
+            seat.entityId().ifPresent(id -> config.set(seatPath + ".entity", id.toString()));
+        }
+
+        for (var entry : electionState.seatLocationsView().entrySet()) {
+            MpSeatLocation location = entry.getValue();
+            String locPath = path + ".mp-seat-locations." + entry.getKey();
+            config.set(locPath + ".world", location.worldName());
+            config.set(locPath + ".x", location.x());
+            config.set(locPath + ".y", location.y());
+            config.set(locPath + ".z", location.z());
+            config.set(locPath + ".yaw", location.yaw());
+            config.set(locPath + ".pitch", location.pitch());
+        }
+
+        var election = electionState.election();
+        if (!election.isActive() && election.type().isEmpty()) {
+            return;
+        }
+        String electionPath = path + ".election";
+        election.type().ifPresent(type -> config.set(electionPath + ".type", type.name().toLowerCase(Locale.ROOT)));
+        config.set(electionPath + ".phase", election.phase().name().toLowerCase(Locale.ROOT));
+        config.set(electionPath + ".ends-at-ms", election.endsAtMs());
+        election.byElectionSeatIndex().ifPresent(index -> config.set(electionPath + ".by-election-seat", index));
+        config.set(electionPath + ".nominations", election.nominationsView().stream().map(UUID::toString).toList());
+        for (var vote : election.votesView().entrySet()) {
+            config.set(electionPath + ".votes." + vote.getKey() + ".candidate", vote.getValue().toString());
+        }
+        if (!election.speakerTieCandidatesView().isEmpty()) {
+            config.set(
+                    electionPath + ".speaker-tie-candidates",
+                    election.speakerTieCandidatesView().stream().map(UUID::toString).toList());
+        }
+        election.speakerTieChoice().ifPresent(id -> config.set(electionPath + ".speaker-tie-choice", id.toString()));
+    }
+
+    private static void readElection(ConfigurationSection section, Kingdom kingdom) {
+        if (section == null) {
+            return;
+        }
+        var electionState = kingdom.getElectionState();
+        electionState.setLastGeneralElectionMcDay(section.getLong("last-general-election-mc-day", 0L));
+
+        ConfigurationSection seatsSection = section.getConfigurationSection("mp-seats");
+        if (seatsSection != null) {
+            Map<Integer, MpSeat> loadedSeats = new HashMap<>();
+            for (String key : seatsSection.getKeys(false)) {
+                ConfigurationSection seatSection = seatsSection.getConfigurationSection(key);
+                if (seatSection == null) {
+                    continue;
+                }
+                int index = Integer.parseInt(key);
+                MpSeat seat = new MpSeat(index);
+                MpSeatKind kind = MpSeatKind.valueOf(seatSection.getString("kind", "player").toUpperCase(Locale.ROOT));
+                if (kind == MpSeatKind.PLAYER) {
+                    seat.assignPlayer(UUID.fromString(seatSection.getString("holder")));
+                } else {
+                    String profession = seatSection.getString("profession", "none");
+                    UUID entity = seatSection.contains("entity")
+                            ? UUID.fromString(seatSection.getString("entity"))
+                            : null;
+                    seat.assignVillager(profession, entity);
+                }
+                loadedSeats.put(index, seat);
+            }
+            electionState.replaceSeats(loadedSeats);
+        }
+
+        ConfigurationSection locationsSection = section.getConfigurationSection("mp-seat-locations");
+        if (locationsSection != null) {
+            Map<Integer, MpSeatLocation> locations = new HashMap<>();
+            for (String key : locationsSection.getKeys(false)) {
+                ConfigurationSection loc = locationsSection.getConfigurationSection(key);
+                if (loc == null) {
+                    continue;
+                }
+                locations.put(
+                        Integer.parseInt(key),
+                        new MpSeatLocation(
+                                loc.getString("world"),
+                                loc.getDouble("x"),
+                                loc.getDouble("y"),
+                                loc.getDouble("z"),
+                                (float) loc.getDouble("yaw"),
+                                (float) loc.getDouble("pitch")));
+            }
+            electionState.replaceSeatLocations(locations);
+        }
+
+        ConfigurationSection electionSection = section.getConfigurationSection("election");
+        if (electionSection == null) {
+            return;
+        }
+        ElectionType type = ElectionType.valueOf(
+                electionSection.getString("type", "general").toUpperCase(Locale.ROOT));
+        ElectionPhase phase = ElectionPhase.valueOf(
+                electionSection.getString("phase", "closed").toUpperCase(Locale.ROOT));
+        long endsAt = electionSection.getLong("ends-at-ms");
+        Integer byElectionSeat = electionSection.contains("by-election-seat")
+                ? electionSection.getInt("by-election-seat")
+                : null;
+        List<UUID> nominations = electionSection.getStringList("nominations").stream()
+                .map(UUID::fromString)
+                .toList();
+        Map<UUID, UUID> votes = new HashMap<>();
+        ConfigurationSection votesSection = electionSection.getConfigurationSection("votes");
+        if (votesSection != null) {
+            for (String voter : votesSection.getKeys(false)) {
+                votes.put(UUID.fromString(voter), UUID.fromString(votesSection.getString(voter + ".candidate")));
+            }
+        }
+        Set<UUID> speakerTieCandidates = new LinkedHashSet<>();
+        for (String id : electionSection.getStringList("speaker-tie-candidates")) {
+            speakerTieCandidates.add(UUID.fromString(id));
+        }
+        UUID speakerTieChoice = electionSection.contains("speaker-tie-choice")
+                ? UUID.fromString(electionSection.getString("speaker-tie-choice"))
+                : null;
+        electionState.election().restore(
+                type,
+                phase,
+                endsAt,
+                byElectionSeat,
+                nominations,
+                Map.of(),
+                votes,
+                speakerTieCandidates,
+                speakerTieChoice);
     }
 
     private static void writeChamber(FileConfiguration config, String path, ChamberSite site) {

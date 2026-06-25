@@ -68,6 +68,9 @@ public class KingdomService {
     }
 
     public KingdomResult assignTitle(UUID playerId, NobleRank rank, TitleStyle style) {
+        if (rank == NobleRank.MP) {
+            return KingdomResult.fail("MP seats are filled by election. Use /kingdom election.");
+        }
         PlayerMembership membership = memberships.get(playerId);
         if (membership == null) {
             return KingdomResult.fail("That player is not in a kingdom.");
@@ -77,6 +80,19 @@ public class KingdomService {
         }
         membership.assignTitle(rank, style);
         return KingdomResult.ok("Assigned " + rank.displayTitle(style != null ? style : TitleStyle.MASCULINE) + ".");
+    }
+
+    public KingdomResult assignTitleFromElection(UUID playerId, TitleStyle style) {
+        PlayerMembership membership = memberships.get(playerId);
+        if (membership == null) {
+            return KingdomResult.fail("That player is not in a kingdom.");
+        }
+        NobleRank rank = NobleRank.MP;
+        if (isSlotTakenByAnother(membership, rank, playerId)) {
+            return KingdomResult.fail("All MP slots are filled in that kingdom.");
+        }
+        membership.assignTitle(rank, style != null ? style : TitleStyle.MASCULINE);
+        return KingdomResult.ok("Elected as MP.");
     }
 
     public KingdomResult clearTitle(UUID playerId) {

@@ -1,5 +1,6 @@
 package dev.leo.kingdom.model;
 
+import dev.leo.kingdom.model.election.KingdomElectionState;
 import dev.leo.kingdom.model.parliament.ParliamentSites;
 import dev.leo.kingdom.model.parliament.ParliamentState;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ public final class Kingdom {
     private final Map<String, TeleportPlace> teleports = new HashMap<>();
     private final ParliamentSites parliamentSites = new ParliamentSites();
     private final ParliamentState parliamentState = new ParliamentState();
+    private final KingdomElectionState electionState = new KingdomElectionState();
 
     public Kingdom(String id, String displayName) {
         this.id = normaliseId(id);
@@ -87,5 +89,9 @@ public final class Kingdom {
 
     public ParliamentState getParliamentState() {
         return parliamentState;
+    }
+
+    public KingdomElectionState getElectionState() {
+        return electionState;
     }
 }
