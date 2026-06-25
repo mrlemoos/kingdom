@@ -14,6 +14,17 @@ economy:
   max-mints-per-kingdom: 3
   villager-gdp:
     tick-interval-ticks: 24000
+  realm-wealth:
+    materials:
+      gold-block: 100
+      diamond-block: 500
+      emerald-block: 250
+      iron-block: 50
+      copper-block: 25
+    estates:
+      lodestone: 50
+      conduit: 250
+      beacon: 500
   activity:
     harvest-cooldown-ms: 3000
     craft-cooldown-ms: 1000

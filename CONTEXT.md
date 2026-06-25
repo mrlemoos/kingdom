@@ -16,6 +16,18 @@ _Avoid_: Account, balance, pocket
 A kingdom's collective wealth pool. Fed by tax; spent on realm-level purposes.
 _Avoid_: Bank, vault, national account
 
+**Realm wealth**:
+A kingdom's total economic standing: treasury Corona plus the valued worth of material reserves and estates in linked territory. Informational and for comparison; does not change what the treasury can spend.
+_Avoid_: Net worth, GDP, total assets
+
+**Material reserves**:
+The Corona worth of precious blocks placed inside a kingdom's WorldGuard region: gold, diamond, emerald, iron, and copper blocks. Each block type has a fixed Corona value in config. Counted incrementally on place and break; reconciled daily.
+_Avoid_: Stockpile, ore wealth, block GDP
+
+**Estate**:
+A significant structure inside kingdom territory detected automatically by scanning for beacon, conduit, or lodestone blocks. Each type has a fixed Corona worth in config. No manual registration.
+_Avoid_: Plot, homestead, land deed, property title
+
 **Corona**:
 The kingdom economy's unit of wealth. Tracked on an abstract ledger; one gold nugget represents one Corona when withdrawn or deposited.
 _Avoid_: Coin, crown, currency, money

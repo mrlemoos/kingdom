@@ -10,6 +10,8 @@ import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.IncomeLocation;
 import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
+import dev.leo.kingdom.economy.wealth.RealmWealthRates;
+import dev.leo.kingdom.economy.wealth.WealthBlockType;
 import dev.leo.kingdom.model.NobleRank;
 import java.util.Map;
 import java.util.UUID;
@@ -266,6 +268,26 @@ class EconomyServiceTest {
 
         assertEquals(4, withdrawn);
         assertEquals(0.35, service.getWalletBalance(alice), 1e-9);
+    }
+
+    @Test
+    void realmWealthCombinesTreasuryMaterialReservesAndEstates() {
+        service.creditTreasury("northmarch", 150.0);
+        service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.IRON_BLOCK, 4);
+        service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.BEACON, 1);
+
+        RealmWealthRates rates = RealmWealthRates.defaults();
+        assertEquals(200.0, service.getMaterialReserveValue("northmarch", rates), 1e-9);
+        assertEquals(500.0, service.getEstateValue("northmarch", rates), 1e-9);
+        assertEquals(850.0, service.getRealmWealth("northmarch", rates), 1e-9);
+    }
+
+    @Test
+    void adjustTerritoryWealthBlockNeverDropsBelowZero() {
+        service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.GOLD_BLOCK, 2);
+        service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.GOLD_BLOCK, -5);
+
+        assertEquals(0, service.getTerritoryWealthCounts("northmarch").count(WealthBlockType.GOLD_BLOCK));
     }
 
     @Test

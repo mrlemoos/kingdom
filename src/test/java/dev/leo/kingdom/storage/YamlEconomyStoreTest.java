@@ -8,6 +8,8 @@ import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.economy.model.TreasuryBudget;
+import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
+import dev.leo.kingdom.economy.wealth.WealthBlockType;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.model.NobleRank;
 import java.util.EnumMap;
@@ -79,6 +81,28 @@ class YamlEconomyStoreTest {
 
         MintLocation mint = loaded.kingdomEconomies().get("northmarch").mintLocations().getFirst();
         assertEquals(lordId, mint.lordEntityId().orElseThrow());
+    }
+
+    @Test
+    void roundTripPreservesTerritoryWealthCounts() {
+        TerritoryWealthCounts counts = new TerritoryWealthCounts();
+        counts.set(WealthBlockType.GOLD_BLOCK, 3);
+        counts.set(WealthBlockType.BEACON, 1);
+        KingdomEconomy economy = new KingdomEconomy(
+                10.0, 0.0, 0.0, 0.0, FiscalRates.defaults(), null, new TreasuryBudget(), List.of(), counts);
+
+        EconomyService source = new EconomyService();
+        source.replaceState(Map.of(), Map.of("northmarch", economy));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        TerritoryWealthCounts loadedCounts = loaded.getTerritoryWealthCounts("northmarch");
+        assertEquals(3, loadedCounts.count(WealthBlockType.GOLD_BLOCK));
+        assertEquals(1, loadedCounts.count(WealthBlockType.BEACON));
     }
 
     @Test

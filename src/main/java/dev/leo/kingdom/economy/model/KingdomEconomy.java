@@ -1,5 +1,6 @@
 package dev.leo.kingdom.economy.model;
 
+import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -15,9 +16,10 @@ public class KingdomEconomy {
     private FiscalProposal pendingProposal;
     private final TreasuryBudget budget;
     private final List<MintLocation> mintLocations;
+    private final TerritoryWealthCounts territoryWealthCounts;
 
     public KingdomEconomy() {
-        this(0.0, 0.0, 0.0, 0.0, FiscalRates.defaults(), null, new TreasuryBudget(), new ArrayList<>());
+        this(0.0, 0.0, 0.0, 0.0, FiscalRates.defaults(), null, new TreasuryBudget(), new ArrayList<>(), new TerritoryWealthCounts());
     }
 
     public KingdomEconomy(
@@ -26,7 +28,7 @@ public class KingdomEconomy {
             FiscalProposal pendingProposal,
             TreasuryBudget budget,
             List<MintLocation> mintLocations) {
-        this(treasuryBalance, 0.0, 0.0, 0.0, activeRates, pendingProposal, budget, mintLocations);
+        this(treasuryBalance, 0.0, 0.0, 0.0, activeRates, pendingProposal, budget, mintLocations, new TerritoryWealthCounts());
     }
 
     public KingdomEconomy(
@@ -38,6 +40,19 @@ public class KingdomEconomy {
             FiscalProposal pendingProposal,
             TreasuryBudget budget,
             List<MintLocation> mintLocations) {
+        this(treasuryBalance, totalTaxRevenue, totalGdpRevenue, lastDailyGdp, activeRates, pendingProposal, budget, mintLocations, new TerritoryWealthCounts());
+    }
+
+    public KingdomEconomy(
+            double treasuryBalance,
+            double totalTaxRevenue,
+            double totalGdpRevenue,
+            double lastDailyGdp,
+            FiscalRates activeRates,
+            FiscalProposal pendingProposal,
+            TreasuryBudget budget,
+            List<MintLocation> mintLocations,
+            TerritoryWealthCounts territoryWealthCounts) {
         this.treasuryBalance = treasuryBalance;
         this.totalTaxRevenue = totalTaxRevenue;
         this.totalGdpRevenue = totalGdpRevenue;
@@ -46,6 +61,7 @@ public class KingdomEconomy {
         this.pendingProposal = pendingProposal;
         this.budget = budget;
         this.mintLocations = new ArrayList<>(mintLocations);
+        this.territoryWealthCounts = territoryWealthCounts != null ? territoryWealthCounts : new TerritoryWealthCounts();
     }
 
     public double treasuryBalance() {
@@ -131,6 +147,10 @@ public class KingdomEconomy {
                 return;
             }
         }
+    }
+
+    public TerritoryWealthCounts territoryWealthCounts() {
+        return territoryWealthCounts;
     }
 
     public Optional<MintLocation> findMintByLordUuid(UUID lordUuid) {

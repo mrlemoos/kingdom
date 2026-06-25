@@ -122,6 +122,42 @@ public final class WorldGuardBridge {
         return regions.isEmpty() ? Optional.empty() : Optional.of(regions.get(0));
     }
 
+    public record RegionBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {}
+
+    public static Optional<RegionBounds> regionBounds(String worldName, String regionId) {
+        if (!isAvailable() || worldName == null || regionId == null || regionId.isBlank()) {
+            return Optional.empty();
+        }
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return Optional.empty();
+        }
+        try {
+            Object manager = regionManagerForWorld(world);
+            if (manager == null) {
+                return Optional.empty();
+            }
+            Object region = manager.getClass().getMethod("getRegion", String.class).invoke(manager, regionId);
+            if (region == null) {
+                return Optional.empty();
+            }
+
+            Class<?> blockVector3Class = Class.forName("com.sk89q.worldedit.math.BlockVector3");
+            Object minimum = region.getClass().getMethod("getMinimumPoint").invoke(region);
+            Object maximum = region.getClass().getMethod("getMaximumPoint").invoke(region);
+            return Optional.of(new RegionBounds(
+                    (int) blockVector3Class.getMethod("getBlockX").invoke(minimum),
+                    (int) blockVector3Class.getMethod("getBlockY").invoke(minimum),
+                    (int) blockVector3Class.getMethod("getBlockZ").invoke(minimum),
+                    (int) blockVector3Class.getMethod("getBlockX").invoke(maximum),
+                    (int) blockVector3Class.getMethod("getBlockY").invoke(maximum),
+                    (int) blockVector3Class.getMethod("getBlockZ").invoke(maximum)));
+        } catch (ReflectiveOperationException ex) {
+            LOGGER.log(Level.WARNING, "WorldGuard regionBounds lookup failed in " + worldName, ex);
+            return Optional.empty();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static List<String> regionIdsFromManager(Object manager, Class<?> blockVector3Class, Object vector)
             throws ReflectiveOperationException {

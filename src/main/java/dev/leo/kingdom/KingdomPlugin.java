@@ -14,6 +14,7 @@ import dev.leo.kingdom.election.VillagerMpEntityService;
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
 import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.wealth.RealmWealthRates;
 import dev.leo.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.leo.kingdom.listener.ChatPrefixListener;
 import dev.leo.kingdom.listener.EconomyActivityListener;
@@ -23,6 +24,7 @@ import dev.leo.kingdom.listener.MintInteractListener;
 import dev.leo.kingdom.listener.MintPrepareListener;
 import dev.leo.kingdom.listener.ParliamentGuiListener;
 import dev.leo.kingdom.listener.TreasuryBriefingListener;
+import dev.leo.kingdom.listener.TerritoryWealthListener;
 import dev.leo.kingdom.listener.NobleDisplayListener;
 import dev.leo.kingdom.listener.TreasuryLordListener;
 import dev.leo.kingdom.mint.TreasuryLordService;
@@ -33,6 +35,7 @@ import dev.leo.kingdom.service.TeleportService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
 import dev.leo.kingdom.task.ElectionTask;
+import dev.leo.kingdom.task.TerritoryWealthReconcileTask;
 import dev.leo.kingdom.task.VillagerGdpTask;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -59,6 +62,7 @@ public final class KingdomPlugin extends JavaPlugin {
         economyStore.loadInto(economyService);
 
         EconomyConfig economyConfig = EconomyConfig.fromPluginConfig(getConfig());
+        RealmWealthRates realmWealthRates = RealmWealthRates.fromPluginConfig(getConfig().getConfigurationSection("economy"));
         KingdomTerritoryResolver territoryResolver = new KingdomTerritoryResolver(kingdomService);
         economyCoordinator = new EconomyCoordinator(
                 economyService, kingdomService, territoryResolver, economyConfig);
@@ -94,7 +98,7 @@ public final class KingdomPlugin extends JavaPlugin {
         parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
 
         KingdomCommand kingdomCommand = new KingdomCommand(
-                kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler);
+                kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler, realmWealthRates);
         var kingdom = getCommand("kingdom");
         if (kingdom == null) {
             getLogger().severe("Command 'kingdom' missing from plugin.yml");
@@ -134,6 +138,9 @@ public final class KingdomPlugin extends JavaPlugin {
                         getConfig().getStringList("join-message")),
                 this);
         getServer().getPluginManager().registerEvents(new EconomyActivityListener(economyCoordinator), this);
+        getServer().getPluginManager().registerEvents(
+                new TerritoryWealthListener(this, economyService, territoryResolver, economyStore),
+                this);
         getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
         getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
         getServer().getPluginManager().registerEvents(
@@ -152,6 +159,10 @@ public final class KingdomPlugin extends JavaPlugin {
         long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks", VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
         VillagerGdpTask gdpTask = new VillagerGdpTask(this, economyCoordinator, kingdomService, economyStore);
         gdpTask.schedule(gdpInterval);
+
+        TerritoryWealthReconcileTask wealthReconcileTask =
+                new TerritoryWealthReconcileTask(this, economyService, kingdomService, economyStore);
+        wealthReconcileTask.schedule(gdpInterval);
 
         ElectionTask electionTask = new ElectionTask(
                 this, electionService, electionHandler, kingdomService, store, electionConfig);

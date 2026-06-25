@@ -6,6 +6,8 @@ import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.economy.model.TreasuryBudget;
 import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
+import dev.leo.kingdom.economy.wealth.WealthBlockType;
 import dev.leo.kingdom.model.NobleRank;
 import java.io.File;
 import java.io.IOException;
@@ -69,6 +71,7 @@ public final class YamlEconomyStore {
             economy.pendingProposal().ifPresent(proposal -> writeProposal(config, kingdomPath + ".pending-proposal", proposal));
             config.set(kingdomPath + ".budget.approved", economy.budget().approvedAmount());
             config.set(kingdomPath + ".budget.spent", economy.budget().spentAmount());
+            writeTerritoryWealthCounts(config, kingdomPath + ".territory-wealth", economy.territoryWealthCounts());
             writeMintLocations(config, kingdomPath + ".mints", economy.mintLocations());
         }
     }
@@ -110,9 +113,11 @@ public final class YamlEconomyStore {
         FiscalRates activeRates = readFiscalRates(entry.getConfigurationSection("active-rates"));
         FiscalProposal pendingProposal = readProposal(entry.getConfigurationSection("pending-proposal"));
         TreasuryBudget budget = readBudget(entry.getConfigurationSection("budget"));
+        TerritoryWealthCounts territoryWealthCounts =
+                readTerritoryWealthCounts(entry.getConfigurationSection("territory-wealth"));
         List<MintLocation> mints = readMintLocations(entry.getConfigurationSection("mints"));
         return new KingdomEconomy(
-                treasury, totalTaxRevenue, totalGdpRevenue, lastDailyGdp, activeRates, pendingProposal, budget, mints);
+                treasury, totalTaxRevenue, totalGdpRevenue, lastDailyGdp, activeRates, pendingProposal, budget, mints, territoryWealthCounts);
     }
 
     private static void writeFiscalRates(FileConfiguration config, String path, FiscalRates rates) {
@@ -175,6 +180,24 @@ public final class YamlEconomyStore {
             return new TreasuryBudget();
         }
         return new TreasuryBudget(section.getDouble("approved"), section.getDouble("spent"));
+    }
+
+    private static void writeTerritoryWealthCounts(
+            FileConfiguration config, String path, TerritoryWealthCounts counts) {
+        for (var entry : counts.snapshot().entrySet()) {
+            config.set(path + "." + entry.getKey().configKey(), entry.getValue());
+        }
+    }
+
+    private static TerritoryWealthCounts readTerritoryWealthCounts(ConfigurationSection section) {
+        TerritoryWealthCounts counts = new TerritoryWealthCounts();
+        if (section == null) {
+            return counts;
+        }
+        for (String key : section.getKeys(false)) {
+            WealthBlockType.fromConfigKey(key).ifPresent(type -> counts.set(type, section.getInt(key)));
+        }
+        return counts;
     }
 
     private static void writeMintLocations(FileConfiguration config, String path, List<MintLocation> locations) {

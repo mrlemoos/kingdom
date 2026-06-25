@@ -2,6 +2,7 @@ package dev.leo.kingdom.command;
 
 import dev.leo.kingdom.display.NoblePrefixDisplay;
 import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.wealth.RealmWealthRates;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
@@ -34,11 +35,12 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
     private final NoblePrefixDisplay nobleDisplay;
     private final KingdomFiscalHandler fiscalHandler;
     private final EconomyService economyService;
+    private final RealmWealthRates realmWealthRates;
     private final ParliamentHandler parliamentHandler;
     private final ElectionHandler electionHandler;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
-        this(service, store, nobleDisplay, null, null, null, null);
+        this(service, store, nobleDisplay, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -46,7 +48,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             YamlKingdomStore store,
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -55,7 +57,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null, null);
     }
 
     public KingdomCommand(
@@ -65,7 +67,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService,
             ParliamentHandler parliamentHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null, null);
     }
 
     public KingdomCommand(
@@ -76,11 +78,24 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             EconomyService economyService,
             ParliamentHandler parliamentHandler,
             ElectionHandler electionHandler) {
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService,
+            ParliamentHandler parliamentHandler,
+            ElectionHandler electionHandler,
+            RealmWealthRates realmWealthRates) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
         this.fiscalHandler = fiscalHandler;
         this.economyService = economyService;
+        this.realmWealthRates = realmWealthRates != null ? realmWealthRates : RealmWealthRates.defaults();
         this.parliamentHandler = parliamentHandler;
         this.electionHandler = electionHandler;
     }
@@ -136,19 +151,24 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleList(CommandSender sender) {
         List<Kingdom> kingdoms = service.listKingdoms().stream()
-                .sorted(Comparator.comparing(Kingdom::getDisplayName))
+                .sorted(Comparator.comparingDouble(this::realmWealthFor).reversed()
+                        .thenComparing(Kingdom::getDisplayName))
                 .toList();
         if (kingdoms.isEmpty()) {
             sender.sendMessage(info("No kingdoms exist yet."));
             return true;
         }
-        sender.sendMessage(info("Kingdoms:"));
+        sender.sendMessage(info("Kingdoms (by realm wealth):"));
         for (Kingdom kingdom : kingdoms) {
             long members = service.getMembershipsView().values().stream()
                     .filter(m -> kingdom.getId().equals(m.getKingdomId()))
                     .count();
+            String wealthLabel = economyService != null
+                    ? ChatColor.GRAY + ", " + ChatColor.WHITE + formatCorona(realmWealthFor(kingdom))
+                            + ChatColor.GRAY + " Corona realm wealth"
+                    : "";
             sender.sendMessage(ChatColor.GRAY + " - " + ChatColor.YELLOW + kingdom.getDisplayName()
-                    + ChatColor.GRAY + " (" + kingdom.getId() + ", " + members + " members)");
+                    + ChatColor.GRAY + " (" + kingdom.getId() + ", " + members + " members)" + wealthLabel);
         }
         return true;
     }
@@ -184,6 +204,28 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GRAY + "Territory: " + ChatColor.WHITE + label));
         if (economyService != null) {
             String kingdomId = kingdom.getId();
+            boolean hasTerritory = kingdom.getWorldGuardRegion() != null
+                    && !kingdom.getWorldGuardRegion().isBlank();
+            double treasury = economyService.getTreasuryBalance(kingdomId);
+            double materialReserves = hasTerritory
+                    ? economyService.getMaterialReserveValue(kingdomId, realmWealthRates)
+                    : 0.0;
+            double estateValue = hasTerritory
+                    ? economyService.getEstateValue(kingdomId, realmWealthRates)
+                    : 0.0;
+            double realmWealth = economyService.getRealmWealth(kingdomId, realmWealthRates);
+
+            sender.sendMessage(ChatColor.GRAY + "Treasury: "
+                    + ChatColor.WHITE + formatCorona(treasury) + " Corona");
+            sender.sendMessage(ChatColor.GRAY + "Material reserves: "
+                    + ChatColor.WHITE + formatCorona(materialReserves) + " Corona");
+            sender.sendMessage(ChatColor.GRAY + "Estates: "
+                    + ChatColor.WHITE + formatCorona(estateValue) + " Corona");
+            sender.sendMessage(ChatColor.GRAY + "Realm wealth: "
+                    + ChatColor.WHITE + formatCorona(realmWealth) + " Corona");
+            if (!hasTerritory) {
+                sender.sendMessage(ChatColor.GRAY + "No territory linked — physical reserves and estates are not counted.");
+            }
             sender.sendMessage(ChatColor.GRAY + "Tax revenue: "
                     + ChatColor.WHITE + formatCorona(economyService.getTotalTaxRevenue(kingdomId)) + " Corona");
             sender.sendMessage(ChatColor.GRAY + "GDP: "
@@ -499,6 +541,13 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
             return String.format(Locale.UK, "%.0f", amount);
         }
         return String.format(Locale.UK, "%.2f", amount);
+    }
+
+    private double realmWealthFor(Kingdom kingdom) {
+        if (economyService == null) {
+            return 0.0;
+        }
+        return economyService.getRealmWealth(kingdom.getId(), realmWealthRates);
     }
 
     @Override

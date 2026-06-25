@@ -55,6 +55,11 @@ public final class KingdomTerritoryResolver implements TerritoryResolver {
         return TerritoryLocation.foreignKingdom(territoryKingdomId);
     }
 
+    public Optional<String> owningKingdomId(String worldName, int x, int y, int z) {
+        List<String> regionIds = regionsLookup.apply(new RegionQuery(worldName, x, y, z));
+        return findKingdomForRegions(worldName, regionIds).map(Kingdom::getId);
+    }
+
     private Optional<Kingdom> findKingdomForRegions(String worldName, List<String> regionIds) {
         for (String regionId : regionIds) {
             for (Kingdom kingdom : kingdoms.get()) {

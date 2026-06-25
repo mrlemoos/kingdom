@@ -7,6 +7,10 @@ import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.IncomeLocation;
 import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
+import dev.leo.kingdom.economy.wealth.RealmWealthCalculator;
+import dev.leo.kingdom.economy.wealth.RealmWealthRates;
+import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
+import dev.leo.kingdom.economy.wealth.WealthBlockType;
 import dev.leo.kingdom.model.NobleRank;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,6 +92,37 @@ public class EconomyService {
 
     public double getTotalGdpRevenue(String kingdomId) {
         return economyFor(kingdomId).totalGdpRevenue();
+    }
+
+    public TerritoryWealthCounts getTerritoryWealthCounts(String kingdomId) {
+        return economyFor(kingdomId).territoryWealthCounts();
+    }
+
+    public void adjustTerritoryWealthBlock(String kingdomId, WealthBlockType blockType, int delta) {
+        if (blockType == null) {
+            throw new IllegalArgumentException("Block type is required.");
+        }
+        economyFor(kingdomId).territoryWealthCounts().adjust(blockType, delta);
+    }
+
+    public void replaceTerritoryWealthCounts(String kingdomId, TerritoryWealthCounts counts) {
+        if (counts == null) {
+            throw new IllegalArgumentException("Territory wealth counts are required.");
+        }
+        economyFor(kingdomId).territoryWealthCounts().replaceFrom(counts);
+    }
+
+    public double getMaterialReserveValue(String kingdomId, RealmWealthRates rates) {
+        return RealmWealthCalculator.materialReserveValue(economyFor(kingdomId).territoryWealthCounts(), rates);
+    }
+
+    public double getEstateValue(String kingdomId, RealmWealthRates rates) {
+        return RealmWealthCalculator.estateValue(economyFor(kingdomId).territoryWealthCounts(), rates);
+    }
+
+    public double getRealmWealth(String kingdomId, RealmWealthRates rates) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        return RealmWealthCalculator.realmWealth(economy.treasuryBalance(), economy.territoryWealthCounts(), rates);
     }
 
     public void creditWalletDirect(UUID playerId, double amount) {
