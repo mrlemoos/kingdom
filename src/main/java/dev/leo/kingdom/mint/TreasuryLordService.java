@@ -4,6 +4,8 @@ import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,27 +36,38 @@ public final class TreasuryLordService {
     }
 
     public MintLocation ensureLord(String kingdomId, MintLocation mint) {
-        Optional<Villager> existing = findLord(mint);
-        if (existing.isPresent() && isValidLord(existing.get(), kingdomId)) {
-            return mint.lordEntityId().isPresent()
-                    ? mint
-                    : mint.withTreasuryLordUuid(existing.get().getUniqueId().toString());
+        List<UUID> presentLordIds = findPresentLordIds(kingdomId, mint);
+        Optional<UUID> canonicalId = TreasuryLordPresence.selectCanonicalLord(mint.lordEntityId(), presentLordIds);
+
+        if (canonicalId.isPresent()) {
+            Optional<Villager> canonical = findVillagerById(canonicalId.get());
+            if (canonical.isPresent() && isValidLord(canonical.get(), kingdomId)) {
+                removeLordsAtMint(kingdomId, mint, canonicalId);
+                MintLocation updated = mint.lordEntityId()
+                                .filter(canonicalId.get()::equals)
+                                .isPresent()
+                        ? mint
+                        : mint.withTreasuryLordUuid(canonicalId.get().toString());
+                if (!updated.equals(mint)) {
+                    updateMintInEconomy(kingdomId, mint, updated);
+                }
+                return updated;
+            }
         }
 
-        despawnLord(mint);
+        removeLordsAtMint(kingdomId, mint, Optional.empty());
         Villager lord = spawnLord(kingdomId, mint);
         MintLocation updated = mint.withTreasuryLordUuid(lord.getUniqueId().toString());
         updateMintInEconomy(kingdomId, mint, updated);
         return updated;
     }
 
-    public void despawnLord(MintLocation mint) {
-        findLord(mint).ifPresent(Entity::remove);
-        mint.lordEntityId().ifPresent(this::removeEntityById);
+    public void despawnLord(String kingdomId, MintLocation mint) {
+        removeLordsAtMint(kingdomId, mint, Optional.empty());
     }
 
     public boolean releaseLord(String kingdomId, MintLocation mint) {
-        despawnLord(mint);
+        despawnLord(kingdomId, mint);
         KingdomEconomy economy = economyService.kingdomEconomies().get(kingdomId);
         if (economy == null || !economy.hasMintAt(mint)) {
             return false;
@@ -122,6 +135,41 @@ public final class TreasuryLordService {
 
     public NamespacedKey lordTagKey() {
         return lordTagKey;
+    }
+
+    private void removeLordsAtMint(String kingdomId, MintLocation mint, Optional<UUID> keepLordId) {
+        List<UUID> presentLordIds = findPresentLordIds(kingdomId, mint);
+        for (UUID lordId : TreasuryLordPresence.lordIdsToRemove(presentLordIds, keepLordId)) {
+            removeEntityById(lordId);
+        }
+        mint.lordEntityId()
+                .filter(id -> keepLordId.isEmpty() || !id.equals(keepLordId.get()))
+                .ifPresent(this::removeEntityById);
+    }
+
+    private List<UUID> findPresentLordIds(String kingdomId, MintLocation mint) {
+        World world = Bukkit.getWorld(mint.worldName());
+        if (world == null) {
+            return List.of();
+        }
+
+        List<UUID> present = new ArrayList<>();
+        Location location = lordLocation(world, mint);
+        for (Entity entity : world.getNearbyEntities(location, 1.0, 2.0, 1.0)) {
+            if (entity instanceof Villager villager
+                    && isValidLord(villager, kingdomId)
+                    && !present.contains(entity.getUniqueId())) {
+                present.add(entity.getUniqueId());
+            }
+        }
+
+        mint.lordEntityId()
+                .flatMap(this::findVillagerById)
+                .filter(villager -> isValidLord(villager, kingdomId))
+                .map(Villager::getUniqueId)
+                .filter(id -> !present.contains(id))
+                .ifPresent(present::add);
+        return present;
     }
 
     private Villager spawnLord(String kingdomId, MintLocation mint) {

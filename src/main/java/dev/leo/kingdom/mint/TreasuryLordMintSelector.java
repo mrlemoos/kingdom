@@ -3,10 +3,49 @@ package dev.leo.kingdom.mint;
 import dev.leo.kingdom.economy.model.MintLocation;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class TreasuryLordMintSelector {
 
     private TreasuryLordMintSelector() {}
+
+    public static Optional<MintLocation> byLordUuid(List<MintLocation> mints, UUID lordUuid) {
+        return mints.stream()
+                .filter(mint -> mint.lordEntityId().filter(lordUuid::equals).isPresent())
+                .findFirst();
+    }
+
+    public static Optional<MintLocation> forLordAt(
+            List<MintLocation> mints,
+            String worldName,
+            double lordX,
+            double lordY,
+            double lordZ,
+            Optional<UUID> lordEntityId) {
+        if (lordEntityId.isPresent()) {
+            Optional<MintLocation> byUuid = byLordUuid(mints, lordEntityId.get());
+            if (byUuid.isPresent()) {
+                return byUuid;
+            }
+        }
+        return nearestInWorld(mints, worldName, lordX, lordY, lordZ);
+    }
+
+    public static Optional<MintLocation> selectForDespawn(
+            List<MintLocation> mints,
+            String worldName,
+            double playerX,
+            double playerY,
+            double playerZ,
+            Optional<UUID> aimedLordId) {
+        if (aimedLordId.isPresent()) {
+            Optional<MintLocation> byLord = byLordUuid(mints, aimedLordId.get());
+            if (byLord.isPresent()) {
+                return byLord;
+            }
+        }
+        return nearestInWorld(mints, worldName, playerX, playerY, playerZ);
+    }
 
     public static Optional<MintLocation> nearestInWorld(
             List<MintLocation> mints, String worldName, double x, double y, double z) {

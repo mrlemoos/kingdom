@@ -12,6 +12,7 @@ import dev.leo.kingdom.mint.RoyalMintPlacementPolicy;
 import dev.leo.kingdom.mint.TreasuryLordManagementPolicy;
 import dev.leo.kingdom.mint.TreasuryLordMintSelector;
 import dev.leo.kingdom.mint.TreasuryLordService;
+import dev.leo.kingdom.mint.TreasuryLordTargetScan;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
 import dev.leo.kingdom.model.Kingdom;
@@ -32,7 +33,9 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class KingdomFiscalHandler {
@@ -335,7 +338,7 @@ public final class KingdomFiscalHandler {
             return true;
         }
 
-        treasuryLordService.despawnLord(nearest);
+        treasuryLordService.despawnLord(kingdomId, nearest);
 
         mints.remove(nearest);
         KingdomEconomy updated = new KingdomEconomy(
@@ -380,22 +383,45 @@ public final class KingdomFiscalHandler {
         }
 
         Location playerLoc = player.get().getLocation();
-        Optional<MintLocation> nearest = TreasuryLordMintSelector.nearestInWorld(
-                mints, playerLoc.getWorld().getName(), playerLoc.getX(), playerLoc.getY(), playerLoc.getZ());
-        if (nearest.isEmpty()) {
+        Optional<MintLocation> mint = resolveMintForDespawn(
+                player.get(), kingdomId, mints, playerLoc);
+        if (mint.isEmpty()) {
             sender.sendMessage(error("No mints found in this world."));
             return true;
         }
 
-        MintLocation mint = nearest.get();
-        if (!treasuryLordService.releaseLord(kingdomId, mint)) {
+        if (!treasuryLordService.releaseLord(kingdomId, mint.get())) {
             sender.sendMessage(error("Could not despawn the Lord of the Treasury for that mint."));
             return true;
         }
 
         sender.sendMessage(success("Despawned the Lord of the Treasury at "
-                + mint.x() + ", " + mint.y() + ", " + mint.z() + "."));
+                + mint.get().x() + ", " + mint.get().y() + ", " + mint.get().z() + "."));
         return true;
+    }
+
+    private Optional<MintLocation> resolveMintForDespawn(
+            Player player, String kingdomId, List<MintLocation> mints, Location playerLoc) {
+        Optional<Entity> targeted = TreasuryLordTargetScan.targetedEntity(player, 5.0);
+        if (targeted.isPresent() && targeted.get() instanceof Villager villager && treasuryLordService.isLordEntity(villager)) {
+            Optional<String> lordKingdom = treasuryLordService.kingdomIdForLord(villager);
+            if (lordKingdom.filter(kingdomId::equals).isPresent()) {
+                Location lordLoc = villager.getLocation();
+                Optional<MintLocation> aimed = TreasuryLordMintSelector.forLordAt(
+                        mints,
+                        lordLoc.getWorld().getName(),
+                        lordLoc.getX(),
+                        lordLoc.getY(),
+                        lordLoc.getZ(),
+                        Optional.of(villager.getUniqueId()));
+                if (aimed.isPresent()) {
+                    return aimed;
+                }
+            }
+        }
+
+        return TreasuryLordMintSelector.nearestInWorld(
+                mints, playerLoc.getWorld().getName(), playerLoc.getX(), playerLoc.getY(), playerLoc.getZ());
     }
 
     public boolean handleTreasury(CommandSender sender, String[] args) {
@@ -541,7 +567,7 @@ public final class KingdomFiscalHandler {
                 + "\n" + ChatColor.YELLOW + "/kingdom mint remove"
                 + ChatColor.GRAY + " — remove the nearest mint (King or Queen)"
                 + "\n" + ChatColor.YELLOW + "/kingdom mint despawn"
-                + ChatColor.GRAY + " — remove the Lord of the Treasury at the nearest mint (King, Queen, or admin)"
+                + ChatColor.GRAY + " — remove the Lord of the Treasury you are looking at, or at the nearest mint"
                 + "\n" + ChatColor.GRAY + " — Premier mint placement via /kingdom parliament";
     }
 
