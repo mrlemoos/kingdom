@@ -1,6 +1,6 @@
 # Kingdom
 
-Spigot plugin for admin-defined kingdoms, noble title slots, and a Corona economy.
+Paper plugin for admin-defined kingdoms, noble title slots, and a Corona economy.
 
 ## Features
 
@@ -30,7 +30,7 @@ mvn test package
 
 Copy `target/kingdom-0.1.0-SNAPSHOT.jar` to your server's `plugins/` folder.
 
-Requires **Spigot 1.21.x** and **Java 21**. WorldGuard is optional but recommended for territory-linked income and tax.
+Requires **Paper 1.21.x** (MC 26.x) and **Java 21**. WorldGuard is optional but recommended for territory-linked income and tax.
 
 ## Quick start
 
