@@ -40,4 +40,46 @@ class ProfessionConstituencyResolverTest {
                 List.of("armorer"),
                 ProfessionConstituencyResolver.topProfessionsExcluding(counts, 1, List.of("farmer", "librarian")));
     }
+
+    @Test
+    void padsRemainingSeatsWithCitizenBackfill() {
+        Map<String, Integer> counts = Map.of(
+                "farmer", 10,
+                "librarian", 8,
+                "armorer", 6,
+                "cleric", 5,
+                "shepherd", 4,
+                "fisherman", 3);
+
+        assertEquals(
+                List.of("farmer", "librarian", "armorer", "cleric", "shepherd", "fisherman", "none", "none"),
+                ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(counts, 8));
+    }
+
+    @Test
+    void citizenBackfillWhenNoProfessionsExist() {
+        assertEquals(
+                List.of("none", "none", "none"),
+                ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(Map.of(), 3));
+    }
+
+    @Test
+    void villagerProfessionNametagUsesCommonerForNoProfession() {
+        assertEquals("Commoner", ProfessionConstituencyResolver.villagerProfessionNametag("none"));
+        assertEquals(
+                "Commoner",
+                ProfessionConstituencyResolver.villagerProfessionNametag(
+                        VillagerMpProfessionMatcher.NONE_PROFESSION_KEY));
+    }
+
+    @Test
+    void villagerProfessionNametagCapitalisesProfession() {
+        assertEquals("Farmer", ProfessionConstituencyResolver.villagerProfessionNametag("farmer"));
+        assertEquals("Librarian", ProfessionConstituencyResolver.villagerProfessionNametag("librarian"));
+    }
+
+    @Test
+    void mpDisplayLabelStillUsesCitizenForSeatBackfill() {
+        assertEquals("Citizen", ProfessionConstituencyResolver.displayLabel("none"));
+    }
 }

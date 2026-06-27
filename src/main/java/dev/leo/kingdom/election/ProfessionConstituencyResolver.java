@@ -7,6 +7,8 @@ import java.util.Map;
 
 public final class ProfessionConstituencyResolver {
 
+    public static final String CITIZEN_PROFESSION = "none";
+
     private ProfessionConstituencyResolver() {}
 
     public static List<String> topProfessions(Map<String, Integer> professionCounts, int limit) {
@@ -18,6 +20,43 @@ public final class ProfessionConstituencyResolver {
                 .reversed()
                 .thenComparing(Map.Entry::getKey));
         return sorted.stream().limit(limit).map(Map.Entry::getKey).toList();
+    }
+
+    public static List<String> topProfessionsWithCitizenBackfill(Map<String, Integer> professionCounts, int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        List<String> ranked = topProfessions(professionCounts, limit);
+        List<String> result = new ArrayList<>(ranked);
+        while (result.size() < limit) {
+            result.add(CITIZEN_PROFESSION);
+        }
+        return result;
+    }
+
+    public static String displayLabel(String profession) {
+        if (CITIZEN_PROFESSION.equals(profession)) {
+            return "Citizen";
+        }
+        return capitaliseProfession(profession);
+    }
+
+    /** Nametag suffix for ordinary villagers (not seated profession MPs). */
+    public static String villagerProfessionNametag(String profession) {
+        String normalised = profession.contains(":")
+                ? profession.substring(profession.indexOf(':') + 1).toLowerCase()
+                : profession.toLowerCase();
+        if (CITIZEN_PROFESSION.equals(normalised) || "none".equals(normalised)) {
+            return "Commoner";
+        }
+        return capitaliseProfession(normalised);
+    }
+
+    private static String capitaliseProfession(String profession) {
+        if (profession.isEmpty()) {
+            return "Commoner";
+        }
+        return profession.substring(0, 1).toUpperCase() + profession.substring(1).toLowerCase();
     }
 
     public static List<String> topProfessionsExcluding(

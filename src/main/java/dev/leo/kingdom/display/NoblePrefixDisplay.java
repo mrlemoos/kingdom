@@ -1,8 +1,11 @@
 package dev.leo.kingdom.display;
 
+import dev.leo.kingdom.model.NobleRank;
+import dev.leo.kingdom.model.TitleStyle;
 import dev.leo.kingdom.service.KingdomService;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -46,6 +49,17 @@ public final class NoblePrefixDisplay {
         for (Player player : Bukkit.getOnlinePlayers()) {
             refresh(player);
         }
+    }
+
+    /** Custom entity nametag: same {@code [MP] } prefix as player scoreboard teams, plus a white suffix label. */
+    public static String mpVillagerNametag(String suffixLabel) {
+        return NobleRank.MP.chatColor() + "[MP] " + ChatColor.WHITE + suffixLabel;
+    }
+
+    /** Premier villager nametag: same {@code [Premier] } prefix as player scoreboard teams, plus profession label. */
+    public static String premierVillagerNametag(String suffixLabel) {
+        String title = NobleRank.PREMIER.displayTitle(TitleStyle.MASCULINE);
+        return NobleRank.PREMIER.chatColor() + "[" + title + "] " + ChatColor.WHITE + suffixLabel;
     }
 
     private static String teamNameFor(UUID playerId) {
