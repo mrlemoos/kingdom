@@ -53,6 +53,18 @@ public final class TreasuryLordService {
         mint.lordEntityId().ifPresent(this::removeEntityById);
     }
 
+    public boolean releaseLord(String kingdomId, MintLocation mint) {
+        despawnLord(mint);
+        KingdomEconomy economy = economyService.kingdomEconomies().get(kingdomId);
+        if (economy == null || !economy.hasMintAt(mint)) {
+            return false;
+        }
+        MintLocation cleared = mint.withTreasuryLordUuid(null);
+        economy.replaceMintLocation(mint, cleared);
+        economyStore.saveFrom(economyService);
+        return true;
+    }
+
     public Optional<Villager> findLord(MintLocation mint) {
         Optional<Villager> byId = mint.lordEntityId().flatMap(this::findVillagerById);
         if (byId.isPresent()) {

@@ -8,6 +8,9 @@ import dev.leo.kingdom.economy.service.EconomyResult;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.economy.territory.TerritoryLocation;
 import dev.leo.kingdom.economy.territory.TerritoryResolver;
+import dev.leo.kingdom.mint.RoyalMintPlacementPolicy;
+import dev.leo.kingdom.mint.TreasuryLordManagementPolicy;
+import dev.leo.kingdom.mint.TreasuryLordMintSelector;
 import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
@@ -98,6 +101,7 @@ public final class KingdomFiscalHandler {
             case "place" -> handleMintPlace(sender);
             case "list" -> handleMintList(sender);
             case "remove" -> handleMintRemove(sender);
+            case "despawn" -> handleMintDespawn(sender);
             default -> {
                 sender.sendMessage(mintHelp());
                 yield true;
@@ -203,8 +207,64 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleMintPlace(CommandSender sender) {
-        sender.sendMessage(error("Mint placement requires a supply bill: /kingdom parliament prepare mint then table spend mint"));
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        if (!RoyalMintPlacementPolicy.canPlace(membership.get().getRank())) {
+            sender.sendMessage(error("Only the King or Queen may place a mint."));
+            return true;
+        }
+
+        Block lectern = findLecternBlock(player.get());
+        if (lectern == null) {
+            sender.sendMessage(error("Stand at or look at a lectern to place a mint."));
+            return true;
+        }
+
+        String kingdomId = membership.get().getKingdomId();
+        if (!isLecternInTerritory(lectern, kingdomId)) {
+            TerritoryLocation territory = territoryResolver.resolve(
+                    lectern.getWorld().getName(),
+                    lectern.getX(),
+                    lectern.getY(),
+                    lectern.getZ(),
+                    kingdomId);
+            sender.sendMessage(error(mintTerritoryError(kingdomId, lectern.getLocation(), territory)));
+            return true;
+        }
+
+        MintLocation location = new MintLocation(
+                lectern.getWorld().getName(),
+                lectern.getX(),
+                lectern.getY(),
+                lectern.getZ());
+        int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
+        EconomyResult result = economyService.placeRoyalMint(kingdomId, location, maxMints);
+        sender.sendMessage(formatEconomy(result));
+        if (!(result instanceof EconomyResult.Success)) {
+            return true;
+        }
+
+        MintLocation withLord = treasuryLordService.ensureLord(kingdomId, location);
+        economyStore.saveFrom(economyService);
+        sender.sendMessage(success("Lord of the Treasury stationed at "
+                + withLord.x() + ", " + withLord.y() + ", " + withLord.z() + "."));
         return true;
+    }
+
+    private boolean isLecternInTerritory(Block lectern, String kingdomId) {
+        TerritoryLocation territory = territoryResolver.resolve(
+                lectern.getWorld().getName(),
+                lectern.getX(),
+                lectern.getY(),
+                lectern.getZ(),
+                kingdomId);
+        return territory.type() == TerritoryLocation.IncomeLocation.OWN_KINGDOM;
     }
 
     public void respawnTreasuryLords() {
@@ -293,6 +353,48 @@ public final class KingdomFiscalHandler {
         economyStore.saveFrom(economyService);
 
         sender.sendMessage(success("Removed mint at " + nearest.x() + ", " + nearest.y() + ", " + nearest.z() + "."));
+        return true;
+    }
+
+    private boolean handleMintDespawn(CommandSender sender) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        if (!TreasuryLordManagementPolicy.canDespawn(
+                membership.get().getRank(), sender.hasPermission("kingdom.admin"))) {
+            sender.sendMessage(error("Only the King, Queen, or an admin may despawn the Lord of the Treasury."));
+            return true;
+        }
+
+        String kingdomId = membership.get().getKingdomId();
+        KingdomEconomy economy = kingdomEconomy(kingdomId);
+        List<MintLocation> mints = economy.mintLocations();
+        if (mints.isEmpty()) {
+            sender.sendMessage(error("Your kingdom has no mints."));
+            return true;
+        }
+
+        Location playerLoc = player.get().getLocation();
+        Optional<MintLocation> nearest = TreasuryLordMintSelector.nearestInWorld(
+                mints, playerLoc.getWorld().getName(), playerLoc.getX(), playerLoc.getY(), playerLoc.getZ());
+        if (nearest.isEmpty()) {
+            sender.sendMessage(error("No mints found in this world."));
+            return true;
+        }
+
+        MintLocation mint = nearest.get();
+        if (!treasuryLordService.releaseLord(kingdomId, mint)) {
+            sender.sendMessage(error("Could not despawn the Lord of the Treasury for that mint."));
+            return true;
+        }
+
+        sender.sendMessage(success("Despawned the Lord of the Treasury at "
+                + mint.x() + ", " + mint.y() + ", " + mint.z() + "."));
         return true;
     }
 
@@ -433,9 +535,14 @@ public final class KingdomFiscalHandler {
 
     private String mintHelp() {
         return info("Mint commands:")
+                + "\n" + ChatColor.YELLOW + "/kingdom mint place"
+                + ChatColor.GRAY + " — place a mint at a lectern in your territory (King or Queen)"
                 + "\n" + ChatColor.YELLOW + "/kingdom mint list"
                 + "\n" + ChatColor.YELLOW + "/kingdom mint remove"
-                + "\n" + ChatColor.GRAY + " — placement via /kingdom parliament";
+                + ChatColor.GRAY + " — remove the nearest mint (King or Queen)"
+                + "\n" + ChatColor.YELLOW + "/kingdom mint despawn"
+                + ChatColor.GRAY + " — remove the Lord of the Treasury at the nearest mint (King, Queen, or admin)"
+                + "\n" + ChatColor.GRAY + " — Premier mint placement via /kingdom parliament";
     }
 
     private String rateLine(String label, double rate) {

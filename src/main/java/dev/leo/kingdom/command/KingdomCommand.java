@@ -574,7 +574,7 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                 }
                 case "fiscal" -> filter(List.of("show"), args[1]);
                 case "budget" -> filter(List.of("status"), args[1]);
-                case "mint" -> filter(List.of("list", "remove"), args[1]);
+                case "mint" -> filter(List.of("list", "remove", "despawn"), args[1]);
                 case "parliament" -> filter(List.of("set", "status"), args[1]);
                 case "election" -> filter(ElectionHandler.tabSubcommands(), args[1]);
                 case "treasury" -> filter(List.of("credit"), args[1]);

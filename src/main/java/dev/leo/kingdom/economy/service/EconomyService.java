@@ -297,6 +297,26 @@ public class EconomyService {
         return EconomyResult.ok("Mint placed.");
     }
 
+    public EconomyResult placeRoyalMint(String kingdomId, MintLocation location, int maxMints) {
+        if (location == null) {
+            return EconomyResult.fail("Mint location is required.");
+        }
+        if (maxMints < 0) {
+            return EconomyResult.fail("Maximum mint count cannot be negative.");
+        }
+
+        KingdomEconomy economy = economyFor(kingdomId);
+        if (economy.mintCount() >= maxMints) {
+            return EconomyResult.fail("Kingdom has reached its mint limit.");
+        }
+        if (economy.hasMintAt(location)) {
+            return EconomyResult.fail("A mint already exists at that location.");
+        }
+
+        economy.addMintLocation(location);
+        return EconomyResult.ok("Mint placed.");
+    }
+
     public EconomyResult creditTreasuryAdmin(String kingdomId, double amount) {
         if (amount <= 0) {
             return EconomyResult.fail("Treasury credit must be positive.");

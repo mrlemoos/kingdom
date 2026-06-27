@@ -236,6 +236,33 @@ class EconomyServiceTest {
     }
 
     @Test
+    void royalMintPlacementAddsMintWithoutBudgetOrTreasurySpend() {
+        MintLocation location = new MintLocation("world", 10, 64, 10);
+
+        EconomyResult result = service.placeRoyalMint("northmarch", location, 3);
+
+        assertInstanceOf(EconomyResult.Success.class, result);
+        assertEquals(1, service.kingdomEconomies().get("northmarch").mintCount());
+        assertEquals(0.0, service.getTreasuryBalance("northmarch"));
+        assertEquals(0.0, service.kingdomEconomies().get("northmarch").budget().spentAmount());
+    }
+
+    @Test
+    void royalMintPlacementRespectsCapAndRejectsDuplicates() {
+        MintLocation first = new MintLocation("world", 10, 64, 10);
+        MintLocation second = new MintLocation("world", 20, 64, 20);
+
+        EconomyResult firstPlacement = service.placeRoyalMint("northmarch", first, 1);
+        EconomyResult duplicate = service.placeRoyalMint("northmarch", first, 1);
+        EconomyResult overCap = service.placeRoyalMint("northmarch", second, 1);
+
+        assertInstanceOf(EconomyResult.Success.class, firstPlacement);
+        assertInstanceOf(EconomyResult.Failure.class, duplicate);
+        assertInstanceOf(EconomyResult.Failure.class, overCap);
+        assertEquals(1, service.kingdomEconomies().get("northmarch").mintCount());
+    }
+
+    @Test
     void mintPlacementRespectsCapAndBudgetCost() {
         service.creditTreasury("northmarch", 500.0);
         service.enactBudget("northmarch", 200.0);
