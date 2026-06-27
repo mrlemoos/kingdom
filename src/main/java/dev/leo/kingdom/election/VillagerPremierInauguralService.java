@@ -8,6 +8,7 @@ import dev.leo.kingdom.service.KingdomService;
 import dev.leo.kingdom.service.ParliamentResult;
 import dev.leo.kingdom.service.ParliamentService;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 public final class VillagerPremierInauguralService {
@@ -17,26 +18,59 @@ public final class VillagerPremierInauguralService {
     private final ElectionService electionService;
     private final ParliamentService parliamentService;
     private final ProfessionVoteBias professionVoteBias;
+    private final int inauguralFiscalDelayMcDays;
 
     public VillagerPremierInauguralService(
             KingdomService kingdomService,
             EconomyService economyService,
             ElectionService electionService,
             ParliamentService parliamentService,
-            ProfessionVoteBias professionVoteBias) {
+            ProfessionVoteBias professionVoteBias,
+            ElectionConfig electionConfig) {
         this.kingdomService = kingdomService;
         this.economyService = economyService;
         this.electionService = electionService;
         this.parliamentService = parliamentService;
         this.professionVoteBias = professionVoteBias != null ? professionVoteBias : ProfessionVoteBias.defaults();
+        this.inauguralFiscalDelayMcDays = electionConfig != null
+                ? electionConfig.inauguralFiscalDelayMcDays()
+                : ElectionConfig.defaults().inauguralFiscalDelayMcDays();
     }
 
     public ElectionResult appointAfterGeneralElection(String kingdomId, Map<String, Integer> professionCounts) {
         ElectionResult appointed = electionService.appointVillagerPremier(kingdomId, professionCounts);
-        if (!(appointed instanceof ElectionResult.Success)) {
+        if (!(appointed instanceof ElectionResult.Success success)) {
             return appointed;
         }
-        return beginInauguralFiscal(kingdomId);
+        kingdomService.getKingdom(kingdomId).orElseThrow().getElectionState().setPendingInauguralFiscal(true);
+        return ElectionResult.ok(success.message()
+                + " The inaugural fiscal package will be tabled in "
+                + inauguralFiscalDelayMcDays
+                + " in-game days.");
+    }
+
+    public Optional<ElectionResult> tryBeginDueInauguralFiscal(String kingdomId, long currentMcDay) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return Optional.empty();
+        }
+        KingdomElectionState electionState = kingdom.get().getElectionState();
+        if (!electionState.pendingInauguralFiscal()) {
+            return Optional.empty();
+        }
+        if (electionState.premierVillagerSeatIndex().isEmpty()) {
+            electionState.setPendingInauguralFiscal(false);
+            return Optional.empty();
+        }
+        if (currentMcDay < electionState.lastGeneralElectionMcDay() + inauguralFiscalDelayMcDays) {
+            return Optional.empty();
+        }
+
+        ElectionResult result = beginInauguralFiscal(kingdomId);
+        if (result instanceof ElectionResult.Success) {
+            electionState.setPendingInauguralFiscal(false);
+        }
+        return Optional.of(result);
     }
 
     public ElectionResult beginInauguralFiscal(String kingdomId) {

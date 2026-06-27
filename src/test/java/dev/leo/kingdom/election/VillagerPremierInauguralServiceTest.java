@@ -1,6 +1,7 @@
 package dev.leo.kingdom.election;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -8,6 +9,7 @@ import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.service.KingdomService;
 import dev.leo.kingdom.service.ParliamentService;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -30,12 +32,13 @@ class VillagerPremierInauguralServiceTest {
                 new EconomyService(100.0),
                 electionService,
                 parliamentService,
-                ProfessionVoteBias.defaults());
+                ProfessionVoteBias.defaults(),
+                ElectionConfig.defaults());
         kingdomService.createKingdom("northmarch", "Northmarch");
     }
 
     @Test
-    void appointAfterGeneralElectionTablesInauguralFiscalForVillagerParliament() {
+    void appointAfterGeneralElectionSchedulesInauguralFiscalWithoutTablingImmediately() {
         assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
         now += ElectionConfig.defaults().durationMs() + 1;
         Map<String, Integer> professions = Map.of(
@@ -53,7 +56,32 @@ class VillagerPremierInauguralServiceTest {
         var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
         assertEquals(1, electionState.premierVillagerSeatIndex().orElseThrow());
         assertEquals("farmer", electionState.seat(1).orElseThrow().profession().orElseThrow());
+        assertTrue(electionState.pendingInauguralFiscal());
+        assertFalse(electionState.pendingInauguralBudget());
+        assertTrue(parliamentService.currentBill("northmarch").isEmpty());
+    }
+
+    @Test
+    void dueInauguralFiscalTablesAfterConfiguredMcDayDelay() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        Map<String, Integer> professions = Map.of("farmer", 10, "librarian", 8);
+        electionService.tryCloseElection("northmarch", professions);
+        inauguralService.appointAfterGeneralElection("northmarch", professions);
+
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        electionState.setLastGeneralElectionMcDay(100L);
+
+        assertTrue(inauguralService.tryBeginDueInauguralFiscal("northmarch", 101L).isEmpty());
+        assertTrue(electionState.pendingInauguralFiscal());
+
+        Optional<ElectionResult> tabled = inauguralService.tryBeginDueInauguralFiscal("northmarch", 102L);
+
+        assertTrue(tabled.isPresent());
+        assertInstanceOf(ElectionResult.Success.class, tabled.orElseThrow());
+        assertFalse(electionState.pendingInauguralFiscal());
         assertTrue(electionState.pendingInauguralBudget());
+        assertTrue(parliamentService.currentBill("northmarch").isPresent());
     }
 
     @Test

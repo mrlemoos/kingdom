@@ -84,7 +84,7 @@ public final class KingdomPlugin extends JavaPlugin {
         ParliamentService parliamentService = new ParliamentService(kingdomService);
         parliamentService.setProfessionVoteBias(professionVoteBias);
         VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
-                kingdomService, economyService, electionService, parliamentService, professionVoteBias);
+                kingdomService, economyService, electionService, parliamentService, professionVoteBias, electionConfig);
         ElectionHandler electionHandler = new ElectionHandler(
                 electionService,
                 kingdomService,
@@ -180,7 +180,7 @@ public final class KingdomPlugin extends JavaPlugin {
         wealthReconcileTask.schedule(gdpInterval);
 
         ElectionTask electionTask = new ElectionTask(
-                this, electionService, electionHandler, kingdomService, store, electionConfig);
+                this, electionService, electionHandler, kingdomService, store, electionConfig, villagerPremierInauguralService);
         electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
         getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);

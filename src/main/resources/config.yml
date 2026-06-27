@@ -68,6 +68,7 @@ economy:
 election:
   general-interval-mc-days: 120
   duration-mc-days: 3
+  inaugural-fiscal-delay-mc-days: 2
   max-player-seats: 4
   total-seats: 8
   ms-per-mc-day: 1200000

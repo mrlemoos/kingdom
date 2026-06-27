@@ -237,6 +237,7 @@ public final class YamlKingdomStore {
         } else {
             config.set(path + ".premier-villager-seat", null);
         }
+        config.set(path + ".pending-inaugural-fiscal", electionState.pendingInauguralFiscal());
         config.set(path + ".pending-inaugural-budget", electionState.pendingInauguralBudget());
 
         for (var entry : electionState.seatsView().entrySet()) {
@@ -302,6 +303,7 @@ public final class YamlKingdomStore {
         } else {
             electionState.clearPremierVillager();
         }
+        electionState.setPendingInauguralFiscal(section.getBoolean("pending-inaugural-fiscal", false));
         electionState.setPendingInauguralBudget(section.getBoolean("pending-inaugural-budget", false));
 
         ConfigurationSection seatsSection = section.getConfigurationSection("mp-seats");

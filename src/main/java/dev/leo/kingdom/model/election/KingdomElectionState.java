@@ -11,6 +11,7 @@ public final class KingdomElectionState {
     private final ElectionState election = new ElectionState();
     private long lastGeneralElectionMcDay;
     private Integer premierVillagerSeatIndex;
+    private boolean pendingInauguralFiscal;
     private boolean pendingInauguralBudget;
 
     public KingdomElectionState() {
@@ -71,7 +72,16 @@ public final class KingdomElectionState {
 
     public void clearPremierVillager() {
         this.premierVillagerSeatIndex = null;
+        this.pendingInauguralFiscal = false;
         this.pendingInauguralBudget = false;
+    }
+
+    public boolean pendingInauguralFiscal() {
+        return pendingInauguralFiscal;
+    }
+
+    public void setPendingInauguralFiscal(boolean pendingInauguralFiscal) {
+        this.pendingInauguralFiscal = pendingInauguralFiscal;
     }
 
     public boolean pendingInauguralBudget() {

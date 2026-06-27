@@ -273,8 +273,6 @@ public final class ElectionHandler {
                         store.saveFrom(kingdomService);
                         villagerMpEntityService.syncKingdom(kingdomId);
                         Bukkit.broadcastMessage(ChatColor.GOLD + appointed.message());
-                        Bukkit.broadcastMessage(ChatColor.GOLD + "The inaugural fiscal package has been tabled in "
-                                + kingdom.getDisplayName() + ".");
                     } else {
                         Bukkit.broadcastMessage(ChatColor.YELLOW + "No player MPs were elected in "
                                 + kingdom.getDisplayName()
