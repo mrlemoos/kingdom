@@ -40,4 +40,22 @@ class VillagerMpEntityLookupTest {
         assertTrue(VillagerMpEntityLookup.needsStartupSyncRetry(VillagerMpEntityLookup.EntityPresence.UNKNOWN));
         assertFalse(VillagerMpEntityLookup.needsStartupSyncRetry(VillagerMpEntityLookup.EntityPresence.PRESENT));
     }
+
+    @Test
+    void assignedSeatWithoutEntityIdIsNotVacantForByElection() {
+        assertFalse(VillagerMpEntityLookup.isSeatVacantForByElection(
+                VillagerMpEntityLookup.EntityPresence.ABSENT_NO_ID, false));
+    }
+
+    @Test
+    void confirmedAbsentStoredEntityIsVacantForByElection() {
+        assertTrue(VillagerMpEntityLookup.isSeatVacantForByElection(
+                VillagerMpEntityLookup.EntityPresence.ABSENT_CONFIRMED, true));
+    }
+
+    @Test
+    void unknownPresenceIsNotVacantForByElection() {
+        assertFalse(VillagerMpEntityLookup.isSeatVacantForByElection(
+                VillagerMpEntityLookup.EntityPresence.UNKNOWN, true));
+    }
 }

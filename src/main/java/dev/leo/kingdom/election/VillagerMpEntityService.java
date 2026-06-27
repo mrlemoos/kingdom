@@ -71,7 +71,8 @@ public final class VillagerMpEntityService {
         if (seat.kind() != MpSeatKind.VILLAGER) {
             return false;
         }
-        return VillagerMpEntityLookup.isSeatVacant(locateSeatedEntity(kingdom, seat));
+        VillagerMpEntityLookup.EntityPresence presence = locateSeatedEntity(kingdom, seat);
+        return VillagerMpEntityLookup.isSeatVacantForByElection(presence, seat.entityId().isPresent());
     }
 
     public void releaseKingdomVillagerMps(String kingdomId) {

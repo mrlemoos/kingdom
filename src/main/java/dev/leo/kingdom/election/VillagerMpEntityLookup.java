@@ -19,6 +19,20 @@ public final class VillagerMpEntityLookup {
         return presence == EntityPresence.ABSENT_NO_ID || presence == EntityPresence.ABSENT_CONFIRMED;
     }
 
+    /**
+     * Whether a villager MP seat should trigger a by-election. A seat assigned after an election
+     * may have no entity id until {@code VillagerMpEntityService} syncs; that is not a vacancy.
+     */
+    public static boolean isSeatVacantForByElection(EntityPresence presence, boolean hasStoredEntityId) {
+        if (presence == EntityPresence.UNKNOWN) {
+            return false;
+        }
+        if (presence == EntityPresence.ABSENT_NO_ID && !hasStoredEntityId) {
+            return false;
+        }
+        return isSeatVacant(presence);
+    }
+
     public static boolean shouldReplaceSeatedEntity(EntityPresence presence) {
         return presence == EntityPresence.ABSENT_NO_ID || presence == EntityPresence.ABSENT_CONFIRMED;
     }
