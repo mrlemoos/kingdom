@@ -10,6 +10,8 @@ public final class KingdomElectionState {
     private final Map<Integer, MpSeatLocation> seatLocations = new HashMap<>();
     private final ElectionState election = new ElectionState();
     private long lastGeneralElectionMcDay;
+    private Integer premierVillagerSeatIndex;
+    private boolean pendingInauguralBudget;
 
     public KingdomElectionState() {
         for (int index = 1; index <= 8; index++) {
@@ -52,6 +54,34 @@ public final class KingdomElectionState {
         this.lastGeneralElectionMcDay = mcDay;
     }
 
+    public java.util.OptionalInt premierVillagerSeatIndex() {
+        return premierVillagerSeatIndex != null ? java.util.OptionalInt.of(premierVillagerSeatIndex) : java.util.OptionalInt.empty();
+    }
+
+    public void setPremierVillagerSeatIndex(int seatIndex) {
+        if (seatIndex < 1 || seatIndex > 8) {
+            throw new IllegalArgumentException("Premier villager seat index must be 1–8.");
+        }
+        this.premierVillagerSeatIndex = seatIndex;
+    }
+
+    public boolean isPremierVillagerSeat(int seatIndex) {
+        return premierVillagerSeatIndex != null && premierVillagerSeatIndex == seatIndex;
+    }
+
+    public void clearPremierVillager() {
+        this.premierVillagerSeatIndex = null;
+        this.pendingInauguralBudget = false;
+    }
+
+    public boolean pendingInauguralBudget() {
+        return pendingInauguralBudget;
+    }
+
+    public void setPendingInauguralBudget(boolean pendingInauguralBudget) {
+        this.pendingInauguralBudget = pendingInauguralBudget;
+    }
+
     public void clearAllSeats() {
         seats.values().forEach(MpSeat::clear);
     }
@@ -73,6 +103,7 @@ public final class KingdomElectionState {
                 target.assignVillager(
                         source.profession().orElse("none"),
                         source.entityId().orElse(null));
+                source.originLocation().ifPresent(target::setOriginLocation);
             }
         }
     }

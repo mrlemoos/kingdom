@@ -63,7 +63,7 @@ public final class ElectionTask implements Runnable {
             if (last >= 0 && currentMcDay - last < config.generalIntervalMcDays()) {
                 continue;
             }
-            var result = electionService.startGeneralElection(kingdom.getId());
+            var result = electionHandler.openGeneralElection(kingdom.getId());
             if (result instanceof dev.leo.kingdom.election.ElectionResult.Success) {
                 kingdom.getElectionState().setLastGeneralElectionMcDay(currentMcDay);
                 store.saveFrom(kingdomService);

@@ -232,6 +232,12 @@ public final class YamlKingdomStore {
     private static void writeElection(FileConfiguration config, String path, Kingdom kingdom) {
         var electionState = kingdom.getElectionState();
         config.set(path + ".last-general-election-mc-day", electionState.lastGeneralElectionMcDay());
+        if (electionState.premierVillagerSeatIndex().isPresent()) {
+            config.set(path + ".premier-villager-seat", electionState.premierVillagerSeatIndex().getAsInt());
+        } else {
+            config.set(path + ".premier-villager-seat", null);
+        }
+        config.set(path + ".pending-inaugural-budget", electionState.pendingInauguralBudget());
 
         for (var entry : electionState.seatsView().entrySet()) {
             var seat = entry.getValue();
@@ -243,6 +249,14 @@ public final class YamlKingdomStore {
             seat.playerId().ifPresent(id -> config.set(seatPath + ".holder", id.toString()));
             seat.profession().ifPresent(prof -> config.set(seatPath + ".profession", prof));
             seat.entityId().ifPresent(id -> config.set(seatPath + ".entity", id.toString()));
+            seat.originLocation().ifPresent(origin -> {
+                config.set(seatPath + ".origin.world", origin.worldName());
+                config.set(seatPath + ".origin.x", origin.x());
+                config.set(seatPath + ".origin.y", origin.y());
+                config.set(seatPath + ".origin.z", origin.z());
+                config.set(seatPath + ".origin.yaw", origin.yaw());
+                config.set(seatPath + ".origin.pitch", origin.pitch());
+            });
         }
 
         for (var entry : electionState.seatLocationsView().entrySet()) {
@@ -283,6 +297,12 @@ public final class YamlKingdomStore {
         }
         var electionState = kingdom.getElectionState();
         electionState.setLastGeneralElectionMcDay(section.getLong("last-general-election-mc-day", 0L));
+        if (section.contains("premier-villager-seat")) {
+            electionState.setPremierVillagerSeatIndex(section.getInt("premier-villager-seat"));
+        } else {
+            electionState.clearPremierVillager();
+        }
+        electionState.setPendingInauguralBudget(section.getBoolean("pending-inaugural-budget", false));
 
         ConfigurationSection seatsSection = section.getConfigurationSection("mp-seats");
         if (seatsSection != null) {
@@ -303,6 +323,16 @@ public final class YamlKingdomStore {
                             ? UUID.fromString(seatSection.getString("entity"))
                             : null;
                     seat.assignVillager(profession, entity);
+                    ConfigurationSection originSection = seatSection.getConfigurationSection("origin");
+                    if (originSection != null) {
+                        seat.setOriginLocation(new MpSeatLocation(
+                                originSection.getString("world"),
+                                originSection.getDouble("x"),
+                                originSection.getDouble("y"),
+                                originSection.getDouble("z"),
+                                (float) originSection.getDouble("yaw"),
+                                (float) originSection.getDouble("pitch")));
+                    }
                 }
                 loadedSeats.put(index, seat);
             }

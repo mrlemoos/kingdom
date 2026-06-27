@@ -130,4 +130,52 @@ class ParliamentServiceTest {
         assertEquals(VoteChoice.AYE, bill.votesView().get(
                 dev.leo.kingdom.election.StableSeatUuid.forSeat("northmarch", 6)));
     }
+
+    @Test
+    void realmHandledDivisionEligibleWhenNoPlayerMps() {
+        clearPlayerMpTitles();
+        fillVillagerParliament();
+
+        assertTrue(parliamentService.isRealmHandledDivisionEligible("northmarch"));
+    }
+
+    @Test
+    void realmHandledDivisionPassesTiedBillWithPremierCastingVote() {
+        clearPlayerMpTitles();
+        fillVillagerParliament();
+        kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().setPremierVillagerSeatIndex(1);
+
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudgetForVillagerPremier(
+                "northmarch", 1, 40, null));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.runRealmHandledDivision("northmarch", 1));
+
+        assertEquals(BillState.AWAITING_ASSENT, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerPremierTablesFiscalWithoutPlayerPremierRank() {
+        clearPlayerMpTitles();
+        fillVillagerParliament();
+        kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().setPremierVillagerSeatIndex(1);
+
+        FiscalRates rates = FiscalRates.defaults();
+        ParliamentResult tabled = parliamentService.tableFiscalForVillagerPremier(
+                "northmarch", 1, rates, "Inaugural Finance Act");
+
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertTrue(parliamentService.currentBill("northmarch").isPresent());
+    }
+
+    private void clearPlayerMpTitles() {
+        kingdomService.clearTitle(MP_ONE);
+        kingdomService.clearTitle(MP_TWO);
+    }
+
+    private void fillVillagerParliament() {
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        String[] professions = {"farmer", "librarian", "armorer", "cleric", "shepherd", "fisherman", "mason", "none"};
+        for (int i = 0; i < professions.length; i++) {
+            electionState.seat(i + 1).orElseThrow().assignVillager(professions[i], null);
+        }
+    }
 }

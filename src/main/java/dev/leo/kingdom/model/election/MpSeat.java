@@ -11,6 +11,7 @@ public final class MpSeat {
     private UUID playerId;
     private String profession;
     private UUID entityId;
+    private MpSeatLocation originLocation;
 
     public MpSeat(int index) {
         if (index < 1 || index > 8) {
@@ -39,6 +40,10 @@ public final class MpSeat {
         return Optional.ofNullable(entityId);
     }
 
+    public Optional<MpSeatLocation> originLocation() {
+        return Optional.ofNullable(originLocation);
+    }
+
     public boolean isOccupied() {
         return kind != null;
     }
@@ -55,6 +60,7 @@ public final class MpSeat {
         this.profession = Objects.requireNonNull(professionName, "profession");
         this.entityId = entityId;
         this.playerId = null;
+        this.originLocation = null;
     }
 
     public void clear() {
@@ -62,9 +68,14 @@ public final class MpSeat {
         this.playerId = null;
         this.profession = null;
         this.entityId = null;
+        this.originLocation = null;
     }
 
     public void setEntityId(UUID entityId) {
         this.entityId = entityId;
+    }
+
+    public void setOriginLocation(MpSeatLocation originLocation) {
+        this.originLocation = originLocation;
     }
 }

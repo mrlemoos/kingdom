@@ -6,6 +6,7 @@ import dev.leo.kingdom.economy.service.EconomyResult;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.economy.territory.TerritoryLocation;
 import dev.leo.kingdom.economy.territory.TerritoryResolver;
+import dev.leo.kingdom.election.VillagerPremierInauguralService;
 import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
@@ -50,6 +51,7 @@ public final class ParliamentHandler {
     private final TerritoryResolver territoryResolver;
     private final TreasuryLordService treasuryLordService;
     private final JavaPlugin plugin;
+    private final VillagerPremierInauguralService villagerPremierInauguralService;
     private Consumer<Player> hubGuiOpener;
 
     public ParliamentHandler(
@@ -60,7 +62,8 @@ public final class ParliamentHandler {
             YamlEconomyStore economyStore,
             TerritoryResolver territoryResolver,
             TreasuryLordService treasuryLordService,
-            JavaPlugin plugin) {
+            JavaPlugin plugin,
+            VillagerPremierInauguralService villagerPremierInauguralService) {
         this.parliamentService = parliamentService;
         this.kingdomService = kingdomService;
         this.economyService = economyService;
@@ -69,6 +72,7 @@ public final class ParliamentHandler {
         this.territoryResolver = territoryResolver;
         this.treasuryLordService = treasuryLordService;
         this.plugin = plugin;
+        this.villagerPremierInauguralService = villagerPremierInauguralService;
     }
 
     public void setHubGuiOpener(Consumer<Player> hubGuiOpener) {
@@ -236,6 +240,8 @@ public final class ParliamentHandler {
 
         economyStore.saveFrom(economyService);
         kingdomStore.saveFrom(kingdomService);
+        villagerPremierInauguralService.tablePendingBudgetAfterAssent(kingdomId);
+        kingdomStore.saveFrom(kingdomService);
         player.sendMessage(success(((EconomyResult.Success) enacted).message() + " Act archived in the registrar."));
         broadcastParliament(kingdomId, ChatColor.GREEN + "Royal assent granted: " + draft.get().title());
         return true;
@@ -345,6 +351,7 @@ public final class ParliamentHandler {
         ParliamentResult result = parliamentService.reject(kingdomId, rank);
         if (result instanceof ParliamentResult.Success success) {
             player.sendMessage(success(success.message()));
+            villagerPremierInauguralService.clearPendingBudgetOnBillFailure(kingdomId);
             broadcastParliament(kingdomId, ChatColor.RED + "Royal assent withheld. Bill rejected.");
             kingdomStore.saveFrom(kingdomService);
             return result;

@@ -148,9 +148,100 @@ class ElectionServiceTest {
     }
 
     @Test
+    void noPlayerCandidatesFillEightSeatsIncludingCitizenBackfill() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        Map<String, Integer> professions = Map.of(
+                "farmer", 10,
+                "librarian", 8,
+                "armorer", 6,
+                "cleric", 5,
+                "shepherd", 4,
+                "fisherman", 3);
+        ElectionService.ElectionCloseOutcome outcome =
+                electionService.tryCloseElection("northmarch", professions);
+
+        assertTrue(outcome.complete());
+        assertEquals(0, outcome.playerWinners().size());
+        assertEquals(8, outcome.villagerProfessions().size());
+        assertEquals(2, outcome.villagerProfessions().stream().filter("none"::equals).count());
+
+        long occupiedSeats = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().seatsView().values().stream()
+                .filter(seat -> seat.isOccupied())
+                .count();
+        assertEquals(8, occupiedSeats);
+    }
+
+    @Test
     void opCannotAssignMpTitle() {
         var result = kingdomService.assignTitle(CITIZEN_ONE, NobleRank.MP, TitleStyle.MASCULINE);
         assertInstanceOf(dev.leo.kingdom.service.KingdomResult.Failure.class, result);
+    }
+
+    @Test
+    void seatedPlayerMpsElectPremier() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        electionService.nominate("northmarch", CITIZEN_TWO);
+        castVote(VOTER, CITIZEN_ONE);
+        castVote(DUKE, CITIZEN_TWO);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        ElectionService.ElectionCloseOutcome generalClose =
+                electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+        assertTrue(generalClose.complete());
+
+        assertInstanceOf(ElectionResult.Success.class, electionService.startPremierElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        electionService.nominate("northmarch", CITIZEN_TWO);
+        electionService.castElectionVote("northmarch", CITIZEN_ONE, CITIZEN_ONE);
+        electionService.castElectionVote("northmarch", CITIZEN_TWO, CITIZEN_ONE);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        ElectionService.ElectionCloseOutcome premierClose =
+                electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+        assertTrue(premierClose.complete());
+        assertEquals(CITIZEN_ONE, premierClose.premierWinner());
+        assertEquals(NobleRank.PREMIER, kingdomService.getMembership(CITIZEN_ONE).orElseThrow().getRank());
+    }
+
+    @Test
+    void noPlayerMpsAppointsVillagerPremier() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        Map<String, Integer> professions = Map.of(
+                "farmer", 10,
+                "librarian", 8,
+                "armorer", 6,
+                "cleric", 5,
+                "shepherd", 4,
+                "fisherman", 3);
+        electionService.tryCloseElection("northmarch", professions);
+
+        assertInstanceOf(ElectionResult.Failure.class, electionService.startPremierElection("northmarch"));
+
+        ElectionResult appointed = electionService.appointVillagerPremier("northmarch", professions);
+        assertInstanceOf(ElectionResult.Success.class, appointed);
+
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        assertTrue(electionState.premierVillagerSeatIndex().isPresent());
+        assertEquals(1, electionState.premierVillagerSeatIndex().orElseThrow());
+        assertEquals("farmer", electionState.seat(1).orElseThrow().profession().orElseThrow());
+    }
+
+    @Test
+    void generalElectionClearsPremierVillager() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 10, "librarian", 8));
+        electionService.appointVillagerPremier("northmarch", Map.of("farmer", 10, "librarian", 8));
+        assertTrue(kingdomService.getKingdom("northmarch").orElseThrow().getElectionState()
+                .premierVillagerSeatIndex().isPresent());
+
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        assertTrue(kingdomService.getKingdom("northmarch").orElseThrow().getElectionState()
+                .premierVillagerSeatIndex().isEmpty());
     }
 
     private void startGeneralAndNominateAllCitizens() {

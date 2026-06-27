@@ -75,6 +75,9 @@ public class KingdomService {
         if (membership == null) {
             return KingdomResult.fail("That player is not in a kingdom.");
         }
+        if (rank == NobleRank.PREMIER && hasSeatedPlayerMps(membership.getKingdomId())) {
+            return KingdomResult.fail("Premier is elected by MPs. Use /kingdom election nominate and vote.");
+        }
         if (isSlotTakenByAnother(membership, rank, playerId)) {
             return KingdomResult.fail("All " + rank.name().toLowerCase() + " slots are filled in that kingdom.");
         }
@@ -93,6 +96,28 @@ public class KingdomService {
         }
         membership.assignTitle(rank, style != null ? style : TitleStyle.MASCULINE);
         return KingdomResult.ok("Elected as MP.");
+    }
+
+    public KingdomResult assignPremierFromElection(UUID playerId, TitleStyle style) {
+        PlayerMembership membership = memberships.get(playerId);
+        if (membership == null) {
+            return KingdomResult.fail("That player is not in a kingdom.");
+        }
+        NobleRank rank = NobleRank.PREMIER;
+        if (isSlotTakenByAnother(membership, rank, playerId)) {
+            return KingdomResult.fail("The Premier seat is already filled in that kingdom.");
+        }
+        membership.assignTitle(rank, style != null ? style : TitleStyle.MASCULINE);
+        return KingdomResult.ok("Elected as Premier.");
+    }
+
+    public boolean hasSeatedPlayerMps(String kingdomId) {
+        Optional<Kingdom> kingdom = getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return false;
+        }
+        return kingdom.get().getElectionState().seatsView().values().stream()
+                .anyMatch(seat -> seat.kind() == dev.leo.kingdom.model.election.MpSeatKind.PLAYER && seat.isOccupied());
     }
 
     public KingdomResult clearTitle(UUID playerId) {

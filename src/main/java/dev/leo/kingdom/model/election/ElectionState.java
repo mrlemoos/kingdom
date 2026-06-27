@@ -72,6 +72,13 @@ public final class ElectionState {
         this.endsAtMs = endsAtMs;
     }
 
+    public void openPremier(long endsAtMs) {
+        reset();
+        this.type = ElectionType.PREMIER;
+        this.phase = ElectionPhase.OPEN;
+        this.endsAtMs = endsAtMs;
+    }
+
     public void openByElectionVillager(int seatIndex, long endsAtMs) {
         reset();
         this.type = ElectionType.BY_ELECTION_VILLAGER;

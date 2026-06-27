@@ -125,6 +125,79 @@ public final class ParliamentService {
                 new BillPayload.Budget(amount));
     }
 
+    public ParliamentResult tableFiscalForVillagerPremier(
+            String kingdomId, int premierSeatIndex, FiscalRates rates, String optionalTitle) {
+        if (!isPremierVillagerSeat(kingdomId, premierSeatIndex)) {
+            return ParliamentResult.fail("That seat is not the Premier villager.");
+        }
+        if (rates == null) {
+            return ParliamentResult.fail("Fiscal rates are required.");
+        }
+        return tableBill(
+                kingdomId,
+                StableSeatUuid.forSeat(kingdomId, premierSeatIndex),
+                BillType.FISCAL,
+                optionalTitle,
+                new BillPayload.Fiscal(rates));
+    }
+
+    public ParliamentResult tableBudgetForVillagerPremier(
+            String kingdomId, int premierSeatIndex, double amount, String optionalTitle) {
+        if (!isPremierVillagerSeat(kingdomId, premierSeatIndex)) {
+            return ParliamentResult.fail("That seat is not the Premier villager.");
+        }
+        if (amount < 0) {
+            return ParliamentResult.fail("Budget amount cannot be negative.");
+        }
+        return tableBill(
+                kingdomId,
+                StableSeatUuid.forSeat(kingdomId, premierSeatIndex),
+                BillType.BUDGET,
+                optionalTitle,
+                new BillPayload.Budget(amount));
+    }
+
+    public boolean isRealmHandledDivisionEligible(String kingdomId) {
+        return kingdomService.getKingdom(kingdomId)
+                .map(k -> !hasSeatedPlayerMps(k.getElectionState()))
+                .orElse(false);
+    }
+
+    public ParliamentResult runRealmHandledDivision(String kingdomId, int premierVillagerSeatIndex) {
+        if (!isRealmHandledDivisionEligible(kingdomId)) {
+            return ParliamentResult.fail("Realm-handled divisions require a full villager parliament.");
+        }
+        if (!isPremierVillagerSeat(kingdomId, premierVillagerSeatIndex)) {
+            return ParliamentResult.fail("That seat is not the Premier villager.");
+        }
+        Optional<Bill> bill = currentBill(kingdomId);
+        if (bill.isEmpty()) {
+            return ParliamentResult.fail("No bill is before the House.");
+        }
+        if (bill.get().state() != BillState.TABLED) {
+            return ParliamentResult.fail("A division is not ready to open.");
+        }
+
+        bill.get().setState(BillState.DIVISION_OPEN);
+        castVillagerMpVotes(kingdomId, bill.get());
+
+        VoteTally tally = VoteTally.from(bill.get().votesView());
+        int aye = tally.aye();
+        int nay = tally.nay();
+        if (aye == nay) {
+            aye++;
+        }
+
+        if (aye > nay) {
+            bill.get().setState(BillState.AWAITING_ASSENT);
+            return ParliamentResult.ok("Bill passed the Commons and awaits royal assent.");
+        }
+
+        bill.get().setState(BillState.FAILED);
+        clearBill(kingdomId);
+        return ParliamentResult.ok("Bill failed the division.");
+    }
+
     public ParliamentResult tableSpendMint(
             String kingdomId, NobleRank rank, UUID proposerId, double cost, String optionalTitle) {
         if (rank != NobleRank.PREMIER) {
@@ -430,6 +503,17 @@ public final class ParliamentService {
 
     private void clearBill(String kingdomId) {
         kingdomService.getKingdom(kingdomId).ifPresent(k -> k.getParliamentState().clearCurrentBill());
+    }
+
+    private boolean isPremierVillagerSeat(String kingdomId, int seatIndex) {
+        return kingdomService.getKingdom(kingdomId)
+                .map(k -> k.getElectionState().isPremierVillagerSeat(seatIndex))
+                .orElse(false);
+    }
+
+    private static boolean hasSeatedPlayerMps(dev.leo.kingdom.model.election.KingdomElectionState electionState) {
+        return electionState.seatsView().values().stream()
+                .anyMatch(seat -> seat.kind() == MpSeatKind.PLAYER && seat.isOccupied());
     }
 
     private String nextBillId(String kingdomId) {

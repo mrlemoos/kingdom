@@ -3,6 +3,7 @@ package dev.leo.kingdom.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.leo.kingdom.display.NoblePrefixDisplay;
 import java.util.UUID;
 import org.bukkit.ChatColor;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,26 @@ class NobleRankTest {
         membership.assignTitle(NobleRank.MP, TitleStyle.MASCULINE);
 
         assertEquals(ChatColor.GRAY + "[MP] ", membership.coloredChatPrefix());
+    }
+
+    @Test
+    void mpVillagerNametagUsesSamePrefixAsPlayer() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.MP, TitleStyle.MASCULINE);
+
+        assertEquals(
+                membership.coloredChatPrefix() + ChatColor.WHITE + "Farmer",
+                NoblePrefixDisplay.mpVillagerNametag("Farmer"));
+    }
+
+    @Test
+    void premierVillagerNametagUsesSamePrefixAsPlayer() {
+        PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
+        membership.assignTitle(NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        assertEquals(
+                membership.coloredChatPrefix() + ChatColor.WHITE + "Farmer",
+                NoblePrefixDisplay.premierVillagerNametag("Farmer"));
     }
 
     @Test
