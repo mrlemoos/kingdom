@@ -5,6 +5,7 @@ import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.KingdomEconomy;
 import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.economy.model.TreasuryBudget;
+import dev.leo.kingdom.economy.model.VillagerWalletState;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
 import dev.leo.kingdom.economy.wealth.WealthBlockType;
@@ -60,6 +61,17 @@ public final class YamlEconomyStore {
             config.set("wallets." + entry.getKey(), entry.getValue());
         }
 
+        for (Map.Entry<String, Map<UUID, VillagerWalletState>> kingdomEntry : service.villagerWallets().entrySet()) {
+            String kingdomPath = "villager-wallets." + kingdomEntry.getKey();
+            for (Map.Entry<UUID, VillagerWalletState> walletEntry : kingdomEntry.getValue().entrySet()) {
+                String walletPath = kingdomPath + "." + walletEntry.getKey();
+                VillagerWalletState wallet = walletEntry.getValue();
+                config.set(walletPath + ".balance", wallet.balance());
+                wallet.frozenSinceEpochDay()
+                        .ifPresent(day -> config.set(walletPath + ".frozen-since-epoch-day", day));
+            }
+        }
+
         for (Map.Entry<String, KingdomEconomy> entry : service.kingdomEconomies().entrySet()) {
             String kingdomPath = "kingdoms." + entry.getKey();
             KingdomEconomy economy = entry.getValue();
@@ -67,6 +79,7 @@ public final class YamlEconomyStore {
             config.set(kingdomPath + ".total-tax-revenue", economy.totalTaxRevenue());
             config.set(kingdomPath + ".total-gdp-revenue", economy.totalGdpRevenue());
             config.set(kingdomPath + ".last-daily-gdp", economy.lastDailyGdp());
+            config.set(kingdomPath + ".last-day-trades-settled", economy.lastDayTradesSettled());
             writeFiscalRates(config, kingdomPath + ".active-rates", economy.activeRates());
             economy.pendingProposal().ifPresent(proposal -> writeProposal(config, kingdomPath + ".pending-proposal", proposal));
             config.set(kingdomPath + ".budget.approved", economy.budget().approvedAmount());
@@ -102,7 +115,42 @@ public final class YamlEconomyStore {
             }
         }
 
-        service.replaceState(wallets, kingdomEconomies);
+        Map<String, Map<UUID, VillagerWalletState>> villagerWallets = readVillagerWallets(config);
+
+        service.replaceState(wallets, villagerWallets, kingdomEconomies);
+    }
+
+    private static Map<String, Map<UUID, VillagerWalletState>> readVillagerWallets(FileConfiguration config) {
+        Map<String, Map<UUID, VillagerWalletState>> villagerWallets = new HashMap<>();
+        ConfigurationSection root = config.getConfigurationSection("villager-wallets");
+        if (root == null) {
+            return villagerWallets;
+        }
+        for (String kingdomId : root.getKeys(false)) {
+            ConfigurationSection kingdomSection = root.getConfigurationSection(kingdomId);
+            if (kingdomSection == null) {
+                continue;
+            }
+            Map<UUID, VillagerWalletState> kingdomWallets = new HashMap<>();
+            for (String villagerIdString : kingdomSection.getKeys(false)) {
+                try {
+                    UUID villagerId = UUID.fromString(villagerIdString);
+                    ConfigurationSection walletSection = kingdomSection.getConfigurationSection(villagerIdString);
+                    if (walletSection == null) {
+                        continue;
+                    }
+                    double balance = walletSection.getDouble("balance");
+                    Long frozenSince = walletSection.contains("frozen-since-epoch-day")
+                            ? walletSection.getLong("frozen-since-epoch-day")
+                            : null;
+                    kingdomWallets.put(villagerId, new VillagerWalletState(balance, frozenSince));
+                } catch (IllegalArgumentException ex) {
+                    // Skip invalid villager wallet keys.
+                }
+            }
+            villagerWallets.put(kingdomId, kingdomWallets);
+        }
+        return villagerWallets;
     }
 
     private static KingdomEconomy readKingdomEconomy(ConfigurationSection entry) {
@@ -110,14 +158,17 @@ public final class YamlEconomyStore {
         double totalTaxRevenue = entry.getDouble("total-tax-revenue");
         double totalGdpRevenue = entry.getDouble("total-gdp-revenue");
         double lastDailyGdp = entry.getDouble("last-daily-gdp");
+        int lastDayTradesSettled = entry.getInt("last-day-trades-settled");
         FiscalRates activeRates = readFiscalRates(entry.getConfigurationSection("active-rates"));
         FiscalProposal pendingProposal = readProposal(entry.getConfigurationSection("pending-proposal"));
         TreasuryBudget budget = readBudget(entry.getConfigurationSection("budget"));
         TerritoryWealthCounts territoryWealthCounts =
                 readTerritoryWealthCounts(entry.getConfigurationSection("territory-wealth"));
         List<MintLocation> mints = readMintLocations(entry.getConfigurationSection("mints"));
-        return new KingdomEconomy(
+        KingdomEconomy economy = new KingdomEconomy(
                 treasury, totalTaxRevenue, totalGdpRevenue, lastDailyGdp, activeRates, pendingProposal, budget, mints, territoryWealthCounts);
+        economy.setLastDayTradesSettled(lastDayTradesSettled);
+        return economy;
     }
 
     private static void writeFiscalRates(FileConfiguration config, String path, FiscalRates rates) {

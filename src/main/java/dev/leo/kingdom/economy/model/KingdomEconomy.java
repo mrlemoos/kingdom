@@ -12,6 +12,7 @@ public class KingdomEconomy {
     private double totalTaxRevenue;
     private double totalGdpRevenue;
     private double lastDailyGdp;
+    private int lastDayTradesSettled;
     private FiscalRates activeRates;
     private FiscalProposal pendingProposal;
     private final TreasuryBudget budget;
@@ -57,6 +58,7 @@ public class KingdomEconomy {
         this.totalTaxRevenue = totalTaxRevenue;
         this.totalGdpRevenue = totalGdpRevenue;
         this.lastDailyGdp = lastDailyGdp;
+        this.lastDayTradesSettled = 0;
         this.activeRates = activeRates;
         this.pendingProposal = pendingProposal;
         this.budget = budget;
@@ -98,6 +100,14 @@ public class KingdomEconomy {
 
     public void setLastDailyGdp(double lastDailyGdp) {
         this.lastDailyGdp = Math.max(0.0, lastDailyGdp);
+    }
+
+    public int lastDayTradesSettled() {
+        return lastDayTradesSettled;
+    }
+
+    public void setLastDayTradesSettled(int lastDayTradesSettled) {
+        this.lastDayTradesSettled = Math.max(0, lastDayTradesSettled);
     }
 
     public FiscalRates activeRates() {

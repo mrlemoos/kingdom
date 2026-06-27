@@ -230,6 +230,11 @@ public final class KingdomCommand implements CommandExecutor, TabCompleter {
                     + ChatColor.WHITE + formatCorona(economyService.getTotalTaxRevenue(kingdomId)) + " Corona");
             sender.sendMessage(ChatColor.GRAY + "GDP: "
                     + ChatColor.WHITE + formatCorona(economyService.getLastDailyGdp(kingdomId)) + " Corona/day");
+            sender.sendMessage(ChatColor.GRAY + "Active villager wallets: "
+                    + ChatColor.WHITE + formatCorona(economyService.getTotalActiveVillagerWalletBalance(kingdomId))
+                    + " Corona");
+            sender.sendMessage(ChatColor.GRAY + "Villager trades settled (last day): "
+                    + ChatColor.WHITE + economyService.getLastDayTradesSettled(kingdomId));
             double totalGdpRevenue = economyService.getTotalGdpRevenue(kingdomId);
             if (totalGdpRevenue > 0.0) {
                 sender.sendMessage(ChatColor.GRAY + "Total GDP revenue: "

@@ -27,6 +27,14 @@ class RealmWealthCalculatorTest {
     }
 
     @Test
+    void realmWealthAddsActiveVillagerWallets() {
+        TerritoryWealthCounts counts = new TerritoryWealthCounts();
+        counts.set(WealthBlockType.IRON_BLOCK, 4);
+
+        assertEquals(400.0, RealmWealthCalculator.realmWealth(150.0, counts, 50.0, RATES), 1e-9);
+    }
+
+    @Test
     void realmWealthAddsTreasuryMaterialAndEstates() {
         TerritoryWealthCounts counts = new TerritoryWealthCounts();
         counts.set(WealthBlockType.IRON_BLOCK, 4);

@@ -10,6 +10,7 @@ import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.economy.model.TreasuryBudget;
 import dev.leo.kingdom.economy.wealth.TerritoryWealthCounts;
 import dev.leo.kingdom.economy.wealth.WealthBlockType;
+import dev.leo.kingdom.economy.model.VillagerWalletState;
 import dev.leo.kingdom.economy.service.EconomyService;
 import dev.leo.kingdom.model.NobleRank;
 import java.util.EnumMap;
@@ -71,7 +72,7 @@ class YamlEconomyStoreTest {
         KingdomEconomy economy = new KingdomEconomy(0.0, FiscalRates.defaults(), null, new TreasuryBudget(), mints);
 
         EconomyService source = new EconomyService();
-        source.replaceState(Map.of(), Map.of("northmarch", economy));
+        source.replaceState(Map.of(), Map.of(), Map.of("northmarch", economy));
 
         YamlConfiguration config = new YamlConfiguration();
         YamlEconomyStore.writeConfiguration(config, source);
@@ -92,7 +93,7 @@ class YamlEconomyStoreTest {
                 10.0, 0.0, 0.0, 0.0, FiscalRates.defaults(), null, new TreasuryBudget(), List.of(), counts);
 
         EconomyService source = new EconomyService();
-        source.replaceState(Map.of(), Map.of("northmarch", economy));
+        source.replaceState(Map.of(), Map.of(), Map.of("northmarch", economy));
 
         YamlConfiguration config = new YamlConfiguration();
         YamlEconomyStore.writeConfiguration(config, source);
@@ -103,6 +104,23 @@ class YamlEconomyStoreTest {
         TerritoryWealthCounts loadedCounts = loaded.getTerritoryWealthCounts("northmarch");
         assertEquals(3, loadedCounts.count(WealthBlockType.GOLD_BLOCK));
         assertEquals(1, loadedCounts.count(WealthBlockType.BEACON));
+    }
+
+    @Test
+    void roundTripPreservesVillagerWallets() {
+        UUID villagerId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        VillagerWalletState wallet = new VillagerWalletState(12.5, 7L);
+        EconomyService source = new EconomyService();
+        source.replaceState(Map.of(), Map.of("northmarch", Map.of(villagerId, wallet)), Map.of());
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        assertEquals(12.5, loaded.getVillagerWalletBalance("northmarch", villagerId), 1e-9);
+        assertTrue(loaded.isVillagerWalletFrozen("northmarch", villagerId));
     }
 
     @Test
@@ -128,7 +146,7 @@ class YamlEconomyStoreTest {
         KingdomEconomy economy = new KingdomEconomy(250.0, 12.5, 88.0, 6.25, activeRates, proposal, budget, mints);
 
         EconomyService service = new EconomyService();
-        service.replaceState(Map.of(ALICE, 42.5), Map.of("northmarch", economy));
+        service.replaceState(Map.of(ALICE, 42.5), Map.of(), Map.of("northmarch", economy));
         return service;
     }
 }

@@ -298,15 +298,17 @@ class EconomyServiceTest {
     }
 
     @Test
-    void realmWealthCombinesTreasuryMaterialReservesAndEstates() {
+    void realmWealthCombinesTreasuryMaterialReservesEstatesAndVillagerWallets() {
         service.creditTreasury("northmarch", 150.0);
         service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.IRON_BLOCK, 4);
         service.adjustTerritoryWealthBlock("northmarch", WealthBlockType.BEACON, 1);
+        UUID villagerId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        service.creditVillagerWalletDirect("northmarch", villagerId, 25.0);
 
         RealmWealthRates rates = RealmWealthRates.defaults();
         assertEquals(200.0, service.getMaterialReserveValue("northmarch", rates), 1e-9);
         assertEquals(500.0, service.getEstateValue("northmarch", rates), 1e-9);
-        assertEquals(850.0, service.getRealmWealth("northmarch", rates), 1e-9);
+        assertEquals(875.0, service.getRealmWealth("northmarch", rates), 1e-9);
     }
 
     @Test
@@ -321,7 +323,7 @@ class EconomyServiceTest {
     void replaceStateRestoresPersistedBalances() {
         KingdomEconomy economy = new KingdomEconomy();
         economy.setTreasuryBalance(250.0);
-        service.replaceState(Map.of(alice, 42.0), Map.of("northmarch", economy));
+        service.replaceState(Map.of(alice, 42.0), Map.of(), Map.of("northmarch", economy));
 
         assertEquals(42.0, service.getWalletBalance(alice));
         assertEquals(250.0, service.getTreasuryBalance("northmarch"));

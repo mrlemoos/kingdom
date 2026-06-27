@@ -24,7 +24,18 @@ public final class RealmWealthCalculator {
         return total;
     }
 
+    public static double realmWealth(
+            double treasuryBalance,
+            TerritoryWealthCounts counts,
+            double activeVillagerWalletBalance,
+            RealmWealthRates rates) {
+        return treasuryBalance
+                + materialReserveValue(counts, rates)
+                + estateValue(counts, rates)
+                + activeVillagerWalletBalance;
+    }
+
     public static double realmWealth(double treasuryBalance, TerritoryWealthCounts counts, RealmWealthRates rates) {
-        return treasuryBalance + materialReserveValue(counts, rates) + estateValue(counts, rates);
+        return realmWealth(treasuryBalance, counts, 0.0, rates);
     }
 }

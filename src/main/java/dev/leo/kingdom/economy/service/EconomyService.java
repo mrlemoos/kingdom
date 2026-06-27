@@ -2,6 +2,8 @@ package dev.leo.kingdom.economy.service;
 
 import dev.leo.kingdom.economy.TaxCalculator;
 import dev.leo.kingdom.economy.model.CreditResult;
+import dev.leo.kingdom.economy.model.VillagerWalletState;
+import dev.leo.kingdom.economy.villager.VillagerIncomeTaxCalculator;
 import dev.leo.kingdom.economy.model.FiscalProposal;
 import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.IncomeLocation;
@@ -14,12 +16,14 @@ import dev.leo.kingdom.economy.wealth.WealthBlockType;
 import dev.leo.kingdom.model.NobleRank;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class EconomyService {
 
     private final double startingTreasury;
     private final Map<UUID, Double> wallets = new HashMap<>();
+    private final Map<String, Map<UUID, VillagerWalletState>> villagerWallets = new HashMap<>();
     private final Map<String, KingdomEconomy> kingdomEconomies = new HashMap<>();
 
     public EconomyService() {
@@ -78,6 +82,132 @@ public class EconomyService {
         economyFor(kingdomId).recordGdpRevenue(amount);
     }
 
+    public void recordVillagerGdpCredited(String kingdomId, double grossAmount) {
+        if (grossAmount <= 0) {
+            return;
+        }
+        economyFor(kingdomId).recordGdpRevenue(grossAmount);
+    }
+
+    public double getVillagerWalletBalance(String kingdomId, UUID villagerId) {
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId);
+        return wallet != null ? wallet.balance() : 0.0;
+    }
+
+    public boolean isVillagerWalletFrozen(String kingdomId, UUID villagerId) {
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId);
+        return wallet != null && wallet.isFrozen();
+    }
+
+    public double getTotalActiveVillagerWalletBalance(String kingdomId) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null) {
+            return 0.0;
+        }
+        double total = 0.0;
+        for (VillagerWalletState wallet : kingdomWallets.values()) {
+            if (!wallet.isFrozen()) {
+                total += wallet.balance();
+            }
+        }
+        return total;
+    }
+
+    public void creditVillagerGdp(String kingdomId, UUID villagerId, double gross) {
+        if (gross <= 0) {
+            return;
+        }
+        double baseRate = economyFor(kingdomId).activeRates().baseRate();
+        CreditResult result = VillagerIncomeTaxCalculator.calculateCredit(gross, baseRate);
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId, true);
+        wallet.setBalance(wallet.balance() + result.net());
+        wallet.markActive();
+        if (result.tax() > 0) {
+            creditTreasury(kingdomId, result.tax());
+            economyFor(kingdomId).recordTaxRevenue(result.tax());
+        }
+        recordVillagerGdpCredited(kingdomId, gross);
+    }
+
+    public void creditVillagerWalletDirect(String kingdomId, UUID villagerId, double amount) {
+        if (amount <= 0) {
+            return;
+        }
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId, true);
+        wallet.setBalance(wallet.balance() + amount);
+        wallet.markActive();
+    }
+
+    public boolean settleVillagerTrade(
+            String kingdomId, UUID buyerId, UUID sellerId, double payment, double commerceTaxRate) {
+        if (payment <= 0) {
+            return false;
+        }
+        VillagerWalletState buyer = villagerWalletFor(kingdomId, buyerId);
+        if (buyer == null || buyer.isFrozen() || buyer.balance() < payment) {
+            return false;
+        }
+        double tax = payment * Math.clamp(commerceTaxRate, 0.0, 1.0);
+        double sellerReceives = payment - tax;
+        buyer.setBalance(buyer.balance() - payment);
+        VillagerWalletState seller = villagerWalletFor(kingdomId, sellerId, true);
+        seller.setBalance(seller.balance() + sellerReceives);
+        if (tax > 0) {
+            creditTreasury(kingdomId, tax);
+            economyFor(kingdomId).recordTaxRevenue(tax);
+        }
+        return true;
+    }
+
+    public void syncVillagerWalletActivity(String kingdomId, Set<UUID> activeVillagerIds, long epochDay) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null) {
+            return;
+        }
+        for (Map.Entry<UUID, VillagerWalletState> entry : kingdomWallets.entrySet()) {
+            if (activeVillagerIds.contains(entry.getKey())) {
+                entry.getValue().markActive();
+            } else if (entry.getValue().balance() > 0.0) {
+                entry.getValue().markFrozen(epochDay);
+            }
+        }
+    }
+
+    public double escheatFrozenWallets(String kingdomId, long currentEpochDay, int escheatMcDays) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null || escheatMcDays <= 0) {
+            return 0.0;
+        }
+        double escheated = 0.0;
+        var iterator = kingdomWallets.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, VillagerWalletState> entry = iterator.next();
+            VillagerWalletState wallet = entry.getValue();
+            if (!wallet.isFrozen()) {
+                continue;
+            }
+            long frozenSince = wallet.frozenSinceEpochDay().orElse(currentEpochDay);
+            if (currentEpochDay - frozenSince < escheatMcDays) {
+                continue;
+            }
+            double balance = wallet.balance();
+            if (balance > 0) {
+                creditTreasury(kingdomId, balance);
+                escheated += balance;
+            }
+            iterator.remove();
+        }
+        return escheated;
+    }
+
+    public void setLastDayTradesSettled(String kingdomId, int count) {
+        economyFor(kingdomId).setLastDayTradesSettled(count);
+    }
+
+    public int getLastDayTradesSettled(String kingdomId) {
+        return economyFor(kingdomId).lastDayTradesSettled();
+    }
+
     public void setLastDailyGdp(String kingdomId, double amount) {
         economyFor(kingdomId).setLastDailyGdp(amount);
     }
@@ -122,7 +252,11 @@ public class EconomyService {
 
     public double getRealmWealth(String kingdomId, RealmWealthRates rates) {
         KingdomEconomy economy = economyFor(kingdomId);
-        return RealmWealthCalculator.realmWealth(economy.treasuryBalance(), economy.territoryWealthCounts(), rates);
+        return RealmWealthCalculator.realmWealth(
+                economy.treasuryBalance(),
+                economy.territoryWealthCounts(),
+                getTotalActiveVillagerWalletBalance(kingdomId),
+                rates);
     }
 
     public void creditWalletDirect(UUID playerId, double amount) {
@@ -325,15 +459,30 @@ public class EconomyService {
         return EconomyResult.ok("Credited " + formatCorona(amount) + " Corona to kingdom treasury.");
     }
 
-    public void replaceState(Map<UUID, Double> newWallets, Map<String, KingdomEconomy> newKingdomEconomies) {
+    public void replaceState(
+            Map<UUID, Double> newWallets,
+            Map<String, Map<UUID, VillagerWalletState>> newVillagerWallets,
+            Map<String, KingdomEconomy> newKingdomEconomies) {
         wallets.clear();
         wallets.putAll(newWallets);
+        villagerWallets.clear();
+        for (Map.Entry<String, Map<UUID, VillagerWalletState>> entry : newVillagerWallets.entrySet()) {
+            villagerWallets.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
         kingdomEconomies.clear();
         kingdomEconomies.putAll(newKingdomEconomies);
     }
 
     public Map<UUID, Double> wallets() {
         return Map.copyOf(wallets);
+    }
+
+    public Map<String, Map<UUID, VillagerWalletState>> villagerWallets() {
+        Map<String, Map<UUID, VillagerWalletState>> copy = new HashMap<>();
+        for (Map.Entry<String, Map<UUID, VillagerWalletState>> entry : villagerWallets.entrySet()) {
+            copy.put(entry.getKey(), Map.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(copy);
     }
 
     public Map<String, KingdomEconomy> kingdomEconomies() {
@@ -348,6 +497,23 @@ public class EconomyService {
             }
             return economy;
         });
+    }
+
+    private VillagerWalletState villagerWalletFor(String kingdomId, UUID villagerId) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null) {
+            return null;
+        }
+        return kingdomWallets.get(villagerId);
+    }
+
+    private VillagerWalletState villagerWalletFor(String kingdomId, UUID villagerId, boolean create) {
+        if (!create) {
+            return villagerWalletFor(kingdomId, villagerId);
+        }
+        return villagerWallets
+                .computeIfAbsent(kingdomId, ignored -> new HashMap<>())
+                .computeIfAbsent(villagerId, ignored -> new VillagerWalletState());
     }
 
     private static String formatCorona(double amount) {

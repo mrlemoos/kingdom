@@ -2,15 +2,20 @@ package dev.leo.kingdom.task;
 
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
-import dev.leo.kingdom.economy.income.VillagerContribution;
-import dev.leo.kingdom.economy.income.VillagerGdpCalculator;
+import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.villager.VillagerEconomicParticipant;
+import dev.leo.kingdom.economy.villager.VillagerEconomicParticipants;
+import dev.leo.kingdom.economy.villager.VillagerEconomyConfig;
+import dev.leo.kingdom.economy.villager.VillagerEconomyProcessor;
 import dev.leo.kingdom.model.Kingdom;
+import dev.leo.kingdom.model.election.MpSeat;
 import dev.leo.kingdom.service.KingdomService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.worldguard.WorldGuardBridge;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -26,16 +31,34 @@ public final class VillagerGdpTask implements Runnable {
     private final EconomyCoordinator coordinator;
     private final KingdomService kingdomService;
     private final YamlEconomyStore economyStore;
+    private final VillagerEconomyConfig villagerEconomyConfig;
+    private final VillagerEconomyProcessor processor;
+    private final Random random;
 
     public VillagerGdpTask(
             JavaPlugin plugin,
             EconomyCoordinator coordinator,
             KingdomService kingdomService,
-            YamlEconomyStore economyStore) {
+            YamlEconomyStore economyStore,
+            VillagerEconomyConfig villagerEconomyConfig) {
+        this(plugin, coordinator, kingdomService, economyStore, villagerEconomyConfig, new VillagerEconomyProcessor(), new Random());
+    }
+
+    VillagerGdpTask(
+            JavaPlugin plugin,
+            EconomyCoordinator coordinator,
+            KingdomService kingdomService,
+            YamlEconomyStore economyStore,
+            VillagerEconomyConfig villagerEconomyConfig,
+            VillagerEconomyProcessor processor,
+            Random random) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.economyStore = Objects.requireNonNull(economyStore, "economyStore");
+        this.villagerEconomyConfig = villagerEconomyConfig != null ? villagerEconomyConfig : VillagerEconomyConfig.defaults();
+        this.processor = Objects.requireNonNull(processor, "processor");
+        this.random = Objects.requireNonNull(random, "random");
     }
 
     public void schedule(long intervalTicks) {
@@ -46,6 +69,7 @@ public final class VillagerGdpTask implements Runnable {
     @Override
     public void run() {
         EconomyConfig config = coordinator.config();
+        EconomyService economyService = coordinator.economyService();
         boolean dirty = false;
 
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
@@ -60,36 +84,44 @@ public final class VillagerGdpTask implements Runnable {
                 continue;
             }
 
-            List<VillagerContribution> contributions = collectProductiveVillagers(world, kingdom, regionId);
-            double gdp = VillagerGdpCalculator.calculateDailyGdp(contributions, config);
-            coordinator.setLastDailyGdp(kingdom.getId(), gdp);
+            List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionId, config);
+            List<MpSeat> seatedVillagerMps = kingdom.getElectionState().seatsView().values().stream().toList();
+            List<VillagerEconomicParticipant> participants =
+                    VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
+
+            long epochDay = world.getFullTime() / 24000L;
+            processor.processKingdomDay(
+                    kingdom.getId(),
+                    participants,
+                    economyService,
+                    config,
+                    villagerEconomyConfig,
+                    epochDay,
+                    random);
             dirty = true;
-            if (gdp > 0.0) {
-                coordinator.creditTreasuryFromGdp(kingdom.getId(), gdp);
-            }
         }
 
         if (dirty) {
-            economyStore.saveFrom(coordinator.economyService());
+            economyStore.saveFrom(economyService);
         }
     }
 
-    private List<VillagerContribution> collectProductiveVillagers(World world, Kingdom kingdom, String regionId) {
-        List<VillagerContribution> contributions = new ArrayList<>();
+    private List<VillagerEconomicParticipant> collectProductiveParticipants(
+            World world, Kingdom kingdom, String regionId, EconomyConfig config) {
+        List<VillagerEconomicParticipant> participants = new ArrayList<>();
         String worldName = world.getName();
-        EconomyConfig config = coordinator.config();
+        int position = 0;
 
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
             if (!isProductiveVillager(villager, worldName, regionId)) {
                 continue;
             }
-
             String profession = professionName(villager);
-            int tierIndex = EconomyConfig.tierIndexForVillagerPosition(contributions.size(), config.villagerSoftCapTiers());
-            contributions.add(new VillagerContribution(profession, tierIndex));
+            int tierIndex = EconomyConfig.tierIndexForVillagerPosition(position++, config.villagerSoftCapTiers());
+            participants.add(new VillagerEconomicParticipant(villager.getUniqueId(), profession, tierIndex));
         }
 
-        return contributions;
+        return participants;
     }
 
     private boolean isProductiveVillager(Villager villager, String worldName, String regionId) {

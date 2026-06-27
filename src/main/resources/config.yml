@@ -14,6 +14,25 @@ economy:
   max-mints-per-kingdom: 3
   villager-gdp:
     tick-interval-ticks: 24000
+  frozen-wallet-escheat-mc-days: 30
+  villager-commerce-tax-rate: 0.05
+  villager-trades:
+    edges:
+      - buyer: farmer
+        seller: butcher
+        spend-percent: 0.15
+      - buyer: fisherman
+        seller: farmer
+        spend-percent: 0.10
+      - buyer: librarian
+        seller: cartographer
+        spend-percent: 0.20
+      - buyer: armorer
+        seller: weaponsmith
+        spend-percent: 0.12
+      - buyer: shepherd
+        seller: leatherworker
+        spend-percent: 0.10
   realm-wealth:
     materials:
       gold-block: 100

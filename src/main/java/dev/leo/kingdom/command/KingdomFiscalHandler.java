@@ -349,7 +349,7 @@ public final class KingdomFiscalHandler {
                 mints);
         Map<String, KingdomEconomy> kingdomEconomies = new HashMap<>(economyService.kingdomEconomies());
         kingdomEconomies.put(kingdomId, updated);
-        economyService.replaceState(economyService.wallets(), kingdomEconomies);
+        economyService.replaceState(economyService.wallets(), economyService.villagerWallets(), kingdomEconomies);
         economyStore.saveFrom(economyService);
 
         sender.sendMessage(success("Removed mint at " + nearest.x() + ", " + nearest.y() + ", " + nearest.z() + "."));

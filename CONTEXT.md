@@ -17,7 +17,7 @@ A kingdom's collective wealth pool. Fed by tax; spent on realm-level purposes.
 _Avoid_: Bank, vault, national account
 
 **Realm wealth**:
-A kingdom's total economic standing: treasury Corona plus the valued worth of material reserves and estates in linked territory. Informational and for comparison; does not change what the treasury can spend.
+A kingdom's total economic standing: treasury Corona plus the valued worth of material reserves and estates in linked territory, plus the sum of active productive villager wallet balances. Frozen villager wallets are excluded. Informational and for comparison; does not change what the treasury can spend.
 _Avoid_: Net worth, GDP, total assets
 
 **Material reserves**:
@@ -49,12 +49,40 @@ The authoritative record of Corona balances. Supports fractional amounts; physic
 _Avoid_: Database, account, balance sheet
 
 **Villager GDP**:
-Passive Corona income a kingdom treasury earns each in-game day from productive villagers. A villager counts when its bed and workstation lie inside the kingdom's territory; income scales by profession and soft-caps at higher populations.
+Daily Corona income credited to each economically active villager's wallet each in-game day. Scales by profession at configured rates and soft-caps at higher kingdom populations. Credits the villager wallet, not the kingdom treasury.
 _Avoid_: Villager tax, population income, NPC revenue
 
 **Productive villager**:
-A villager whose bed and workstation are both inside a kingdom's territory. Only productive villagers contribute to villager GDP.
+A villager whose bed and workstation are both inside a kingdom's territory. Only productive villagers receive a villager wallet and villager GDP.
 _Avoid_: Working villager, employed villager, citizen
+
+**Villager wallet**:
+A productive villager's personal Corona balance on the ledger, keyed by the villager entity's UUID. Only productive villagers receive a wallet. Villagers may earn, hold, and spend Corona without player involvement, including villager-to-villager transfers within the same kingdom.
+_Avoid_: NPC account, villager balance, mob wallet
+
+**Frozen villager wallet**:
+A villager wallet whose balance persists on the ledger but receives no villager GDP and participates in no villager trades while the villager is not productive. Economic activity resumes when the same villager UUID becomes productive again.
+_Avoid_: Dormant wallet, inactive account, suspended balance
+
+**Villager wallet escheatment**:
+After a configured number of in-game days with a frozen villager wallet, the wallet balance transfers to the kingdom treasury and the wallet is cleared.
+_Avoid_: Forfeiture, unclaimed funds, treasury claim
+
+**Seated MP economic participation**:
+Seated profession villager MPs act as kingdom-wide proxies for their profession in the villager economy. They receive villager GDP and participate in villager trades even while seated in the Commons and not territory-productive.
+_Avoid_: MP income, parliament wage, seated villager GDP
+
+**Villager trade**:
+A configured profession trade graph that drives daily Corona payments between villager wallets. Each in-game day the realm selects a random buyer and seller per trade edge where the seller's profession exists in the kingdom; the buyer pays a configured percentage of their profession's daily GDP income. All matching edges run each day; a trade is skipped if the buyer cannot pay. In v1, villager trade is separate from the player economy.
+_Avoid_: NPC transaction, villager commerce, profession barter
+
+**Villager income tax**:
+The kingdom base tax rate applied when villager GDP is credited to a villager wallet. Routed to the kingdom treasury. Noble rank discounts do not apply to villager income.
+_Avoid_: Villager levy, GDP tax, profession tithe
+
+**Villager commerce tax**:
+A fixed configured percentage of each villager trade payment routed to the kingdom treasury. Applied at payment time on the trade amount.
+_Avoid_: Trade duty, transaction levy, sales tax
 
 **Economic activity**:
 Player actions that earn value-weighted Corona into a personal wallet: harvesting crops, crafting items, trading with villagers, and player-to-player commerce. Each category has cooldowns and diminishing returns to discourage farming loops.

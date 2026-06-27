@@ -15,6 +15,7 @@ import dev.leo.kingdom.election.VillagerPremierInauguralService;
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
 import dev.leo.kingdom.economy.service.EconomyService;
+import dev.leo.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.leo.kingdom.economy.wealth.RealmWealthRates;
 import dev.leo.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.leo.kingdom.listener.ChatPrefixListener;
@@ -169,7 +170,9 @@ public final class KingdomPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
 
         long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks", VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
-        VillagerGdpTask gdpTask = new VillagerGdpTask(this, economyCoordinator, kingdomService, economyStore);
+        VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.fromPluginConfig(getConfig());
+        VillagerGdpTask gdpTask = new VillagerGdpTask(
+                this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
         gdpTask.schedule(gdpInterval);
 
         TerritoryWealthReconcileTask wealthReconcileTask =
