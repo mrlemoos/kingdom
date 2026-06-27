@@ -5,6 +5,7 @@ import dev.leo.kingdom.election.ElectionResult;
 import dev.leo.kingdom.election.ElectionService;
 import dev.leo.kingdom.election.ProductiveVillagerScanner;
 import dev.leo.kingdom.election.VillagerMpEntityService;
+import dev.leo.kingdom.election.VillagerPremierInauguralService;
 import dev.leo.kingdom.model.Kingdom;
 import dev.leo.kingdom.model.NobleRank;
 import dev.leo.kingdom.model.PlayerMembership;
@@ -15,6 +16,7 @@ import dev.leo.kingdom.storage.YamlKingdomStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +35,7 @@ public final class ElectionHandler {
     private final ProductiveVillagerScanner villagerScanner;
     private final VillagerMpEntityService villagerMpEntityService;
     private final NoblePrefixDisplay nobleDisplay;
+    private final VillagerPremierInauguralService villagerPremierInauguralService;
 
     public ElectionHandler(
             ElectionService electionService,
@@ -40,13 +43,15 @@ public final class ElectionHandler {
             YamlKingdomStore store,
             ProductiveVillagerScanner villagerScanner,
             VillagerMpEntityService villagerMpEntityService,
-            NoblePrefixDisplay nobleDisplay) {
+            NoblePrefixDisplay nobleDisplay,
+            VillagerPremierInauguralService villagerPremierInauguralService) {
         this.electionService = electionService;
         this.kingdomService = kingdomService;
         this.store = store;
         this.villagerScanner = villagerScanner;
         this.villagerMpEntityService = villagerMpEntityService;
         this.nobleDisplay = nobleDisplay;
+        this.villagerPremierInauguralService = villagerPremierInauguralService;
     }
 
     public boolean handle(CommandSender sender, String[] args) {
@@ -65,6 +70,11 @@ public final class ElectionHandler {
                 yield true;
             }
         };
+    }
+
+    public ElectionResult openGeneralElection(String kingdomId) {
+        villagerMpEntityService.releaseKingdomVillagerMps(kingdomId);
+        return electionService.startGeneralElection(kingdomId);
     }
 
     public void closeDueElections() {
@@ -117,10 +127,10 @@ public final class ElectionHandler {
             return true;
         }
 
-        ElectionResult result = electionService.startGeneralElection(membership.get().getKingdomId());
+        String kingdomId = membership.get().getKingdomId();
+        ElectionResult result = openGeneralElection(kingdomId);
         sender.sendMessage(format(result));
         if (result instanceof ElectionResult.Success) {
-            villagerMpEntityService.despawnKingdomVillagerMps(membership.get().getKingdomId());
             store.saveFrom(kingdomService);
         }
         return true;
@@ -224,7 +234,16 @@ public final class ElectionHandler {
     private void finishElection(String kingdomId) {
         Kingdom kingdom = kingdomService.getKingdom(kingdomId).orElseThrow();
         var election = kingdom.getElectionState().election();
-        boolean general = election.type().orElse(null) == ElectionType.GENERAL;
+        ElectionType electionType = election.type().orElse(null);
+        boolean general = electionType == ElectionType.GENERAL;
+        boolean premier = electionType == ElectionType.PREMIER;
+        boolean villagerByElection = electionType == ElectionType.BY_ELECTION_VILLAGER;
+        if (general) {
+            villagerMpEntityService.releaseKingdomVillagerMps(kingdomId);
+        } else if (villagerByElection) {
+            election.byElectionSeatIndex()
+                    .ifPresent(seatIndex -> villagerMpEntityService.releaseSeat(kingdomId, seatIndex));
+        }
         var outcome = electionService.tryCloseElection(kingdomId, villagerScanner.professionCounts(kingdom));
         if (outcome.needsSpeakerTieVote()) {
             store.saveFrom(kingdomService);
@@ -236,6 +255,46 @@ public final class ElectionHandler {
                 if (world != null) {
                     kingdom.getElectionState().setLastGeneralElectionMcDay(world.getFullTime() / 24000L);
                 }
+                villagerMpEntityService.syncKingdom(kingdomId);
+                store.saveFrom(kingdomService);
+                refreshMpDisplays(kingdomId);
+                Bukkit.broadcastMessage(ChatColor.GOLD + "The general election in "
+                        + kingdom.getDisplayName() + " has closed.");
+                ElectionResult premierStart = electionService.startPremierElection(kingdomId);
+                if (premierStart instanceof ElectionResult.Success) {
+                    store.saveFrom(kingdomService);
+                    Bukkit.broadcastMessage(ChatColor.GOLD + "Premier election open in "
+                            + kingdom.getDisplayName() + ". Seated MPs may nominate and vote.");
+                } else {
+                    Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
+                    ElectionResult appointed = villagerPremierInauguralService.appointAfterGeneralElection(
+                            kingdomId, professionCounts);
+                    if (appointed instanceof ElectionResult.Success) {
+                        store.saveFrom(kingdomService);
+                        villagerMpEntityService.syncKingdom(kingdomId);
+                        Bukkit.broadcastMessage(ChatColor.GOLD + appointed.message());
+                        Bukkit.broadcastMessage(ChatColor.GOLD + "The inaugural fiscal package has been tabled in "
+                                + kingdom.getDisplayName() + ".");
+                    } else {
+                        Bukkit.broadcastMessage(ChatColor.YELLOW + "No player MPs were elected in "
+                                + kingdom.getDisplayName()
+                                + ", and no Premier villager could be appointed.");
+                    }
+                }
+                return;
+            }
+            if (premier) {
+                store.saveFrom(kingdomService);
+                refreshMpDisplays(kingdomId);
+                if (outcome.premierWinner() != null) {
+                    Player online = Bukkit.getPlayer(outcome.premierWinner());
+                    if (online != null) {
+                        nobleDisplay.refresh(online);
+                    }
+                }
+                Bukkit.broadcastMessage(ChatColor.GOLD + "A Premier has been elected in "
+                        + kingdom.getDisplayName() + ".");
+                return;
             }
             villagerMpEntityService.syncKingdom(kingdomId);
             store.saveFrom(kingdomService);
@@ -248,7 +307,7 @@ public final class ElectionHandler {
     private void vacateSeat(String kingdomId, int seatIndex) {
         kingdomService.getKingdom(kingdomId).flatMap(k -> k.getElectionState().seat(seatIndex)).ifPresent(seat -> {
             if (seat.kind() == dev.leo.kingdom.model.election.MpSeatKind.VILLAGER) {
-                villagerMpEntityService.despawnSeat(kingdomId, seatIndex);
+                villagerMpEntityService.releaseSeat(kingdomId, seatIndex);
             }
             seat.clear();
         });
@@ -260,9 +319,7 @@ public final class ElectionHandler {
                     .flatMap(kingdomService::getMembership)
                     .map(m -> m.getRank() != NobleRank.MP || !kingdom.getId().equals(m.getKingdomId()))
                     .orElse(true);
-            case VILLAGER -> seat.entityId()
-                    .map(id -> Bukkit.getServer().getEntity(id) == null)
-                    .orElse(true);
+            case VILLAGER -> villagerMpEntityService.isVillagerSeatVacant(kingdom, seat);
             case null -> false;
         };
     }

@@ -11,6 +11,7 @@ import dev.leo.kingdom.election.ElectionService;
 import dev.leo.kingdom.election.ProductiveVillagerScanner;
 import dev.leo.kingdom.election.ProfessionVoteBias;
 import dev.leo.kingdom.election.VillagerMpEntityService;
+import dev.leo.kingdom.election.VillagerPremierInauguralService;
 import dev.leo.kingdom.economy.EconomyCoordinator;
 import dev.leo.kingdom.economy.income.EconomyConfig;
 import dev.leo.kingdom.economy.service.EconomyService;
@@ -27,6 +28,7 @@ import dev.leo.kingdom.listener.TreasuryBriefingListener;
 import dev.leo.kingdom.listener.TerritoryWealthListener;
 import dev.leo.kingdom.listener.NobleDisplayListener;
 import dev.leo.kingdom.listener.TreasuryLordListener;
+import dev.leo.kingdom.listener.VillagerProfessionNametagListener;
 import dev.leo.kingdom.mint.TreasuryLordService;
 import dev.leo.kingdom.service.KingdomService;
 import dev.leo.kingdom.command.ParliamentHandler;
@@ -37,6 +39,7 @@ import dev.leo.kingdom.storage.YamlKingdomStore;
 import dev.leo.kingdom.task.ElectionTask;
 import dev.leo.kingdom.task.TerritoryWealthReconcileTask;
 import dev.leo.kingdom.task.VillagerGdpTask;
+import dev.leo.kingdom.worldguard.WorldGuardBridge;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class KingdomPlugin extends JavaPlugin {
@@ -68,21 +71,27 @@ public final class KingdomPlugin extends JavaPlugin {
                 economyService, kingdomService, territoryResolver, economyConfig);
         economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
 
+        WorldGuardBridge.warmUp();
+
         TreasuryLordService treasuryLordService = new TreasuryLordService(this, economyService, economyStore);
         ElectionConfig electionConfig = ElectionConfig.fromPluginConfig(getConfig());
         ProfessionVoteBias professionVoteBias = ProfessionVoteBias.fromPluginConfig(getConfig());
         ElectionService electionService = new ElectionService(kingdomService, electionConfig);
         ProductiveVillagerScanner villagerScanner = new ProductiveVillagerScanner(kingdomService);
-        VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(this, kingdomService);
+        VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(
+                this, kingdomService, villagerScanner, territoryResolver);
         ParliamentService parliamentService = new ParliamentService(kingdomService);
         parliamentService.setProfessionVoteBias(professionVoteBias);
+        VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
+                kingdomService, economyService, electionService, parliamentService, professionVoteBias);
         ElectionHandler electionHandler = new ElectionHandler(
                 electionService,
                 kingdomService,
                 store,
                 villagerScanner,
                 villagerMpEntityService,
-                nobleDisplay);
+                nobleDisplay,
+                villagerPremierInauguralService);
         KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService, this);
         ParliamentHandler parliamentHandler = new ParliamentHandler(
@@ -93,7 +102,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 economyStore,
                 territoryResolver,
                 treasuryLordService,
-                this);
+                this,
+                villagerPremierInauguralService);
         ParliamentGuiListener parliamentGuiListener = new ParliamentGuiListener(parliamentHandler);
         parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
 
@@ -153,6 +163,8 @@ public final class KingdomPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new MintPrepareListener(parliamentHandler, parliamentGuiListener),
                 this);
+        getServer().getPluginManager().registerEvents(
+                new VillagerProfessionNametagListener(villagerMpEntityService), this);
 
         getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
 
@@ -168,7 +180,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 this, electionService, electionHandler, kingdomService, store, electionConfig);
         electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
-        getServer().getScheduler().runTaskLater(this, () -> villagerMpEntityService.syncAllKingdoms(), 40L);
+        getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
 
         nobleDisplay.refreshAllOnline();
 
