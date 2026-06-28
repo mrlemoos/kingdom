@@ -26,7 +26,7 @@ public final class ProfessionConstituencyResolver {
         if (limit <= 0) {
             return List.of();
         }
-        List<String> ranked = topProfessions(professionCounts, limit);
+        List<String> ranked = topProfessionsExcluding(professionCounts, limit, List.of(CITIZEN_PROFESSION));
         List<String> result = new ArrayList<>(ranked);
         while (result.size() < limit) {
             result.add(CITIZEN_PROFESSION);

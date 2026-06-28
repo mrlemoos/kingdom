@@ -64,6 +64,15 @@ class ProfessionConstituencyResolverTest {
     }
 
     @Test
+    void citizenBackfillDoesNotRankNoneAheadOfProfessionMps() {
+        Map<String, Integer> counts = Map.of("none", 100, "farmer", 10, "librarian", 8);
+
+        assertEquals(
+                List.of("farmer", "librarian", "none", "none", "none", "none", "none", "none"),
+                ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(counts, 8));
+    }
+
+    @Test
     void villagerProfessionNametagUsesCommonerForNoProfession() {
         assertEquals("Commoner", ProfessionConstituencyResolver.villagerProfessionNametag("none"));
         assertEquals(

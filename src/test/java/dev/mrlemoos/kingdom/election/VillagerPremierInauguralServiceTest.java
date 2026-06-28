@@ -10,10 +10,13 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class VillagerPremierInauguralServiceTest {
+
+    private static final UUID CITIZEN_ONE = UUID.fromString("00000000-0000-0000-0000-000000000010");
 
     private KingdomService kingdomService;
     private ElectionService electionService;
@@ -35,6 +38,21 @@ class VillagerPremierInauguralServiceTest {
                 ProfessionVoteBias.defaults(),
                 ElectionConfig.defaults());
         kingdomService.createKingdom("northmarch", "Northmarch");
+        kingdomService.joinKingdom(CITIZEN_ONE, "northmarch");
+    }
+
+    @Test
+    void resolveAfterGeneralElectionOpensPlayerPremierElectionWhenPlayerMpsSeated() {
+        kingdomService.joinKingdom(CITIZEN_ONE, "northmarch");
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        ElectionResult resolved = inauguralService.resolveAfterGeneralElection("northmarch", Map.of("farmer", 5));
+
+        assertInstanceOf(ElectionResult.Success.class, resolved);
+        assertTrue(resolved.message().startsWith("Premier election open"));
     }
 
     @Test

@@ -34,6 +34,6 @@ public final class VillagerPremierSelector {
             }
         }
 
-        return winningSeatIndex > 0 ? OptionalInt.of(winningSeatIndex) : OptionalInt.empty();
+        return winningSeatIndex >= 1 ? OptionalInt.of(winningSeatIndex) : OptionalInt.empty();
     }
 }

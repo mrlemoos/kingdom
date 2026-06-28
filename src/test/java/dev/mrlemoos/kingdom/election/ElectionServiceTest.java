@@ -207,6 +207,44 @@ class ElectionServiceTest {
     }
 
     @Test
+    void generalElectionCloseClearsPremierVillagerBeforeReseating() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 10, "librarian", 8));
+        electionService.appointVillagerPremier("northmarch", Map.of("farmer", 10, "librarian", 8));
+        assertEquals(1, kingdomService.getKingdom("northmarch").orElseThrow().getElectionState()
+                .premierVillagerSeatIndex().orElseThrow());
+
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        Map<String, Integer> professions = Map.of("librarian", 12, "farmer", 10);
+        electionService.tryCloseElection("northmarch", professions);
+
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        assertTrue(electionState.premierVillagerSeatIndex().isEmpty());
+
+        ElectionResult appointed = electionService.resolvePremierAfterGeneralClose("northmarch", professions);
+        assertInstanceOf(ElectionResult.Success.class, appointed);
+        assertEquals(1, electionState.premierVillagerSeatIndex().orElseThrow());
+        assertEquals("librarian", electionState.seat(1).orElseThrow().profession().orElseThrow());
+    }
+
+    @Test
+    void villagerPremierUsesProfessionSeatWhenNoneDominatesScan() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+        Map<String, Integer> professions = Map.of("none", 100, "farmer", 10, "librarian", 8);
+        electionService.tryCloseElection("northmarch", professions);
+
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        assertEquals("farmer", electionState.seat(1).orElseThrow().profession().orElseThrow());
+
+        ElectionResult appointed = electionService.resolvePremierAfterGeneralClose("northmarch", professions);
+        assertInstanceOf(ElectionResult.Success.class, appointed);
+        assertEquals(1, electionState.premierVillagerSeatIndex().orElseThrow());
+    }
+
+    @Test
     void noPlayerMpsAppointsVillagerPremier() {
         assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
         now += ElectionConfig.defaults().durationMs() + 1;

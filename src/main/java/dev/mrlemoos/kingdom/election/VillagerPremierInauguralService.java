@@ -49,6 +49,30 @@ public final class VillagerPremierInauguralService {
                 + " in-game days.");
     }
 
+    public ElectionResult resolveAfterGeneralElection(String kingdomId, Map<String, Integer> professionCounts) {
+        ElectionResult premierStart = electionService.startPremierElection(kingdomId);
+        if (premierStart instanceof ElectionResult.Success) {
+            return premierStart;
+        }
+        if (electionService.hasSeatedPlayerMps(
+                kingdomService.getKingdom(kingdomId).orElseThrow().getElectionState())) {
+            return premierStart;
+        }
+        return appointAfterGeneralElection(kingdomId, professionCounts);
+    }
+
+    public ElectionResult resolveAfterFailedPremierElection(String kingdomId, Map<String, Integer> professionCounts) {
+        ElectionResult appointed = electionService.resolvePremierAfterFailedPremierElection(kingdomId, professionCounts);
+        if (!(appointed instanceof ElectionResult.Success success)) {
+            return appointed;
+        }
+        kingdomService.getKingdom(kingdomId).orElseThrow().getElectionState().setPendingInauguralFiscal(true);
+        return ElectionResult.ok(success.message()
+                + " The inaugural fiscal package will be tabled in "
+                + inauguralFiscalDelayMcDays
+                + " in-game days.");
+    }
+
     public Optional<ElectionResult> tryBeginDueInauguralFiscal(String kingdomId, long currentMcDay) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {

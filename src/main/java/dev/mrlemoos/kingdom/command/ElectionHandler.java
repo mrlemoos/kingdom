@@ -238,13 +238,14 @@ public final class ElectionHandler {
         boolean general = electionType == ElectionType.GENERAL;
         boolean premier = electionType == ElectionType.PREMIER;
         boolean villagerByElection = electionType == ElectionType.BY_ELECTION_VILLAGER;
+        Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
         if (general) {
             villagerMpEntityService.releaseKingdomVillagerMps(kingdomId);
         } else if (villagerByElection) {
             election.byElectionSeatIndex()
                     .ifPresent(seatIndex -> villagerMpEntityService.releaseSeat(kingdomId, seatIndex));
         }
-        var outcome = electionService.tryCloseElection(kingdomId, villagerScanner.professionCounts(kingdom));
+        var outcome = electionService.tryCloseElection(kingdomId, professionCounts);
         if (outcome.needsSpeakerTieVote()) {
             store.saveFrom(kingdomService);
             return;
@@ -259,22 +260,19 @@ public final class ElectionHandler {
                 store.saveFrom(kingdomService);
                 refreshMpDisplays(kingdomId);
                 Bukkit.broadcastMessage(c("&6The general election in ")+ kingdom.getDisplayName() + " has closed.");
-                ElectionResult premierStart = electionService.startPremierElection(kingdomId);
-                if (premierStart instanceof ElectionResult.Success) {
+                ElectionResult premierResult =
+                        villagerPremierInauguralService.resolveAfterGeneralElection(kingdomId, professionCounts);
+                if (premierResult instanceof ElectionResult.Success success
+                        && success.message().startsWith("Premier election open")) {
                     store.saveFrom(kingdomService);
                     Bukkit.broadcastMessage(c("&6Premier election open in ")+ kingdom.getDisplayName() + ". Seated MPs may nominate and vote.");
+                } else if (premierResult instanceof ElectionResult.Success success) {
+                    store.saveFrom(kingdomService);
+                    villagerMpEntityService.syncKingdom(kingdomId);
+                    Bukkit.broadcastMessage(c("&6" + success.message()));
                 } else {
-                    Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
-                    ElectionResult appointed = villagerPremierInauguralService.appointAfterGeneralElection(
-                            kingdomId, professionCounts);
-                    if (appointed instanceof ElectionResult.Success) {
-                        store.saveFrom(kingdomService);
-                        villagerMpEntityService.syncKingdom(kingdomId);
-                        Bukkit.broadcastMessage(c("&6" + appointed.message()));
-                    } else {
-                        Bukkit.broadcastMessage(c("&eNo player MPs were elected in ")+ kingdom.getDisplayName()
-                                + ", and no Premier villager could be appointed.");
-                    }
+                    Bukkit.broadcastMessage(c("&eNo player MPs were elected in ")+ kingdom.getDisplayName()
+                            + ", and no Premier villager could be appointed.");
                 }
                 return;
             }
@@ -286,14 +284,27 @@ public final class ElectionHandler {
                     if (online != null) {
                         nobleDisplay.refresh(online);
                     }
+                    Bukkit.broadcastMessage(c("&6A Premier has been elected in ")+ kingdom.getDisplayName() + ".");
                 }
-                Bukkit.broadcastMessage(c("&6A Premier has been elected in ")+ kingdom.getDisplayName() + ".");
                 return;
             }
             villagerMpEntityService.syncKingdom(kingdomId);
             store.saveFrom(kingdomService);
             refreshMpDisplays(kingdomId);
             Bukkit.broadcastMessage(c("&6The election in ")+ kingdom.getDisplayName() + " has closed.");
+            return;
+        }
+        if (premier) {
+            ElectionResult appointed =
+                    villagerPremierInauguralService.resolveAfterFailedPremierElection(kingdomId, professionCounts);
+            if (appointed instanceof ElectionResult.Success success) {
+                store.saveFrom(kingdomService);
+                villagerMpEntityService.syncKingdom(kingdomId);
+                Bukkit.broadcastMessage(c("&6" + success.message()));
+            } else {
+                Bukkit.broadcastMessage(c("&eThe Premier election in ")+ kingdom.getDisplayName()
+                        + " closed without electing a Premier.");
+            }
         }
     }
 

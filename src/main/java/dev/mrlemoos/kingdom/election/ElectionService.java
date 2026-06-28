@@ -238,6 +238,25 @@ public final class ElectionService {
                 + ").");
     }
 
+    public ElectionResult resolvePremierAfterGeneralClose(String kingdomId, Map<String, Integer> professionCounts) {
+        ElectionResult premierStart = startPremierElection(kingdomId);
+        if (premierStart instanceof ElectionResult.Success) {
+            return premierStart;
+        }
+        if (!hasSeatedPlayerMps(kingdomService.getKingdom(kingdomId).orElseThrow().getElectionState())) {
+            return appointVillagerPremier(kingdomId, professionCounts);
+        }
+        return premierStart;
+    }
+
+    public ElectionResult resolvePremierAfterFailedPremierElection(
+            String kingdomId, Map<String, Integer> professionCounts) {
+        if (hasSeatedPlayerMps(kingdomService.getKingdom(kingdomId).orElseThrow().getElectionState())) {
+            return ElectionResult.fail("No Premier candidate received votes.");
+        }
+        return appointVillagerPremier(kingdomId, professionCounts);
+    }
+
     public ElectionResult startPremierElection(String kingdomId) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
@@ -251,6 +270,7 @@ public final class ElectionService {
             return ElectionResult.fail("An election is already in progress.");
         }
         clearPremierTitle(kingdomId);
+        electionState.clearPremierVillager();
         electionState.election().openPremier(clockMs.get() + config.durationMs());
         return ElectionResult.ok("Premier election open. Seated MPs may nominate and vote.");
     }
@@ -310,6 +330,7 @@ public final class ElectionService {
                 ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(professionCounts, villagerSlots);
 
         clearAllMpTitles(kingdom.getId());
+        electionState.clearPremierVillager();
         electionState.clearAllSeats();
 
         assignPlayerSeats(electionState, playerWinners, 1);
