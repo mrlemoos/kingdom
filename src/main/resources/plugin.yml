@@ -18,6 +18,9 @@ commands:
     description: Teleport to players, coordinates, or kingdom checkpoints
     usage: /tp <player|checkpoint|x> <y> <z>
     aliases: [ teleport ]
+  resign:
+    description: Offer your MP or Premier seat for royal approval
+    usage: /resign
 
 permissions:
   kingdom.teleport.checkpoint:

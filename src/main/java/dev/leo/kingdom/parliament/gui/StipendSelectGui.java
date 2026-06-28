@@ -1,5 +1,6 @@
 package dev.leo.kingdom.parliament.gui;
 
+import dev.leo.kingdom.helpers.ItemBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -10,8 +11,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 
 public final class StipendSelectGui implements InventoryHolder {
 
@@ -52,7 +51,7 @@ public final class StipendSelectGui implements InventoryHolder {
         }
         inventory.setItem(
                 SLOT_OTHER,
-                labelledItem(
+                ItemBuilder.labelled(
                         Material.NAME_TAG,
                         ChatColor.AQUA + "Other player",
                         "Type a player name in chat"));
@@ -71,35 +70,15 @@ public final class StipendSelectGui implements InventoryHolder {
     }
 
     private static ItemStack playerHead(UUID uuid, String name) {
-        ItemStack stack = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) stack.getItemMeta();
-        if (meta != null) {
-            meta.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
-            meta.setDisplayName(ChatColor.WHITE + name);
-            meta.setLore(List.of(ChatColor.GRAY + "Table stipend for this member"));
-            stack.setItemMeta(meta);
-        }
-        return stack;
-    }
-
-    private static ItemStack labelledItem(Material material, String name, String lore) {
-        ItemStack stack = new ItemStack(material);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(List.of(ChatColor.GRAY + lore));
-            stack.setItemMeta(meta);
-        }
-        return stack;
+        return new ItemBuilder(Material.PLAYER_HEAD)
+                .skullOwner(uuid)
+                .displayAs(ChatColor.WHITE + name)
+                .lore(ChatColor.GRAY + "Table stipend for this member")
+                .build();
     }
 
     private static void fillBackground(Inventory inventory) {
-        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            filler.setItemMeta(meta);
-        }
+        ItemStack filler = ItemBuilder.fillerPane(Material.GRAY_STAINED_GLASS_PANE);
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);

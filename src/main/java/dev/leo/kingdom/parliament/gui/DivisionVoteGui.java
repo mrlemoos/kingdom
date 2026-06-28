@@ -1,13 +1,12 @@
 package dev.leo.kingdom.parliament.gui;
 
-import java.util.List;
+import dev.leo.kingdom.helpers.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public final class DivisionVoteGui implements InventoryHolder {
 
@@ -45,10 +44,10 @@ public final class DivisionVoteGui implements InventoryHolder {
 
     static void populate(Inventory inventory, String billTitle) {
         inventory.clear();
-        inventory.setItem(SLOT_AYE, voteItem(Material.LIME_CONCRETE, ChatColor.GREEN + "Aye", "Support the bill"));
-        inventory.setItem(SLOT_NAY, voteItem(Material.RED_CONCRETE, ChatColor.RED + "Nay", "Oppose the bill"));
+        inventory.setItem(SLOT_AYE, ItemBuilder.labelled(Material.LIME_CONCRETE, ChatColor.GREEN + "Aye", "Support the bill"));
+        inventory.setItem(SLOT_NAY, ItemBuilder.labelled(Material.RED_CONCRETE, ChatColor.RED + "Nay", "Oppose the bill"));
         inventory.setItem(
-                SLOT_ABSTAIN, voteItem(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Abstain", "Record no vote"));
+                SLOT_ABSTAIN, ItemBuilder.labelled(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Abstain", "Record no vote"));
         inventory.setItem(SLOT_BILL_INFO, billItem(billTitle));
         fillBackground(inventory);
     }
@@ -67,35 +66,15 @@ public final class DivisionVoteGui implements InventoryHolder {
         return inventory;
     }
 
-    private static ItemStack voteItem(Material material, String name, String lore) {
-        ItemStack stack = new ItemStack(material);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(List.of(ChatColor.GRAY + lore));
-            stack.setItemMeta(meta);
-        }
-        return stack;
-    }
-
     private static ItemStack billItem(String billTitle) {
-        ItemStack stack = new ItemStack(Material.WRITTEN_BOOK);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.GOLD + billTitle);
-            meta.setLore(List.of(ChatColor.GRAY + "Bill before the House"));
-            stack.setItemMeta(meta);
-        }
-        return stack;
+        return new ItemBuilder(Material.WRITTEN_BOOK)
+                .displayAs(ChatColor.GOLD + billTitle)
+                .lore(ChatColor.GRAY + "Bill before the House")
+                .build();
     }
 
     private static void fillBackground(Inventory inventory) {
-        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            filler.setItemMeta(meta);
-        }
+        ItemStack filler = ItemBuilder.fillerPane(Material.GRAY_STAINED_GLASS_PANE);
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);

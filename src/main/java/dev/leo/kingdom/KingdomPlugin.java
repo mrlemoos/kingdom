@@ -4,7 +4,7 @@ import dev.leo.kingdom.command.CoronaCommand;
 import dev.leo.kingdom.command.ElectionHandler;
 import dev.leo.kingdom.command.KingdomCommand;
 import dev.leo.kingdom.command.KingdomFiscalHandler;
-import dev.leo.kingdom.command.TpCommand;
+import dev.leo.kingdom.command.ResignCommand;
 import dev.leo.kingdom.display.NoblePrefixDisplay;
 import dev.leo.kingdom.election.ElectionConfig;
 import dev.leo.kingdom.election.ElectionService;
@@ -26,18 +26,25 @@ import dev.leo.kingdom.listener.MintInteractListener;
 import dev.leo.kingdom.listener.MintPrepareListener;
 import dev.leo.kingdom.listener.ParliamentGuiListener;
 import dev.leo.kingdom.listener.TreasuryBriefingListener;
+import dev.leo.kingdom.listener.TerritoryVillagerDespawnListener;
 import dev.leo.kingdom.listener.TerritoryWealthListener;
 import dev.leo.kingdom.listener.NobleDisplayListener;
 import dev.leo.kingdom.listener.TreasuryLordListener;
 import dev.leo.kingdom.listener.VillagerProfessionNametagListener;
 import dev.leo.kingdom.mint.TreasuryLordService;
+import dev.leo.kingdom.command.TpCommand;
+import dev.leo.kingdom.listener.ResignationLetterListener;
+import dev.leo.kingdom.resignation.ResignationLetterDelivery;
+import dev.leo.kingdom.resignation.ResignationLetterItem;
+import dev.leo.kingdom.resignation.ResignationService;
 import dev.leo.kingdom.service.KingdomService;
-import dev.leo.kingdom.command.ParliamentHandler;
 import dev.leo.kingdom.service.ParliamentService;
+import dev.leo.kingdom.command.ParliamentHandler;
 import dev.leo.kingdom.service.TeleportService;
 import dev.leo.kingdom.storage.YamlEconomyStore;
 import dev.leo.kingdom.storage.YamlKingdomStore;
 import dev.leo.kingdom.task.ElectionTask;
+import dev.leo.kingdom.task.TerritoryVillagerDespawnTask;
 import dev.leo.kingdom.task.TerritoryWealthReconcileTask;
 import dev.leo.kingdom.task.VillagerGdpTask;
 import dev.leo.kingdom.worldguard.WorldGuardBridge;
@@ -78,6 +85,10 @@ public final class KingdomPlugin extends JavaPlugin {
         ElectionConfig electionConfig = ElectionConfig.fromPluginConfig(getConfig());
         ProfessionVoteBias professionVoteBias = ProfessionVoteBias.fromPluginConfig(getConfig());
         ElectionService electionService = new ElectionService(kingdomService, electionConfig);
+        ResignationService resignationService = new ResignationService(kingdomService, electionService);
+        ResignationLetterItem resignationLetterItem = new ResignationLetterItem(this);
+        ResignationLetterDelivery resignationLetterDelivery =
+                new ResignationLetterDelivery(kingdomService, resignationService, resignationLetterItem);
         ProductiveVillagerScanner villagerScanner = new ProductiveVillagerScanner(kingdomService);
         VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(
                 this, kingdomService, villagerScanner, territoryResolver);
@@ -105,7 +116,15 @@ public final class KingdomPlugin extends JavaPlugin {
                 treasuryLordService,
                 this,
                 villagerPremierInauguralService);
-        ParliamentGuiListener parliamentGuiListener = new ParliamentGuiListener(parliamentHandler);
+        ResignCommand resignCommand = new ResignCommand(
+                this,
+                kingdomService,
+                resignationService,
+                villagerMpEntityService,
+                nobleDisplay,
+                store,
+                resignationLetterDelivery);
+        ParliamentGuiListener parliamentGuiListener = new ParliamentGuiListener(parliamentHandler, resignCommand);
         parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
 
         KingdomCommand kingdomCommand = new KingdomCommand(
@@ -140,6 +159,20 @@ public final class KingdomPlugin extends JavaPlugin {
         tp.setExecutor(tpCommand);
         tp.setTabCompleter(tpCommand);
 
+        var resign = getCommand("resign");
+        if (resign == null) {
+            getLogger().severe("Command 'resign' missing from plugin.yml");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        resign.setExecutor((sender, command, label, args) -> {
+            if (!(sender instanceof org.bukkit.entity.Player player)) {
+                sender.sendMessage(org.bukkit.ChatColor.RED + "Only players may use this command.");
+                return true;
+            }
+            return resignCommand.handle(player);
+        });
+
         getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService), this);
         getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
         getServer().getPluginManager().registerEvents(
@@ -162,10 +195,16 @@ public final class KingdomPlugin extends JavaPlugin {
                 this);
         getServer().getPluginManager().registerEvents(parliamentGuiListener, this);
         getServer().getPluginManager().registerEvents(
+                new ResignationLetterListener(
+                        kingdomService, resignationService, resignationLetterItem, resignationLetterDelivery),
+                this);
+        getServer().getPluginManager().registerEvents(
                 new MintPrepareListener(parliamentHandler, parliamentGuiListener),
                 this);
         getServer().getPluginManager().registerEvents(
                 new VillagerProfessionNametagListener(villagerMpEntityService), this);
+        getServer().getPluginManager().registerEvents(
+                new TerritoryVillagerDespawnListener(this, villagerMpEntityService), this);
 
         getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
 
@@ -182,6 +221,10 @@ public final class KingdomPlugin extends JavaPlugin {
         ElectionTask electionTask = new ElectionTask(
                 this, electionService, electionHandler, kingdomService, store, electionConfig, villagerPremierInauguralService);
         electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
+
+        TerritoryVillagerDespawnTask territoryVillagerDespawnTask =
+                new TerritoryVillagerDespawnTask(this, villagerMpEntityService);
+        territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
         getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
 

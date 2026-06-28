@@ -83,6 +83,10 @@ public final class ParliamentService {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may prepare a mint location.");
         }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             return ParliamentResult.fail("Unknown kingdom.");
@@ -99,6 +103,10 @@ public final class ParliamentService {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may table a fiscal bill.");
         }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         if (rates == null) {
             return ParliamentResult.fail("Fiscal rates are required.");
         }
@@ -114,6 +122,10 @@ public final class ParliamentService {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may table a budget bill.");
         }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         if (amount < 0) {
             return ParliamentResult.fail("Budget amount cannot be negative.");
         }
@@ -127,6 +139,10 @@ public final class ParliamentService {
 
     public ParliamentResult tableFiscalForVillagerPremier(
             String kingdomId, int premierSeatIndex, FiscalRates rates, String optionalTitle) {
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         if (!isPremierVillagerSeat(kingdomId, premierSeatIndex)) {
             return ParliamentResult.fail("That seat is not the Premier villager.");
         }
@@ -143,6 +159,10 @@ public final class ParliamentService {
 
     public ParliamentResult tableBudgetForVillagerPremier(
             String kingdomId, int premierSeatIndex, double amount, String optionalTitle) {
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         if (!isPremierVillagerSeat(kingdomId, premierSeatIndex)) {
             return ParliamentResult.fail("That seat is not the Premier villager.");
         }
@@ -203,6 +223,10 @@ public final class ParliamentService {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may table a mint supply bill.");
         }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             return ParliamentResult.fail("Unknown kingdom.");
@@ -232,6 +256,10 @@ public final class ParliamentService {
             String optionalTitle) {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may table a supply bill.");
+        }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
         }
         if (recipientId == null) {
             return ParliamentResult.fail("Recipient is required.");
@@ -440,6 +468,20 @@ public final class ParliamentService {
 
     public void clearPreparedMintAfterTable(String kingdomId) {
         kingdomService.getKingdom(kingdomId).ifPresent(k -> k.getParliamentState().clearPreparedMint());
+    }
+
+    public boolean isPremierBlockedByElection(String kingdomId) {
+        return kingdomService
+                .getKingdom(kingdomId)
+                .map(k -> k.getElectionState().election().isActive())
+                .orElse(false);
+    }
+
+    private ParliamentResult premierActionBlocked(String kingdomId) {
+        if (isPremierBlockedByElection(kingdomId)) {
+            return ParliamentResult.fail("The Premier cannot act while an election is in progress.");
+        }
+        return null;
     }
 
     private void castVillagerMpVotes(String kingdomId, Bill bill) {

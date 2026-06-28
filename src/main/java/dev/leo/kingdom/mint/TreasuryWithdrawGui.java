@@ -1,8 +1,6 @@
 package dev.leo.kingdom.mint;
 
-import dev.leo.kingdom.economy.CoronaItem;
-import java.util.ArrayList;
-import java.util.List;
+import dev.leo.kingdom.helpers.ItemBuilder;
 import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -10,7 +8,6 @@ import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public final class TreasuryWithdrawGui implements InventoryHolder {
 
@@ -85,16 +82,12 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
     }
 
     private static ItemStack balanceItem(int wholeBalance) {
-        ItemStack stack = new ItemStack(Material.GOLD_BLOCK);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.YELLOW + "Your wallet");
-            meta.setLore(List.of(
-                    ChatColor.WHITE + String.valueOf(wholeBalance) + ChatColor.GRAY + " Corona available",
-                    ChatColor.GRAY + "1 gold nugget = 1 Corona"));
-            stack.setItemMeta(meta);
-        }
-        return stack;
+        return new ItemBuilder(Material.GOLD_BLOCK)
+                .displayAs(ChatColor.YELLOW + "Your wallet")
+                .lore(
+                        ChatColor.WHITE + String.valueOf(wholeBalance) + ChatColor.GRAY + " Corona available",
+                        ChatColor.GRAY + "1 gold nugget = 1 Corona")
+                .build();
     }
 
     private static ItemStack amountButton(int amount, int wholeBalance) {
@@ -103,44 +96,29 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
 
     private static ItemStack amountButton(int amount, int wholeBalance, String labelOverride) {
         boolean enabled = amount > 0 && wholeBalance >= amount;
-        ItemStack stack = CoronaItem.create(Math.min(amount, 64));
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            String label = labelOverride != null ? labelOverride : "Withdraw " + amount;
-            meta.setDisplayName((enabled ? ChatColor.GREEN : ChatColor.DARK_GRAY) + label);
-            List<String> lore = new ArrayList<>();
-            lore.add(enabled
-                    ? ChatColor.GRAY + "Click to withdraw " + amount + " Corona"
-                    : ChatColor.RED + "Insufficient balance");
-            meta.setLore(lore);
-            stack.setItemMeta(meta);
-        }
+        String label = labelOverride != null ? labelOverride : "Withdraw " + amount;
+        ItemBuilder builder = new ItemBuilder(Material.GOLD_NUGGET, Math.min(amount, 64))
+                .displayAs((enabled ? ChatColor.GREEN : ChatColor.DARK_GRAY) + label)
+                .lore(enabled
+                        ? ChatColor.GRAY + "Click to withdraw " + amount + " Corona"
+                        : ChatColor.RED + "Insufficient balance");
         if (!enabled) {
-            stack.setType(Material.GRAY_DYE);
+            builder.type(Material.GRAY_DYE);
         }
-        return stack;
+        return builder.build();
     }
 
     private static ItemStack customAmountButton() {
-        ItemStack stack = new ItemStack(Material.PAPER);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.AQUA + "Custom amount");
-            meta.setLore(List.of(
-                    ChatColor.GRAY + "Click, then type the amount in chat",
-                    ChatColor.GRAY + "Whole Corona only"));
-            stack.setItemMeta(meta);
-        }
-        return stack;
+        return new ItemBuilder(Material.PAPER)
+                .displayAs(ChatColor.AQUA + "Custom amount")
+                .lore(
+                        ChatColor.GRAY + "Click, then type the amount in chat",
+                        ChatColor.GRAY + "Whole Corona only")
+                .build();
     }
 
     private static void fillBackground(Inventory inventory) {
-        ItemStack filler = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            filler.setItemMeta(meta);
-        }
+        ItemStack filler = ItemBuilder.fillerPane(Material.BLACK_STAINED_GLASS_PANE);
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);

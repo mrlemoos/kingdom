@@ -1,5 +1,6 @@
 package dev.leo.kingdom.parliament.gui;
 
+import dev.leo.kingdom.helpers.ItemBuilder;
 import dev.leo.kingdom.economy.model.MintLocation;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,7 +12,6 @@ import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public final class MintPrepareGui implements InventoryHolder {
 
@@ -56,7 +56,7 @@ public final class MintPrepareGui implements InventoryHolder {
         inventory.setItem(SLOT_LECTERN, lecternInfoItem(preparedLocation));
         inventory.setItem(
                 SLOT_CONFIRM,
-                actionItem(
+                ItemBuilder.labelled(
                         Material.LIME_CONCRETE,
                         ChatColor.GREEN + "Confirm",
                         preparedLocation.isPresent()
@@ -65,9 +65,10 @@ public final class MintPrepareGui implements InventoryHolder {
         if (preparedLocation.isPresent()) {
             inventory.setItem(
                     SLOT_REPLACE,
-                    actionItem(Material.ORANGE_CONCRETE, ChatColor.GOLD + "Replace", "Choose a different lectern"));
+                    ItemBuilder.labelled(Material.ORANGE_CONCRETE, ChatColor.GOLD + "Replace", "Choose a different lectern"));
         }
-        inventory.setItem(SLOT_CANCEL, actionItem(Material.BARRIER, ChatColor.RED + "Cancel", "Close without saving"));
+        inventory.setItem(
+                SLOT_CANCEL, ItemBuilder.labelled(Material.BARRIER, ChatColor.RED + "Cancel", "Close without saving"));
         fillBackground(inventory);
     }
 
@@ -92,49 +93,27 @@ public final class MintPrepareGui implements InventoryHolder {
     }
 
     private static ItemStack lecternInfoItem(Optional<MintLocation> preparedLocation) {
-        ItemStack stack = new ItemStack(Material.LECTERN);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.GOLD + "Mint location");
-            List<String> lore = new ArrayList<>();
-            if (preparedLocation.isPresent()) {
-                MintLocation location = preparedLocation.get();
-                lore.add(ChatColor.GREEN + "Prepared");
-                lore.add(ChatColor.GRAY + String.format(
-                        Locale.UK,
-                        "%s %d, %d, %d",
-                        location.worldName(),
-                        location.x(),
-                        location.y(),
-                        location.z()));
-            } else {
-                lore.add(ChatColor.YELLOW + "Not yet prepared");
-                lore.add(ChatColor.GRAY + "Face a lectern and confirm");
-            }
-            meta.setLore(lore);
-            stack.setItemMeta(meta);
+        ItemBuilder builder = new ItemBuilder(Material.LECTERN).displayAs(ChatColor.GOLD + "Mint location");
+        List<String> lore = new ArrayList<>();
+        if (preparedLocation.isPresent()) {
+            MintLocation location = preparedLocation.get();
+            lore.add(ChatColor.GREEN + "Prepared");
+            lore.add(ChatColor.GRAY + String.format(
+                    Locale.UK,
+                    "%s %d, %d, %d",
+                    location.worldName(),
+                    location.x(),
+                    location.y(),
+                    location.z()));
+        } else {
+            lore.add(ChatColor.YELLOW + "Not yet prepared");
+            lore.add(ChatColor.GRAY + "Face a lectern and confirm");
         }
-        return stack;
-    }
-
-    private static ItemStack actionItem(Material material, String name, String loreLine) {
-        ItemStack stack = new ItemStack(material);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(List.of(ChatColor.GRAY + loreLine));
-            stack.setItemMeta(meta);
-        }
-        return stack;
+        return builder.lore(lore).build();
     }
 
     private static void fillBackground(Inventory inventory) {
-        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            filler.setItemMeta(meta);
-        }
+        ItemStack filler = ItemBuilder.fillerPane(Material.GRAY_STAINED_GLASS_PANE);
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);

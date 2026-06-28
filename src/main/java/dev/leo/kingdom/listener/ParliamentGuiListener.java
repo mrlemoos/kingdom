@@ -1,6 +1,7 @@
 package dev.leo.kingdom.listener;
 
 import dev.leo.kingdom.command.ParliamentHandler;
+import dev.leo.kingdom.command.ResignCommand;
 import dev.leo.kingdom.economy.model.FiscalRates;
 import dev.leo.kingdom.economy.model.MintLocation;
 import dev.leo.kingdom.model.NobleRank;
@@ -14,7 +15,10 @@ import dev.leo.kingdom.parliament.gui.MintPrepareGui;
 import dev.leo.kingdom.parliament.gui.ParliamentHubAction;
 import dev.leo.kingdom.parliament.gui.ParliamentHubGui;
 import dev.leo.kingdom.parliament.gui.ParliamentHubView;
+import dev.leo.kingdom.parliament.gui.ResignationReviewGui;
 import dev.leo.kingdom.parliament.gui.StipendSelectGui;
+import dev.leo.kingdom.resignation.ResignationAuthority;
+import dev.leo.kingdom.resignation.ResignationSummaries;
 import dev.leo.kingdom.service.ParliamentResult;
 import dev.leo.kingdom.service.ParliamentService;
 import java.util.Map;
@@ -35,12 +39,14 @@ public final class ParliamentGuiListener implements Listener {
 
     private final ParliamentHandler handler;
     private final ParliamentService parliamentService;
+    private final ResignCommand resignCommand;
     private final ParliamentChatSessions chatSessions = new ParliamentChatSessions();
     private final Map<UUID, MintLocation> pendingMintLocations = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public ParliamentGuiListener(ParliamentHandler handler) {
+    public ParliamentGuiListener(ParliamentHandler handler, ResignCommand resignCommand) {
         this.handler = handler;
         this.parliamentService = handler.parliamentService();
+        this.resignCommand = resignCommand;
     }
 
     public void openHubGui(Player player) {
@@ -101,6 +107,12 @@ public final class ParliamentGuiListener implements Listener {
                 .getKingdom(kingdomId)
                 .flatMap(k -> k.getParliamentState().preparedMint())
                 .isPresent();
+        boolean electionActive = parliamentService.isPremierBlockedByElection(kingdomId);
+        var pendingResignation = handler.kingdomService()
+                .getKingdom(kingdomId)
+                .flatMap(k -> k.getElectionState().pendingResignation());
+        boolean canResolveResignation =
+                ResignationAuthority.canResolveResignation(kingdomId, handler.kingdomService(), membership.getRank());
 
         return new ParliamentHubView(
                 membership.getRank(),
@@ -110,7 +122,11 @@ public final class ParliamentGuiListener implements Listener {
                 divisionTied,
                 castingVoteSet,
                 hasPreparedMint,
-                billTitle);
+                electionActive,
+                pendingResignation.isPresent(),
+                canResolveResignation,
+                billTitle,
+                pendingResignation.map(ResignationSummaries::describe));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -126,6 +142,8 @@ public final class ParliamentGuiListener implements Listener {
             handleMintPrepareClick(event, player, mintGui);
         } else if (event.getInventory().getHolder() instanceof StipendSelectGui stipendGui) {
             handleStipendSelectClick(event, player, stipendGui);
+        } else if (event.getInventory().getHolder() instanceof ResignationReviewGui resignationGui) {
+            handleResignationReviewClick(event, player, resignationGui);
         }
     }
 
@@ -174,6 +192,43 @@ public final class ParliamentGuiListener implements Listener {
             case VOTE_ABSTAIN -> castMpVote(player, membership.get(), VoteChoice.ABSTAIN);
             case ASSENT -> grantAssent(player, membership.get());
             case REJECT -> withholdAssent(player, membership.get());
+            case REVIEW_RESIGNATION -> openResignationReview(player, hub.kingdomId());
+            default -> {}
+        }
+    }
+
+    private void openResignationReview(Player player, String kingdomId) {
+        handler.kingdomService()
+                .getKingdom(kingdomId)
+                .flatMap(k -> k.getElectionState().pendingResignation())
+                .ifPresent(pending -> {
+                    ResignationReviewGui gui =
+                            ResignationReviewGui.create(kingdomId, ResignationSummaries.describe(pending));
+                    player.openInventory(gui.getInventory());
+                });
+    }
+
+    private void handleResignationReviewClick(
+            InventoryClickEvent event, Player player, ResignationReviewGui resignationGui) {
+        event.setCancelled(true);
+        if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+
+        ParliamentHubAction action = resignationGui.actionForSlot(event.getRawSlot());
+        if (action == null) {
+            return;
+        }
+
+        switch (action) {
+            case ACCEPT_RESIGNATION -> {
+                resignCommand.accept(player, resignationGui.kingdomId());
+                player.closeInventory();
+            }
+            case REJECT_RESIGNATION -> {
+                resignCommand.reject(player, resignationGui.kingdomId());
+                player.closeInventory();
+            }
             default -> {}
         }
     }

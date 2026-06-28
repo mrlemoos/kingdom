@@ -1,5 +1,6 @@
 package dev.leo.kingdom.economy;
 
+import dev.leo.kingdom.helpers.ItemBuilder;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -25,11 +26,9 @@ public final class CoronaItem {
         if (amount <= 0) {
             throw new IllegalArgumentException("Corona stack amount must be positive.");
         }
-        ItemStack stack = new ItemStack(Material.GOLD_NUGGET, amount);
-        ItemMeta meta = stack.getItemMeta();
-        meta.setDisplayName(displayNameForAmount(amount));
-        stack.setItemMeta(meta);
-        return stack;
+        return new ItemBuilder(Material.GOLD_NUGGET, amount)
+                .displayAs(displayNameForAmount(amount))
+                .build();
     }
 
     public static ItemStack goldNuggets(int amount) {

@@ -15,6 +15,9 @@ public enum ParliamentHubAction {
     VOTE_ABSTAIN,
     ASSENT,
     REJECT,
+    REVIEW_RESIGNATION,
+    ACCEPT_RESIGNATION,
+    REJECT_RESIGNATION,
     CUSTOM_AMOUNT,
     BUDGET_PRESET
 }

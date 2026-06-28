@@ -1,5 +1,6 @@
 package dev.leo.kingdom.parliament;
 
+import dev.leo.kingdom.helpers.ItemBuilder;
 import dev.leo.kingdom.model.parliament.RegistrarSite;
 import java.util.List;
 import org.bukkit.Material;
@@ -8,7 +9,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.TileState;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.BookMeta;
 
 public final class RegistrarShelfWriter {
 
@@ -35,16 +35,13 @@ public final class RegistrarShelfWriter {
             throw new IllegalStateException("Registrar shelf is not a chiseled bookshelf.");
         }
 
-        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-        BookMeta meta = (BookMeta) book.getItemMeta();
         String title = pages.isEmpty() ? "Act" : pages.get(0);
         if (title.length() > 32) {
             title = title.substring(0, 32);
         }
-        meta.setTitle(title);
-        meta.setAuthor("Parliament");
-        meta.setPages(pages);
-        book.setItemMeta(meta);
+        ItemStack book = new ItemBuilder(Material.WRITTEN_BOOK)
+                .book(title, "Parliament", pages)
+                .build();
 
         bookshelf.getInventory().setItem(placement.slot(), book);
         bookshelf.update();

@@ -3,6 +3,8 @@ package dev.leo.kingdom.model.election;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.UUID;
 
 public final class KingdomElectionState {
 
@@ -13,6 +15,7 @@ public final class KingdomElectionState {
     private Integer premierVillagerSeatIndex;
     private boolean pendingInauguralFiscal;
     private boolean pendingInauguralBudget;
+    private PendingResignation pendingResignation;
 
     public KingdomElectionState() {
         for (int index = 1; index <= 8; index++) {
@@ -90,6 +93,36 @@ public final class KingdomElectionState {
 
     public void setPendingInauguralBudget(boolean pendingInauguralBudget) {
         this.pendingInauguralBudget = pendingInauguralBudget;
+    }
+
+    public Optional<PendingResignation> pendingResignation() {
+        return Optional.ofNullable(pendingResignation);
+    }
+
+    public void setPendingResignation(PendingResignation pendingResignation) {
+        this.pendingResignation = pendingResignation;
+    }
+
+    public void clearPendingResignation() {
+        this.pendingResignation = null;
+    }
+
+    public OptionalInt seatIndexForPlayer(UUID playerId) {
+        for (MpSeat seat : seats.values()) {
+            if (seat.kind() == MpSeatKind.PLAYER && seat.playerId().filter(playerId::equals).isPresent()) {
+                return OptionalInt.of(seat.index());
+            }
+        }
+        return OptionalInt.empty();
+    }
+
+    public OptionalInt seatIndexForVillagerEntity(UUID entityId) {
+        for (MpSeat seat : seats.values()) {
+            if (seat.kind() == MpSeatKind.VILLAGER && seat.entityId().filter(entityId::equals).isPresent()) {
+                return OptionalInt.of(seat.index());
+            }
+        }
+        return OptionalInt.empty();
     }
 
     public void clearAllSeats() {

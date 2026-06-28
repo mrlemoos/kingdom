@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -54,6 +55,7 @@ public final class VillagerMpEntityService {
             reconcileStrandedMpVillagers(kingdom);
             syncSeats(kingdom);
             refreshTerritoryVillagerNametags(kingdom);
+            reconcileKingdomWorldTerritoryVillagerDespawn(kingdom);
         });
     }
 
@@ -126,6 +128,36 @@ public final class VillagerMpEntityService {
             return;
         }
         applyStandardNametag(villager);
+    }
+
+    public void reconcileTerritoryVillagerDespawn(Villager villager) {
+        boolean treasuryLord = isTreasuryLord(villager);
+        boolean seatedMp = isSeatedMpVillager(villager.getUniqueId());
+        boolean kingdomTaggedMp = isMpVillager(villager);
+        if (!TerritoryVillagerDespawnPolicy.shouldManage(treasuryLord, seatedMp, kingdomTaggedMp)) {
+            return;
+        }
+
+        boolean inTerritory = isInAnyKingdomTerritory(villager);
+        if (TerritoryVillagerDespawnPolicy.shouldApplyProtection(inTerritory, true)) {
+            applyTerritoryDespawnProtection(villager);
+            return;
+        }
+        if (TerritoryVillagerDespawnPolicy.shouldRevertToVanilla(inTerritory, true)) {
+            revertTerritoryDespawnProtection(villager);
+        }
+    }
+
+    public void reconcileTerritoryVillagersInChunk(Chunk chunk) {
+        for (Entity entity : chunk.getEntities()) {
+            if (entity instanceof Villager villager) {
+                reconcileTerritoryVillagerDespawn(villager);
+            }
+        }
+    }
+
+    public void reconcileAllTerritoryVillagerDespawn() {
+        reconcileTerritoryVillagersInWorlds(distinctKingdomWorldNames());
     }
 
     public void refreshTerritoryVillagerNametags(Kingdom kingdom) {
@@ -308,6 +340,52 @@ public final class VillagerMpEntityService {
         return Bukkit.getWorlds().stream()
                 .flatMap(world -> world.getEntitiesByClass(Villager.class).stream())
                 .toList();
+    }
+
+    private void reconcileKingdomWorldTerritoryVillagerDespawn(Kingdom kingdom) {
+        reconcileTerritoryVillagersInWorlds(Set.of(kingdomService.resolveWorldName(kingdom)));
+    }
+
+    private void reconcileTerritoryVillagersInWorlds(Set<String> worldNames) {
+        for (String worldName : worldNames) {
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                continue;
+            }
+            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                reconcileTerritoryVillagerDespawn(villager);
+            }
+        }
+    }
+
+    private Set<String> distinctKingdomWorldNames() {
+        Set<String> worldNames = new HashSet<>();
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            worldNames.add(kingdomService.resolveWorldName(kingdom));
+        }
+        return worldNames;
+    }
+
+    private void applyTerritoryDespawnProtection(Villager villager) {
+        villager.setPersistent(TerritoryVillagerDespawnPolicy.persistentInTerritory());
+        villager.setRemoveWhenFarAway(TerritoryVillagerDespawnPolicy.removeWhenFarAwayInTerritory());
+    }
+
+    private void revertTerritoryDespawnProtection(Villager villager) {
+        villager.setPersistent(TerritoryVillagerDespawnPolicy.persistentOutsideTerritory());
+        villager.setRemoveWhenFarAway(TerritoryVillagerDespawnPolicy.removeWhenFarAwayOutsideTerritory());
+    }
+
+    private boolean isInAnyKingdomTerritory(Villager villager) {
+        Location location = villager.getLocation();
+        World world = location.getWorld();
+        if (world == null) {
+            return false;
+        }
+        return territoryResolver
+                .owningKingdomId(
+                        world.getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ())
+                .isPresent();
     }
 
     private void restoreDefaultBehaviour(Villager villager) {

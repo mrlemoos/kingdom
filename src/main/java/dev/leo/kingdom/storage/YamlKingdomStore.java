@@ -10,6 +10,10 @@ import dev.leo.kingdom.model.election.ElectionType;
 import dev.leo.kingdom.model.election.MpSeat;
 import dev.leo.kingdom.model.election.MpSeatKind;
 import dev.leo.kingdom.model.election.MpSeatLocation;
+import dev.leo.kingdom.model.election.PendingResignation;
+import dev.leo.kingdom.model.election.ResignationSubject;
+import dev.leo.kingdom.model.election.ResignationSubjectKind;
+import dev.leo.kingdom.model.election.KingdomElectionState;
 import dev.leo.kingdom.model.parliament.AssentedAct;
 import dev.leo.kingdom.model.parliament.Bill;
 import dev.leo.kingdom.model.parliament.BillPayload;
@@ -239,6 +243,17 @@ public final class YamlKingdomStore {
         }
         config.set(path + ".pending-inaugural-fiscal", electionState.pendingInauguralFiscal());
         config.set(path + ".pending-inaugural-budget", electionState.pendingInauguralBudget());
+        electionState.pendingResignation().ifPresent(pending -> {
+            String resignationPath = path + ".pending-resignation";
+            config.set(resignationPath + ".kind", pending.subject().kind().name().toLowerCase(Locale.ROOT));
+            config.set(resignationPath + ".offered-by", pending.offeredBy().toString());
+            config.set(resignationPath + ".offered-at-ms", pending.offeredAtMs());
+            pending.subject().playerId().ifPresent(id -> config.set(resignationPath + ".player", id.toString()));
+            pending.subject().seatIndex().ifPresent(index -> config.set(resignationPath + ".seat", index));
+        });
+        if (electionState.pendingResignation().isEmpty()) {
+            config.set(path + ".pending-resignation", null);
+        }
 
         for (var entry : electionState.seatsView().entrySet()) {
             var seat = entry.getValue();
@@ -305,6 +320,7 @@ public final class YamlKingdomStore {
         }
         electionState.setPendingInauguralFiscal(section.getBoolean("pending-inaugural-fiscal", false));
         electionState.setPendingInauguralBudget(section.getBoolean("pending-inaugural-budget", false));
+        readPendingResignation(section.getConfigurationSection("pending-resignation"), electionState);
 
         ConfigurationSection seatsSection = section.getConfigurationSection("mp-seats");
         if (seatsSection != null) {
@@ -630,5 +646,26 @@ public final class YamlKingdomStore {
                     entry.getInt("shelf.slot")));
         }
         return acts;
+    }
+
+    private static void readPendingResignation(ConfigurationSection section, KingdomElectionState electionState) {
+        electionState.clearPendingResignation();
+        if (section == null) {
+            return;
+        }
+        ResignationSubjectKind kind = ResignationSubjectKind.valueOf(
+                section.getString("kind", "player_mp").toUpperCase(Locale.ROOT));
+        UUID offeredBy = UUID.fromString(section.getString("offered-by"));
+        long offeredAtMs = section.getLong("offered-at-ms");
+        Optional<UUID> playerId = Optional.ofNullable(section.getString("player")).map(UUID::fromString);
+        Optional<Integer> seatIndex = section.contains("seat") ? Optional.of(section.getInt("seat")) : Optional.empty();
+
+        ResignationSubject subject = switch (kind) {
+            case PLAYER_PREMIER -> ResignationSubject.playerPremier(playerId.orElseThrow());
+            case PLAYER_MP -> ResignationSubject.playerMp(playerId.orElseThrow(), seatIndex.orElseThrow());
+            case VILLAGER_PREMIER -> ResignationSubject.villagerSeat(seatIndex.orElseThrow(), true);
+            case VILLAGER_MP -> ResignationSubject.villagerSeat(seatIndex.orElseThrow(), false);
+        };
+        electionState.setPendingResignation(new PendingResignation(subject, offeredBy, offeredAtMs));
     }
 }

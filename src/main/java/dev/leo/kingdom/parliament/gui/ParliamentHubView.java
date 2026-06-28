@@ -15,7 +15,11 @@ public final class ParliamentHubView {
     private final boolean divisionTied;
     private final boolean castingVoteSet;
     private final boolean hasPreparedMint;
+    private final boolean electionActive;
+    private final boolean pendingResignation;
+    private final boolean canResolveResignation;
     private final Optional<String> billTitle;
+    private final Optional<String> resignationSummary;
 
     public ParliamentHubView(
             NobleRank rank,
@@ -26,6 +30,34 @@ public final class ParliamentHubView {
             boolean castingVoteSet,
             boolean hasPreparedMint,
             Optional<String> billTitle) {
+        this(
+                rank,
+                billState,
+                inCommons,
+                inLords,
+                divisionTied,
+                castingVoteSet,
+                hasPreparedMint,
+                false,
+                false,
+                false,
+                billTitle,
+                Optional.empty());
+    }
+
+    public ParliamentHubView(
+            NobleRank rank,
+            BillState billState,
+            boolean inCommons,
+            boolean inLords,
+            boolean divisionTied,
+            boolean castingVoteSet,
+            boolean hasPreparedMint,
+            boolean electionActive,
+            boolean pendingResignation,
+            boolean canResolveResignation,
+            Optional<String> billTitle,
+            Optional<String> resignationSummary) {
         this.rank = rank;
         this.billState = billState;
         this.inCommons = inCommons;
@@ -33,7 +65,11 @@ public final class ParliamentHubView {
         this.divisionTied = divisionTied;
         this.castingVoteSet = castingVoteSet;
         this.hasPreparedMint = hasPreparedMint;
+        this.electionActive = electionActive;
+        this.pendingResignation = pendingResignation;
+        this.canResolveResignation = canResolveResignation;
         this.billTitle = billTitle != null ? billTitle : Optional.empty();
+        this.resignationSummary = resignationSummary != null ? resignationSummary : Optional.empty();
     }
 
     public NobleRank rank() {
@@ -64,8 +100,24 @@ public final class ParliamentHubView {
         return hasPreparedMint;
     }
 
+    public boolean electionActive() {
+        return electionActive;
+    }
+
+    public boolean pendingResignation() {
+        return pendingResignation;
+    }
+
+    public boolean canResolveResignation() {
+        return canResolveResignation;
+    }
+
     public Optional<String> billTitle() {
         return billTitle;
+    }
+
+    public Optional<String> resignationSummary() {
+        return resignationSummary;
     }
 
     public boolean closeDivisionBlocked() {
@@ -76,7 +128,7 @@ public final class ParliamentHubView {
         Set<ParliamentHubAction> actions = EnumSet.noneOf(ParliamentHubAction.class);
 
         if (inCommons) {
-            if (rank == NobleRank.PREMIER && billState == null) {
+            if (rank == NobleRank.PREMIER && billState == null && !electionActive) {
                 actions.add(ParliamentHubAction.TABLE_FISCAL);
                 actions.add(ParliamentHubAction.TABLE_BUDGET);
                 actions.add(ParliamentHubAction.TABLE_SPEND_MINT);
@@ -109,6 +161,10 @@ public final class ParliamentHubView {
             actions.add(ParliamentHubAction.REJECT);
         }
 
+        if (inLords && canResolveResignation && pendingResignation) {
+            actions.add(ParliamentHubAction.REVIEW_RESIGNATION);
+        }
+
         return Set.copyOf(actions);
     }
 
@@ -123,6 +179,7 @@ public final class ParliamentHubView {
             case CAST_AYE, CAST_NAY -> divisionTied && !castingVoteSet;
             case ASSENT, REJECT -> billState == BillState.AWAITING_ASSENT;
             case VOTE_AYE, VOTE_NAY, VOTE_ABSTAIN -> billState == BillState.DIVISION_OPEN;
+            case REVIEW_RESIGNATION -> pendingResignation && canResolveResignation;
             default -> true;
         };
     }

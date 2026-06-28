@@ -222,6 +222,22 @@ _Avoid_: Generic MP, placeholder delegate, none profession
 An ordinary villager with no profession. Shown on the villager nametag when they are not a seated profession MP.
 _Avoid_: Citizen, peasant, unemployed villager
 
+**Territory villager despawn protection**:
+Ordinary villagers (not seated MPs, not Treasury Lords) standing inside a kingdom's linked WorldGuard region are kept from despawning. Protection is position-scoped: it applies while the villager is in territory and reverts to vanilla despawn rules when they leave. Re-evaluated on server startup, chunk load, villager spawn, and a periodic sweep.
+_Avoid_: Persistent villagers, anti-despawn tag, villager anchor
+
 **Election casting vote**:
 The Speaker's tie-breaking choice when two or more citizen candidates tie for the last available player MP seat in an election. Required before that election can close.
 _Avoid_: Tie-breaker, deciding ballot, runoff vote
+
+**Resignation offer**:
+A pending request from a seated Premier, player MP, or villager MP (including the Premier villager) to leave office. The office-holder remains fully in post—with parliamentary powers intact—until the King or Queen accepts the offer, or a Prince accepts when no King or Queen is seated. Rejection leaves them in office. Only one resignation may await royal approval per kingdom at a time.
+_Avoid_: Quit notice, immediate removal, self-dismissal
+
+**Royal resignation approval**:
+The monarch's—or, in the absence of a seated King or Queen, a Prince's—asynchronous acceptance or rejection of a resignation offer. A **resignation letter** (paper item) is delivered to the Crown's inventory when any resignation is offered; right-clicking the letter opens the review interface. If the Crown is offline, the letter is delivered on next login. The letter is removed once the resignation is accepted or rejected. Review remains available in the House of Lords as a fallback.
+_Avoid_: Instant quit, auto-vacancy, Speaker dismissal
+
+**Resignation letter**:
+A paper item delivered to the King, Queen, or regent Prince when a resignation offer is pending. Right-clicking it opens the resignation review interface. Tagged to the kingdom so only the Crown may use it. Removed when the offer is resolved or if it is no longer current.
+_Avoid_: Chat-only notice, Lords-only review, forged paper

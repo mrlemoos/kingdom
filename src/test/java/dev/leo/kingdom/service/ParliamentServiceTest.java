@@ -132,6 +132,16 @@ class ParliamentServiceTest {
     }
 
     @Test
+    void premierCannotTableBillDuringElection() {
+        kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().election().openPremier(9_999_999_999L);
+
+        ParliamentResult tabled = parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 50, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().contains("election"));
+    }
+
+    @Test
     void realmHandledDivisionEligibleWhenNoPlayerMps() {
         clearPlayerMpTitles();
         fillVillagerParliament();

@@ -1,5 +1,6 @@
 package dev.leo.kingdom.parliament.gui;
 
+import dev.leo.kingdom.helpers.ItemBuilder;
 import java.util.OptionalInt;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -7,7 +8,6 @@ import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public final class ParliamentHubGui implements InventoryHolder {
 
@@ -38,6 +38,7 @@ public final class ParliamentHubGui implements InventoryHolder {
 
     static final int SLOT_ASSENT = 41;
     static final int SLOT_REJECT = 42;
+    static final int SLOT_REVIEW_RESIGNATION = 43;
 
     private static final int[] BUDGET_PRESET_SLOTS = {SLOT_BUDGET_50, SLOT_BUDGET_100, SLOT_BUDGET_250, SLOT_BUDGET_500};
     private static final int[] BUDGET_PRESET_AMOUNTS = {50, 100, 250, 500};
@@ -91,20 +92,20 @@ public final class ParliamentHubGui implements InventoryHolder {
                 view,
                 ParliamentHubAction.CUSTOM_AMOUNT,
                 SLOT_CUSTOM_AMOUNT,
-                labelledItem(Material.PAPER, ChatColor.AQUA + "Custom budget", "Enter an amount in chat"));
+                ItemBuilder.labelled(Material.PAPER, ChatColor.AQUA + "Custom budget", "Enter an amount in chat"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.OPEN_DIVISION,
                 SLOT_OPEN_DIVISION,
-                labelledItem(Material.LIME_BANNER, ChatColor.GREEN + "Open division", "Begin a Commons vote"));
+                ItemBuilder.labelled(Material.LIME_BANNER, ChatColor.GREEN + "Open division", "Begin a Commons vote"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.CLOSE_DIVISION,
                 SLOT_CLOSE_DIVISION,
-                labelledItem(
+                ItemBuilder.labelled(
                         Material.RED_BANNER,
                         enabledColour(view.isEnabled(ParliamentHubAction.CLOSE_DIVISION)) + "Close division",
                         view.closeDivisionBlocked()
@@ -115,45 +116,55 @@ public final class ParliamentHubGui implements InventoryHolder {
                 view,
                 ParliamentHubAction.CAST_AYE,
                 SLOT_CAST_AYE,
-                labelledItem(Material.LIME_WOOL, ChatColor.GREEN + "Casting vote: Aye", "Break a tied division"));
+                ItemBuilder.labelled(Material.LIME_WOOL, ChatColor.GREEN + "Casting vote: Aye", "Break a tied division"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.CAST_NAY,
                 SLOT_CAST_NAY,
-                labelledItem(Material.RED_WOOL, ChatColor.RED + "Casting vote: Nay", "Break a tied division"));
+                ItemBuilder.labelled(Material.RED_WOOL, ChatColor.RED + "Casting vote: Nay", "Break a tied division"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_AYE,
                 SLOT_VOTE_AYE,
-                labelledItem(Material.LIME_CONCRETE, ChatColor.GREEN + "Vote Aye", "Support the bill"));
+                ItemBuilder.labelled(Material.LIME_CONCRETE, ChatColor.GREEN + "Vote Aye", "Support the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_NAY,
                 SLOT_VOTE_NAY,
-                labelledItem(Material.RED_CONCRETE, ChatColor.RED + "Vote Nay", "Oppose the bill"));
+                ItemBuilder.labelled(Material.RED_CONCRETE, ChatColor.RED + "Vote Nay", "Oppose the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_ABSTAIN,
                 SLOT_VOTE_ABSTAIN,
-                labelledItem(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Abstain", "Record no vote"));
+                ItemBuilder.labelled(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Abstain", "Record no vote"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.ASSENT,
                 SLOT_ASSENT,
-                labelledItem(Material.EMERALD_BLOCK, ChatColor.GOLD + "Grant royal assent", "Enact the bill"));
+                ItemBuilder.labelled(Material.EMERALD_BLOCK, ChatColor.GOLD + "Grant royal assent", "Enact the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.REJECT,
                 SLOT_REJECT,
-                labelledItem(Material.BARRIER, ChatColor.RED + "Withhold assent", "Reject the bill"));
+                ItemBuilder.labelled(Material.BARRIER, ChatColor.RED + "Withhold assent", "Reject the bill"));
+        view.resignationSummary()
+                .ifPresent(summary -> placeIfVisible(
+                        inventory,
+                        view,
+                        ParliamentHubAction.REVIEW_RESIGNATION,
+                        SLOT_REVIEW_RESIGNATION,
+                        ItemBuilder.labelled(
+                                Material.WRITABLE_BOOK,
+                                ChatColor.DARK_RED + "Review resignation",
+                                summary)));
 
         fillBackground(inventory);
     }
@@ -176,6 +187,7 @@ public final class ParliamentHubGui implements InventoryHolder {
             case SLOT_VOTE_ABSTAIN -> ParliamentHubAction.VOTE_ABSTAIN;
             case SLOT_ASSENT -> ParliamentHubAction.ASSENT;
             case SLOT_REJECT -> ParliamentHubAction.REJECT;
+            case SLOT_REVIEW_RESIGNATION -> ParliamentHubAction.REVIEW_RESIGNATION;
             default -> null;
         };
     }
@@ -206,17 +218,11 @@ public final class ParliamentHubGui implements InventoryHolder {
     }
 
     private static ItemStack billInfoItem(String title, dev.leo.kingdom.model.parliament.BillState billState) {
-        ItemStack stack = new ItemStack(Material.WRITTEN_BOOK);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.GOLD + title);
-            if (billState != null) {
-                meta.setLore(java.util.List.of(
-                        ChatColor.GRAY + "State: " + formatBillState(billState)));
-            }
-            stack.setItemMeta(meta);
+        ItemBuilder builder = new ItemBuilder(Material.WRITTEN_BOOK).displayAs(ChatColor.GOLD + title);
+        if (billState != null) {
+            builder.lore(ChatColor.GRAY + "State: " + formatBillState(billState));
         }
-        return stack;
+        return builder.build();
     }
 
     private static String formatBillState(dev.leo.kingdom.model.parliament.BillState billState) {
@@ -224,14 +230,14 @@ public final class ParliamentHubGui implements InventoryHolder {
     }
 
     private static ItemStack fiscalItem(ParliamentHubView view) {
-        return labelledItem(
+        return ItemBuilder.labelled(
                 Material.GOLD_INGOT,
                 enabledColour(view.isEnabled(ParliamentHubAction.TABLE_FISCAL)) + "Table fiscal bill",
                 "Propose tax and transfer rates");
     }
 
     private static ItemStack budgetItem(ParliamentHubView view) {
-        return labelledItem(
+        return ItemBuilder.labelled(
                 Material.CHEST,
                 enabledColour(view.isEnabled(ParliamentHubAction.TABLE_BUDGET)) + "Table budget bill",
                 "Set a treasury spending cap");
@@ -242,39 +248,28 @@ public final class ParliamentHubGui implements InventoryHolder {
         String lore = enabled
                 ? "Authorise mint placement from treasury"
                 : "Prepare a mint location at a lectern first";
-        return labelledItem(Material.LECTERN, enabledColour(enabled) + "Table mint supply bill", lore);
+        return ItemBuilder.labelled(Material.LECTERN, enabledColour(enabled) + "Table mint supply bill", lore);
     }
 
     private static ItemStack spendStipendItem(ParliamentHubView view) {
-        return labelledItem(
+        return ItemBuilder.labelled(
                 Material.EMERALD,
                 enabledColour(view.isEnabled(ParliamentHubAction.TABLE_SPEND_STIPEND)) + "Table stipend bill",
                 "Pay a seated noble from treasury");
     }
 
     private static ItemStack stipendOtherItem(ParliamentHubView view) {
-        return labelledItem(
+        return ItemBuilder.labelled(
                 Material.PLAYER_HEAD,
                 enabledColour(view.isEnabled(ParliamentHubAction.STIPEND_OTHER)) + "Stipend another member",
                 "Choose a recipient in chat");
     }
 
     private static ItemStack budgetPresetItem(int amount, boolean enabled) {
-        return labelledItem(
+        return ItemBuilder.labelled(
                 Material.GOLD_NUGGET,
                 enabledColour(enabled) + String.valueOf(amount) + " Corona",
                 "Table a budget bill for " + amount + " Corona");
-    }
-
-    private static ItemStack labelledItem(Material material, String name, String loreLine) {
-        ItemStack stack = new ItemStack(material);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(java.util.List.of(ChatColor.GRAY + loreLine));
-            stack.setItemMeta(meta);
-        }
-        return stack;
     }
 
     private static ChatColor enabledColour(boolean enabled) {
@@ -282,12 +277,7 @@ public final class ParliamentHubGui implements InventoryHolder {
     }
 
     private static void fillBackground(Inventory inventory) {
-        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = filler.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(" ");
-            filler.setItemMeta(meta);
-        }
+        ItemStack filler = ItemBuilder.fillerPane(Material.GRAY_STAINED_GLASS_PANE);
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);
