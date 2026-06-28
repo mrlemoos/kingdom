@@ -17,6 +17,7 @@ economy:
   frozen-wallet-escheat-mc-days: 30
   villager-commerce-tax-rate: 0.05
   villager-trades:
+    settlements-per-edge: 3
     edges:
       - buyer: farmer
         seller: butcher
@@ -33,6 +34,22 @@ economy:
       - buyer: shepherd
         seller: leatherworker
         spend-percent: 0.10
+      - buyer: none
+        seller: farmer
+        flat-corona: 0.20
+  corona-merchant-offers:
+    farmer:
+      - item: bread
+        corona-price: 3
+        max-uses: 12
+    librarian:
+      - item: book
+        corona-price: 5
+        max-uses: 12
+    none:
+      - item: apple
+        corona-price: 1
+        max-uses: 16
   realm-wealth:
     materials:
       gold-block: 100
@@ -52,6 +69,7 @@ economy:
     harvest-diminishing-threshold-per-hour: 100
     harvest-diminishing-multiplier: 0.5
     villager-trade-emerald-rate: 0.10
+    emerald-commerce-corona-rate: 1.0
     player-trade-bonus: 0.05
   life-events:
     daily-cap: 2.0

@@ -2,10 +2,13 @@ package dev.mrlemoos.kingdom.listener;
 
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.income.ActivityCategory;
+import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeFactory;
+import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -23,9 +26,11 @@ import org.bukkit.inventory.MerchantRecipe;
 public final class EconomyActivityListener implements Listener {
 
     private final EconomyCoordinator coordinator;
+    private final VillagerMpEntityService villagerMpEntityService;
 
-    public EconomyActivityListener(EconomyCoordinator coordinator) {
+    public EconomyActivityListener(EconomyCoordinator coordinator, VillagerMpEntityService villagerMpEntityService) {
         this.coordinator = coordinator;
+        this.villagerMpEntityService = villagerMpEntityService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -109,13 +114,28 @@ public final class EconomyActivityListener implements Listener {
         }
 
         int emeraldCost = emeraldCost(recipe);
-        double gross = coordinator.activityRewardCalculator().calculateVillagerTradeReward(emeraldCost);
-        if (gross <= 0.0) {
-            return;
+        int coronaCost = CoronaMerchantRecipeFactory.coronaPrice(recipe);
+        if (emeraldCost > 0) {
+            double gross = coordinator.activityRewardCalculator().calculateVillagerTradeReward(emeraldCost);
+            if (gross > 0.0) {
+                coordinator.creditPlayerFromActivity(
+                        player, gross, player.getLocation(), ActivityCategory.VILLAGER_TRADE);
+            }
         }
 
-        coordinator.creditPlayerFromActivity(
-                player, gross, player.getLocation(), ActivityCategory.VILLAGER_TRADE);
+        if (merchantInventory.getMerchant() instanceof Villager villager) {
+            boolean treasuryLord = villagerMpEntityService.isTreasuryLordVillager(villager);
+            boolean seatedMp = villagerMpEntityService.isSeatedMpVillager(villager);
+            boolean kingdomTaggedMp = villagerMpEntityService.isKingdomTaggedMpVillager(villager);
+            if (coronaCost > 0) {
+                coordinator.settleCoronaMerchantCommerce(
+                        villager, coronaCost, treasuryLord, seatedMp, kingdomTaggedMp);
+            }
+            if (emeraldCost > 0) {
+                coordinator.settleEmeraldVillagerCommerce(
+                        villager, emeraldCost, treasuryLord, seatedMp, kingdomTaggedMp);
+            }
+        }
     }
 
     private static boolean isFullyGrown(Block block) {

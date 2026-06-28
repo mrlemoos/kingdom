@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.economy.service;
 import dev.mrlemoos.kingdom.economy.TaxCalculator;
 import dev.mrlemoos.kingdom.economy.model.CreditResult;
 import dev.mrlemoos.kingdom.economy.model.VillagerWalletState;
+import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeSettlement;
 import dev.mrlemoos.kingdom.economy.villager.VillagerIncomeTaxCalculator;
 import dev.mrlemoos.kingdom.economy.model.FiscalProposal;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
@@ -136,6 +137,34 @@ public class EconomyService {
         VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId, true);
         wallet.setBalance(wallet.balance() + amount);
         wallet.markActive();
+    }
+
+    public boolean creditEmeraldVillagerCommerce(
+            String kingdomId, UUID villagerId, EmeraldVillagerTradeSettlement settlement) {
+        if (kingdomId == null
+                || kingdomId.isBlank()
+                || villagerId == null
+                || settlement == null
+                || settlement.grossCorona() <= 0.0) {
+            return false;
+        }
+
+        KingdomEconomy economy = economyFor(kingdomId);
+        if (settlement.commerceTax() > 0) {
+            creditTreasury(kingdomId, settlement.commerceTax());
+            economy.recordTaxRevenue(settlement.commerceTax());
+        }
+
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId);
+        if (wallet != null && !wallet.isFrozen()) {
+            wallet.setBalance(wallet.balance() + settlement.netCorona());
+            return true;
+        }
+
+        if (settlement.netCorona() > 0) {
+            creditTreasury(kingdomId, settlement.netCorona());
+        }
+        return true;
     }
 
     public boolean settleVillagerTrade(

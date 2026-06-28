@@ -130,6 +130,18 @@ public final class VillagerMpEntityService {
         applyStandardNametag(villager);
     }
 
+    public boolean isTreasuryLordVillager(Villager villager) {
+        return isTreasuryLord(villager);
+    }
+
+    public boolean isKingdomTaggedMpVillager(Villager villager) {
+        return isMpVillager(villager);
+    }
+
+    public boolean isSeatedMpVillager(Villager villager) {
+        return isSeatedMpVillager(villager.getUniqueId());
+    }
+
     public void reconcileTerritoryVillagerDespawn(Villager villager) {
         boolean treasuryLord = isTreasuryLord(villager);
         boolean seatedMp = isSeatedMpVillager(villager.getUniqueId());

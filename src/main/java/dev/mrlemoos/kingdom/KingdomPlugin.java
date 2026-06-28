@@ -16,9 +16,12 @@ import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
+import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantOfferConfig;
+import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.listener.ChatPrefixListener;
+import dev.mrlemoos.kingdom.listener.CoronaMerchantListener;
 import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
 import dev.mrlemoos.kingdom.listener.JoinReminderListener;
 import dev.mrlemoos.kingdom.listener.LifeEventListener;
@@ -73,10 +76,16 @@ public final class KingdomPlugin extends JavaPlugin {
         economyStore.loadInto(economyService);
 
         EconomyConfig economyConfig = EconomyConfig.fromPluginConfig(getConfig());
+        VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.fromPluginConfig(getConfig());
+        CoronaMerchantOfferConfig coronaMerchantOfferConfig = CoronaMerchantOfferConfig.fromPluginConfig(getConfig());
         RealmWealthRates realmWealthRates = RealmWealthRates.fromPluginConfig(getConfig().getConfigurationSection("economy"));
         KingdomTerritoryResolver territoryResolver = new KingdomTerritoryResolver(kingdomService);
         economyCoordinator = new EconomyCoordinator(
-                economyService, kingdomService, territoryResolver, economyConfig);
+                economyService,
+                kingdomService,
+                territoryResolver,
+                economyConfig,
+                villagerEconomyConfig.villagerCommerceTaxRate());
         economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
 
         WorldGuardBridge.warmUp();
@@ -181,7 +190,15 @@ public final class KingdomPlugin extends JavaPlugin {
                         getConfig().getBoolean("join-reminder", true),
                         getConfig().getStringList("join-message")),
                 this);
-        getServer().getPluginManager().registerEvents(new EconomyActivityListener(economyCoordinator), this);
+        getServer().getPluginManager().registerEvents(
+                new EconomyActivityListener(economyCoordinator, villagerMpEntityService), this);
+        getServer().getPluginManager().registerEvents(
+                new CoronaMerchantListener(
+                        economyCoordinator,
+                        villagerMpEntityService,
+                        territoryResolver,
+                        new CoronaMerchantRecipeService(coronaMerchantOfferConfig)),
+                this);
         getServer().getPluginManager().registerEvents(
                 new TerritoryWealthListener(this, economyService, territoryResolver, economyStore),
                 this);
@@ -209,7 +226,6 @@ public final class KingdomPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
 
         long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks", VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
-        VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.fromPluginConfig(getConfig());
         VillagerGdpTask gdpTask = new VillagerGdpTask(
                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
         gdpTask.schedule(gdpInterval);

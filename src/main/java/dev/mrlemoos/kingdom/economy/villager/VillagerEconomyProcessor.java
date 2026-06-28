@@ -43,6 +43,7 @@ public final class VillagerEconomyProcessor {
                 participants,
                 economyConfig,
                 villagerConfig.villagerCommerceTaxRate(),
+                villagerConfig.settlementsPerEdge(),
                 random);
         int settledTrades = 0;
         for (VillagerTradeSettlement trade : plannedTrades) {

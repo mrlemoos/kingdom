@@ -14,6 +14,9 @@ import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeCalculator;
+import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeRequest;
+import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -24,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 
 public final class EconomyCoordinator {
 
@@ -38,6 +42,7 @@ public final class EconomyCoordinator {
     private final LifeEventTracker lifeEventTracker;
     private final ActivityRewardCalculator activityRewardCalculator;
     private final LifeEventCalculator lifeEventCalculator;
+    private final EmeraldVillagerTradeService emeraldVillagerTradeService;
     private final Map<UUID, HarvestWindow> harvestWindows = new HashMap<>();
     private Runnable persistenceHook = () -> {};
 
@@ -46,6 +51,15 @@ public final class EconomyCoordinator {
             KingdomService kingdomService,
             TerritoryResolver territoryResolver,
             EconomyConfig config) {
+        this(economyService, kingdomService, territoryResolver, config, 0.05);
+    }
+
+    public EconomyCoordinator(
+            EconomyService economyService,
+            KingdomService kingdomService,
+            TerritoryResolver territoryResolver,
+            EconomyConfig config,
+            double villagerCommerceTaxRate) {
         this.economyService = Objects.requireNonNull(economyService, "economyService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
@@ -54,6 +68,9 @@ public final class EconomyCoordinator {
         this.lifeEventTracker = new LifeEventTracker(this.config);
         this.activityRewardCalculator = new ActivityRewardCalculator(this.config);
         this.lifeEventCalculator = new LifeEventCalculator(this.config);
+        this.emeraldVillagerTradeService = new EmeraldVillagerTradeService(
+                new EmeraldVillagerTradeCalculator(this.config.emeraldCommerceCoronaRate()),
+                villagerCommerceTaxRate);
     }
 
     public void setPersistenceHook(Runnable persistenceHook) {
@@ -208,6 +225,65 @@ public final class EconomyCoordinator {
 
     public KingdomService kingdomService() {
         return kingdomService;
+    }
+
+    public boolean settleEmeraldVillagerCommerce(
+            Villager villager,
+            int emeraldCost,
+            boolean treasuryLord,
+            boolean seatedMp,
+            boolean kingdomTaggedMp) {
+        if (villager == null || emeraldCost <= 0) {
+            return false;
+        }
+
+        Location location = villager.getLocation();
+        if (location.getWorld() == null) {
+            return false;
+        }
+
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ());
+        EmeraldVillagerTradeRequest request = new EmeraldVillagerTradeRequest(
+                kingdomId, villager.getUniqueId(), emeraldCost, treasuryLord, seatedMp, kingdomTaggedMp);
+        boolean settled = emeraldVillagerTradeService.settle(economyService, request);
+        if (settled) {
+            persist();
+        }
+        return settled;
+    }
+
+    public boolean settleCoronaMerchantCommerce(
+            Villager villager,
+            int coronaPrice,
+            boolean treasuryLord,
+            boolean seatedMp,
+            boolean kingdomTaggedMp) {
+        if (villager == null || coronaPrice <= 0) {
+            return false;
+        }
+
+        Location location = villager.getLocation();
+        if (location.getWorld() == null) {
+            return false;
+        }
+
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ());
+        EmeraldVillagerTradeRequest request = new EmeraldVillagerTradeRequest(
+                kingdomId, villager.getUniqueId(), 0, treasuryLord, seatedMp, kingdomTaggedMp);
+        boolean settled = emeraldVillagerTradeService.settleCoronaMerchant(
+                economyService, request, coronaPrice);
+        if (settled) {
+            persist();
+        }
+        return settled;
     }
 
     public static long epochDay(Player player) {

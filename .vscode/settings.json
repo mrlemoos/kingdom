@@ -1,17 +1,25 @@
 {
   "cSpell.words": [
+    "ageable",
     "Bukkit",
     "Cooldown",
     "cooldowns",
+    "Despawn",
+    "despawning",
+    "mockbukkit",
+    "mrlemoos",
     "nametag",
     "nametags",
     "northmarch",
+    "papermc",
     "setregion",
     "setworld",
     "spigotmc",
     "toolsmith",
+    "Unbreaking",
     "weaponsmith",
     "worldedit",
     "worldguard"
-  ]
+  ],
+  "java.compile.nullAnalysis.mode": "automatic"
 }

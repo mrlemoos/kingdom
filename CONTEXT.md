@@ -73,16 +73,24 @@ Seated profession villager MPs act as kingdom-wide proxies for their profession 
 _Avoid_: MP income, parliament wage, seated villager GDP
 
 **Villager trade**:
-A configured profession trade graph that drives daily Corona payments between villager wallets. Each in-game day the realm selects a random buyer and seller per trade edge where the seller's profession exists in the kingdom; the buyer pays a configured percentage of their profession's daily GDP income. All matching edges run each day; a trade is skipped if the buyer cannot pay. In v1, villager trade is separate from the player economy.
+A configured profession trade graph that drives background Corona payments between villager wallets. Each settlement cycle the realm runs a configured number of settlement passes per trade edge; each pass selects a random buyer and seller where the seller's profession exists in the kingdom. Payment is either a configured percentage of the buyer's daily GDP income or a fixed Corona amount on commoner edges involving the `none` profession. A trade is skipped if the buyer cannot pay.
 _Avoid_: NPC transaction, villager commerce, profession barter
+
+**Corona merchant trade**:
+A player-facing villager merchant offer priced in Corona, defined in config as profession-specific extras added alongside that villager's vanilla emerald trades. Applies only when the villager stands inside a kingdom's linked WorldGuard territory and is an ordinary territory villager—not a Treasury Lord or seated MP. The player pays with gold nuggets first, then player-wallet Corona if short; whole Corona only. Commerce tax routes to that territory's kingdom treasury; the net credits the traded villager's wallet when productive, otherwise the treasury. Player activity Corona from emerald trades remains unchanged.
+_Avoid_: Nugget shop, player villager purchase, GUI trade
+
+**Emerald villager trade taxation**:
+When a player completes a vanilla emerald villager trade with an ordinary territory villager inside a kingdom's linked WorldGuard territory, the emerald cost is valued as Corona using a configured commerce multiplier separate from the player activity reward rate. Commerce tax on that Corona-equivalent amount routes to that territory's kingdom treasury; the net credits the traded villager's wallet when productive, otherwise the treasury. Does not apply to Treasury Lords or seated MPs. Separate from the player's activity Corona reward for the same trade.
+_Avoid_: Emerald duty, emerald sales tax, villager emerald levy
+
+**Villager commerce tax**:
+A fixed configured percentage of each villager trade payment routed to the kingdom treasury. Applied at payment time on Corona merchant trades, emerald villager trade taxation (on the Corona-equivalent value), and background villager-wallet trade settlements.
+_Avoid_: Trade duty, transaction levy, sales tax
 
 **Villager income tax**:
 The kingdom base tax rate applied when villager GDP is credited to a villager wallet. Routed to the kingdom treasury. Noble rank discounts do not apply to villager income.
 _Avoid_: Villager levy, GDP tax, profession tithe
-
-**Villager commerce tax**:
-A fixed configured percentage of each villager trade payment routed to the kingdom treasury. Applied at payment time on the trade amount.
-_Avoid_: Trade duty, transaction levy, sales tax
 
 **Economic activity**:
 Player actions that earn value-weighted Corona into a personal wallet: harvesting crops, crafting items, trading with villagers, and player-to-player commerce. Each category has cooldowns and diminishing returns to discourage farming loops.
@@ -219,7 +227,7 @@ A villager MP with no productive profession, seated when fewer distinct professi
 _Avoid_: Generic MP, placeholder delegate, none profession
 
 **Commoner**:
-An ordinary villager with no profession. Shown on the villager nametag when they are not a seated profession MP.
+An ordinary villager with no profession. Shown on the villager nametag when they are not a seated profession MP. In the villager economy, commoners receive a small configured villager GDP rate and may participate in dedicated commoner trade edges alongside standard profession trade graph edges.
 _Avoid_: Citizen, peasant, unemployed villager
 
 **Territory villager despawn protection**:
