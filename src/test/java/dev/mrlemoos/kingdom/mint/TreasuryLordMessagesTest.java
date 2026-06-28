@@ -1,8 +1,9 @@
 package dev.mrlemoos.kingdom.mint;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.bukkit.ChatColor;
 import org.junit.jupiter.api.Test;
 
 class TreasuryLordMessagesTest {
@@ -32,6 +33,6 @@ class TreasuryLordMessagesTest {
     void prefixesSpeakerInGold() {
         String message = TreasuryLordMessages.territoryBriefing(0.0, 0.0);
 
-        assertTrue(message.startsWith(ChatColor.GOLD + "[Lord of the Treasury]"));
+        assertTrue(message.startsWith(c("&6[Lord of the Treasury]")));
     }
 }

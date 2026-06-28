@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
@@ -25,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -262,8 +263,7 @@ public final class ParliamentGuiListener implements Listener {
                         stipendGui.kingdomId(),
                         player.getUniqueId())
                 .withStipendRecipient(recipientId, recipient.getName()));
-        player.sendMessage(ChatColor.AQUA + "Type the stipend amount for "
-                + recipient.getName() + " in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the stipend amount for ")+ recipient.getName() + " in chat (or 'cancel'):");
     }
 
     private void openStipendSelect(Player player, String kingdomId) {
@@ -276,7 +276,7 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.STIPEND_PLAYER, kingdomId, player.getUniqueId()));
-        player.sendMessage(ChatColor.AQUA + "Type the recipient's player name in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the recipient's player name in chat (or 'cancel'):"));
     }
 
     private void handleDivisionVoteClick(InventoryClickEvent event, Player player, DivisionVoteGui voteGui) {
@@ -338,7 +338,7 @@ public final class ParliamentGuiListener implements Listener {
             case REPLACE -> {
                 pendingMintLocations.remove(player.getUniqueId());
                 player.closeInventory();
-                player.sendMessage(ChatColor.AQUA + "Right-click a lectern in your kingdom to choose a new location.");
+                player.sendMessage(c("&bRight-click a lectern in your kingdom to choose a new location."));
             }
             case CONFIRM -> confirmMintPrepare(player, membership.get(), mintGui);
             default -> {}
@@ -371,16 +371,14 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.FISCAL, kingdomId, player.getUniqueId()));
-        player.sendMessage(ChatColor.AQUA + "Type fiscal rates: "
-                + ChatColor.WHITE + "base foreign transferFee crossFee [title]"
-                + ChatColor.GRAY + " (or 'cancel')");
+        player.sendMessage(c("&bType fiscal rates: ")+ c("&fbase foreign transferFee crossFee [title]")+ c("&7 (or 'cancel')"));
     }
 
     private void startBudgetCustomPrompt(Player player, String kingdomId) {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.BUDGET_CUSTOM, kingdomId, player.getUniqueId()));
-        player.sendMessage(ChatColor.AQUA + "Type the budget amount in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the budget amount in chat (or 'cancel'):"));
     }
 
     private void tableBudget(Player player, PlayerMembership membership, double amount, String title) {
@@ -404,7 +402,7 @@ public final class ParliamentGuiListener implements Listener {
             handler.kingdomStore().saveFrom(handler.kingdomService());
             autoOpenDivisionForMps(membership.getKingdomId());
             handler.broadcastParliament(
-                    membership.getKingdomId(), ChatColor.YELLOW + "Division open — MPs may vote.");
+                    membership.getKingdomId(), c("&eDivision open — MPs may vote."));
             openHubGui(player);
             return;
         }
@@ -475,7 +473,7 @@ public final class ParliamentGuiListener implements Listener {
         String message = event.getMessage().trim();
         if (message.equalsIgnoreCase("cancel")) {
             chatSessions.cancel(player.getUniqueId());
-            player.sendMessage(ChatColor.GRAY + "Parliament input cancelled.");
+            player.sendMessage(c("&7Parliament input cancelled."));
             return;
         }
 
@@ -569,8 +567,7 @@ public final class ParliamentGuiListener implements Listener {
                 player.getUniqueId(),
                 session.withStipendRecipient(target.getUniqueId(), target.getName())
                         .next(ParliamentChatSessions.SessionType.STIPEND_AMOUNT));
-        player.sendMessage(ChatColor.AQUA + "Type the stipend amount for "
-                + target.getName() + " in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the stipend amount for ")+ target.getName() + " in chat (or 'cancel'):");
     }
 
     private void handleStipendAmountChat(
@@ -584,7 +581,7 @@ public final class ParliamentGuiListener implements Listener {
             chatSessions.advance(
                     player.getUniqueId(),
                     session.withStipendAmount(amount).next(ParliamentChatSessions.SessionType.STIPEND_REASON));
-            player.sendMessage(ChatColor.AQUA + "Type a reason for the stipend (or 'skip' for none):");
+            player.sendMessage(c("&bType a reason for the stipend (or 'skip' for none):"));
         } catch (NumberFormatException ex) {
             player.sendMessage(handler.error("Spend amount must be a number."));
         }

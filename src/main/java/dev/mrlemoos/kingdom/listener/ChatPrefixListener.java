@@ -1,7 +1,8 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.service.KingdomService;
-import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -21,6 +22,6 @@ public final class ChatPrefixListener implements Listener {
         if (coloredPrefix.isEmpty()) {
             return;
         }
-        event.setFormat(coloredPrefix + ChatColor.RESET + "%s" + ChatColor.WHITE + ": %s");
+        event.setFormat(coloredPrefix + c("&r%s&f: %s"));
     }
 }

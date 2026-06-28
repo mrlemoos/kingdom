@@ -1,6 +1,6 @@
 package dev.mrlemoos.kingdom.election;
 
-import org.bukkit.ChatColor;
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.strip;
 
 public final class VillagerMpCombatPolicy {
 
@@ -26,6 +26,6 @@ public final class VillagerMpCombatPolicy {
         if (customName == null || customName.isBlank()) {
             return false;
         }
-        return ChatColor.stripColor(customName).contains("[MP]");
+        return strip(customName).contains("[MP]");
     }
 }

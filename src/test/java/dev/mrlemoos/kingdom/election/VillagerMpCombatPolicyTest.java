@@ -1,9 +1,10 @@
 package dev.mrlemoos.kingdom.election;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.bukkit.ChatColor;
 import org.junit.jupiter.api.Test;
 
 class VillagerMpCombatPolicyTest {
@@ -46,6 +47,6 @@ class VillagerMpCombatPolicyTest {
     }
 
     private static String mpNametag(String suffix) {
-        return ChatColor.GRAY + "[MP] " + ChatColor.WHITE + suffix;
+        return c("&7[MP] ")+ c("&f" + suffix);
     }
 }

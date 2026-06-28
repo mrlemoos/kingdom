@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.CoronaItem;
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
@@ -10,7 +12,6 @@ import dev.mrlemoos.kingdom.election.TerritoryVillagerCommercePolicy;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import java.util.Map;
 import java.util.Optional;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
@@ -108,14 +109,14 @@ public final class CoronaMerchantListener implements Listener {
         Optional<CoronaMerchantPayment.Result> payment = CoronaMerchantPayment.collect(
                 player.getInventory(), coordinator.economyService(), player.getUniqueId(), coronaPrice);
         if (payment.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "You need " + coronaPrice + " Corona to buy that.");
+            player.sendMessage(c("&cYou need ")+ coronaPrice + " Corona to buy that.");
             return;
         }
 
         ItemStack result = selected.getResult().clone();
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(result);
         if (!leftovers.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "Make inventory space for that trade.");
+            player.sendMessage(c("&cMake inventory space for that trade."));
             return;
         }
 

@@ -1,19 +1,15 @@
 package dev.mrlemoos.kingdom.mint;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import java.util.Locale;
-import org.bukkit.ChatColor;
 
 public final class TreasuryLordMessages {
 
     private TreasuryLordMessages() {}
 
     public static String territoryBriefing(double treasuryBalance, double dailyGdp) {
-        return ChatColor.GOLD + "[Lord of the Treasury]" + ChatColor.WHITE
-                + " Your Majesty, the treasury holds "
-                + ChatColor.YELLOW + formatAmount(treasuryBalance) + ChatColor.WHITE
-                + " Corona. Villager GDP is presently "
-                + ChatColor.YELLOW + formatAmount(dailyGdp) + ChatColor.WHITE
-                + " Corona per day.";
+        return c("&6[Lord of the Treasury]")+ c("&f Your Majesty, the treasury holds ")+ c("&e" + formatAmount(treasuryBalance)) + c("&f Corona. Villager GDP is presently ")+ c("&e" + formatAmount(dailyGdp)) + c("&f Corona per day.");
     }
 
     static String formatAmount(double amount) {

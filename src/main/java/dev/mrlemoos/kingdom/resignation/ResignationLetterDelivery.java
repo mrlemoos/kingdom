@@ -1,12 +1,13 @@
 package dev.mrlemoos.kingdom.resignation;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.model.election.PendingResignation;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -61,10 +62,10 @@ public final class ResignationLetterDelivery {
         Map<Integer, ItemStack> leftover = player.getInventory().addItem(letter);
         if (!leftover.isEmpty()) {
             leftover.values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
-            player.sendMessage(ChatColor.YELLOW + "Your inventory was full. The resignation letter was dropped at your feet.");
+            player.sendMessage(c("&eYour inventory was full. The resignation letter was dropped at your feet."));
         }
-        player.sendMessage(ChatColor.GOLD + "A resignation letter has been delivered.");
-        player.sendMessage(ChatColor.GRAY + "Right-click the letter to review it.");
+        player.sendMessage(c("&6A resignation letter has been delivered."));
+        player.sendMessage(c("&7Right-click the letter to review it."));
     }
 
     public void removeLetters(Player player, String kingdomId) {

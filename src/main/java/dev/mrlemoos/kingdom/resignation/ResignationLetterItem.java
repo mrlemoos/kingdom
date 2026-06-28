@@ -1,8 +1,9 @@
 package dev.mrlemoos.kingdom.resignation;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import java.util.Optional;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -21,11 +22,11 @@ public final class ResignationLetterItem {
 
     public ItemStack create(String kingdomId, String summary) {
         return new ItemBuilder(Material.PAPER)
-                .displayAs(ChatColor.GOLD + "Resignation letter")
+                .displayAs(c("&6Resignation letter"))
                 .lore(
-                        ChatColor.GRAY + summary,
+                        c("&7" + summary),
                         "",
-                        ChatColor.YELLOW + "Right-click to review.")
+                        c("&eRight-click to review."))
                 .pdc(markerKey, PersistentDataType.BYTE, (byte) 1)
                 .pdc(kingdomKey, PersistentDataType.STRING, kingdomId)
                 .build();

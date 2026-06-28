@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.CoronaItem;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
@@ -12,7 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -100,7 +101,7 @@ public final class TreasuryLordListener implements Listener {
             player.closeInventory();
             pendingCustomWithdrawals.put(player.getUniqueId(), gui.kingdomId());
             player.sendMessage(info("Type the whole Corona amount to withdraw in chat, or type "
-                    + ChatColor.YELLOW + "cancel" + ChatColor.AQUA + "."));
+                    + c("&ecancel")+ c("&b.")));
             return;
         }
 
@@ -182,14 +183,14 @@ public final class TreasuryLordListener implements Listener {
     }
 
     private static String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private static String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private static String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 }

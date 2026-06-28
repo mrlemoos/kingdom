@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
@@ -21,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
@@ -103,8 +104,7 @@ public final class ElectionHandler {
                     vacateSeat(kingdom.getId(), seat.index());
                     electionService.startByElection(kingdom.getId(), seat.index());
                     store.saveFrom(kingdomService);
-                    Bukkit.broadcastMessage(ChatColor.GOLD + "A by-election has been called for MP seat "
-                            + seat.index() + " in " + kingdom.getDisplayName() + ".");
+                    Bukkit.broadcastMessage(c("&6A by-election has been called for MP seat ")+ seat.index() + " in " + kingdom.getDisplayName() + ".");
                     return;
                 }
             }
@@ -258,13 +258,11 @@ public final class ElectionHandler {
                 villagerMpEntityService.syncKingdom(kingdomId);
                 store.saveFrom(kingdomService);
                 refreshMpDisplays(kingdomId);
-                Bukkit.broadcastMessage(ChatColor.GOLD + "The general election in "
-                        + kingdom.getDisplayName() + " has closed.");
+                Bukkit.broadcastMessage(c("&6The general election in ")+ kingdom.getDisplayName() + " has closed.");
                 ElectionResult premierStart = electionService.startPremierElection(kingdomId);
                 if (premierStart instanceof ElectionResult.Success) {
                     store.saveFrom(kingdomService);
-                    Bukkit.broadcastMessage(ChatColor.GOLD + "Premier election open in "
-                            + kingdom.getDisplayName() + ". Seated MPs may nominate and vote.");
+                    Bukkit.broadcastMessage(c("&6Premier election open in ")+ kingdom.getDisplayName() + ". Seated MPs may nominate and vote.");
                 } else {
                     Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
                     ElectionResult appointed = villagerPremierInauguralService.appointAfterGeneralElection(
@@ -272,10 +270,9 @@ public final class ElectionHandler {
                     if (appointed instanceof ElectionResult.Success) {
                         store.saveFrom(kingdomService);
                         villagerMpEntityService.syncKingdom(kingdomId);
-                        Bukkit.broadcastMessage(ChatColor.GOLD + appointed.message());
+                        Bukkit.broadcastMessage(c("&6" + appointed.message()));
                     } else {
-                        Bukkit.broadcastMessage(ChatColor.YELLOW + "No player MPs were elected in "
-                                + kingdom.getDisplayName()
+                        Bukkit.broadcastMessage(c("&eNo player MPs were elected in ")+ kingdom.getDisplayName()
                                 + ", and no Premier villager could be appointed.");
                     }
                 }
@@ -290,15 +287,13 @@ public final class ElectionHandler {
                         nobleDisplay.refresh(online);
                     }
                 }
-                Bukkit.broadcastMessage(ChatColor.GOLD + "A Premier has been elected in "
-                        + kingdom.getDisplayName() + ".");
+                Bukkit.broadcastMessage(c("&6A Premier has been elected in ")+ kingdom.getDisplayName() + ".");
                 return;
             }
             villagerMpEntityService.syncKingdom(kingdomId);
             store.saveFrom(kingdomService);
             refreshMpDisplays(kingdomId);
-            Bukkit.broadcastMessage(ChatColor.GOLD + "The election in "
-                    + kingdom.getDisplayName() + " has closed.");
+            Bukkit.broadcastMessage(c("&6The election in ")+ kingdom.getDisplayName() + " has closed.");
         }
     }
 
@@ -354,14 +349,14 @@ public final class ElectionHandler {
     }
 
     private static String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private static String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private static String info(String message) {
-        return ChatColor.YELLOW + message;
+        return c("&e" + message);
     }
 }

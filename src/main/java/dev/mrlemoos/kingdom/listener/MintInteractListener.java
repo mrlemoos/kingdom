@@ -1,7 +1,8 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -39,12 +40,10 @@ public final class MintInteractListener implements Listener {
         double walletBalance = coordinator.getWalletBalance(player.getUniqueId());
         double treasuryBalance = coordinator.getTreasuryBalance(mintMatch.get().kingdomId());
 
-        player.sendMessage(ChatColor.GOLD + "Kingdom Mint");
-        player.sendMessage(ChatColor.YELLOW + "Your wallet: " + ChatColor.WHITE + formatCorona(walletBalance));
-        player.sendMessage(ChatColor.YELLOW + "Treasury: " + ChatColor.WHITE + formatCorona(treasuryBalance));
-        player.sendMessage(ChatColor.GRAY + "Use " + ChatColor.YELLOW + "/corona deposit"
-                + ChatColor.GRAY + " to convert gold ingots. Right-click the "
-                + ChatColor.GOLD + "Lord of the Treasury" + ChatColor.GRAY + " to withdraw Corona.");
+        player.sendMessage(c("&6Kingdom Mint"));
+        player.sendMessage(c("&eYour wallet: ")+ c("&f" + formatCorona(walletBalance)));
+        player.sendMessage(c("&eTreasury: ")+ c("&f" + formatCorona(treasuryBalance)));
+        player.sendMessage(c("&7Use ")+ c("&e/corona deposit")+ c("&7 to convert gold ingots. Right-click the ")+ c("&6Lord of the Treasury")+ c("&7 to withdraw Corona."));
     }
 
     private static String formatCorona(double amount) {

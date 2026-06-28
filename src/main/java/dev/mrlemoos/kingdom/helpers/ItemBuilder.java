@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.helpers;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -7,7 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;
@@ -55,7 +56,7 @@ public final class ItemBuilder {
 
   // #region static factories
   public static ItemStack labelled(Material material, String name, String loreLine) {
-    return new ItemBuilder(material).displayAs(name).lore(ChatColor.GRAY + loreLine).build();
+    return new ItemBuilder(material).displayAs(name).lore(c("&7" + loreLine)).build();
   }
 
   public static ItemStack fillerPane(Material pane) {

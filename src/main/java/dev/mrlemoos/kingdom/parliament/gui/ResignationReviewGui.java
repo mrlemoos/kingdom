@@ -1,8 +1,9 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -10,7 +11,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class ResignationReviewGui implements InventoryHolder {
 
-    public static final String TITLE = ChatColor.DARK_RED + "Resignation";
+    public static final String TITLE = c("&4Resignation");
 
     static final int SLOT_SUMMARY = 4;
     static final int SLOT_ACCEPT = 20;
@@ -34,10 +35,10 @@ public final class ResignationReviewGui implements InventoryHolder {
         inventory.setItem(SLOT_SUMMARY, summaryItem(summary));
         inventory.setItem(
                 SLOT_ACCEPT,
-                new ItemBuilder(Material.LIME_WOOL).displayAs(ChatColor.GREEN + "Accept resignation").build());
+                new ItemBuilder(Material.LIME_WOOL).displayAs(c("&aAccept resignation")).build());
         inventory.setItem(
                 SLOT_REJECT,
-                new ItemBuilder(Material.RED_WOOL).displayAs(ChatColor.RED + "Reject resignation").build());
+                new ItemBuilder(Material.RED_WOOL).displayAs(c("&cReject resignation")).build());
         return gui;
     }
 
@@ -56,8 +57,8 @@ public final class ResignationReviewGui implements InventoryHolder {
 
     private static ItemStack summaryItem(String summary) {
         return new ItemBuilder(Material.PAPER)
-                .displayAs(ChatColor.GOLD + "Pending resignation")
-                .lore(ChatColor.GRAY + summary)
+                .displayAs(c("&6Pending resignation"))
+                .lore(c("&7" + summary))
                 .build();
     }
 }

@@ -1,12 +1,13 @@
 package dev.mrlemoos.kingdom.helpers;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
@@ -38,8 +39,8 @@ class ItemBuilderTest {
     @Test
     void buildAppliesDisplayNameAndLore() {
         ItemStack stack = new ItemBuilder(Material.PAPER)
-                .displayAs(ChatColor.GOLD + "Test")
-                .lore(ChatColor.GRAY + "Line one", ChatColor.GRAY + "Line two")
+                .displayAs(c("&6Test"))
+                .lore(c("&7Line one"), c("&7Line two"))
                 .amount(3)
                 .build();
 
@@ -47,8 +48,8 @@ class ItemBuilderTest {
         assertEquals(3, stack.getAmount());
         ItemMeta meta = stack.getItemMeta();
         assertNotNull(meta);
-        assertEquals(ChatColor.GOLD + "Test", meta.getDisplayName());
-        assertEquals(List.of(ChatColor.GRAY + "Line one", ChatColor.GRAY + "Line two"), meta.getLore());
+        assertEquals(c("&6Test"), meta.getDisplayName());
+        assertEquals(List.of(c("&7Line one"), c("&7Line two")), meta.getLore());
     }
 
     @Test
@@ -88,24 +89,24 @@ class ItemBuilderTest {
 
         ItemStack stack = new ItemBuilder(Material.PLAYER_HEAD)
                 .skullOwner(ownerId)
-                .displayAs(ChatColor.WHITE + "Alice")
+                .displayAs(c("&fAlice"))
                 .build();
 
         SkullMeta meta = (SkullMeta) stack.getItemMeta();
         assertNotNull(meta);
         assertNotNull(meta.getOwningPlayer());
         assertEquals("Alice", meta.getOwningPlayer().getName());
-        assertEquals(ChatColor.WHITE + "Alice", meta.getDisplayName());
+        assertEquals(c("&fAlice"), meta.getDisplayName());
     }
 
     @Test
     void labelledPrefixesLoreWithGray() {
-        ItemStack stack = ItemBuilder.labelled(Material.EMERALD, ChatColor.GREEN + "Action", "Do the thing");
+        ItemStack stack = ItemBuilder.labelled(Material.EMERALD, c("&aAction"), "Do the thing");
 
         ItemMeta meta = stack.getItemMeta();
         assertNotNull(meta);
-        assertEquals(ChatColor.GREEN + "Action", meta.getDisplayName());
-        assertEquals(List.of(ChatColor.GRAY + "Do the thing"), meta.getLore());
+        assertEquals(c("&aAction"), meta.getDisplayName());
+        assertEquals(List.of(c("&7Do the thing")), meta.getLore());
     }
 
     @Test

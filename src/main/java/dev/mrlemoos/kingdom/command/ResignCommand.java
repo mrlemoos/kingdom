@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.model.NobleRank;
@@ -13,7 +15,6 @@ import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.Optional;
 import java.util.OptionalInt;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import dev.mrlemoos.kingdom.mint.TreasuryLordTargetScan;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -108,13 +109,13 @@ public final class ResignCommand {
         refreshDisplays(kingdomId);
         letterDelivery.removeLetters(player, kingdomId);
         player.sendMessage(success(((ResignationResult.Success) result).message()));
-        Bukkit.broadcastMessage(ChatColor.GOLD + membership.get().getRank().displayTitle(
+        Bukkit.broadcastMessage(c("&6" + membership.get().getRank().displayTitle(
                         membership.get().getTitleStyle() != null
                                 ? membership.get().getTitleStyle()
                                 : dev.mrlemoos.kingdom.model.TitleStyle.MASCULINE)
                 + " has accepted a resignation in "
                 + kingdomService.getKingdom(kingdomId).orElseThrow().getDisplayName()
-                + ".");
+                + "."));
         return true;
     }
 
@@ -169,10 +170,10 @@ public final class ResignCommand {
     }
 
     private static String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private static String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 }

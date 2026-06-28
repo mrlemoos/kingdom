@@ -1,8 +1,9 @@
 package dev.mrlemoos.kingdom.listener;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.List;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -30,7 +31,7 @@ public final class JoinReminderListener implements Listener {
             return;
         }
         for (String line : messageLines) {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', line));
+            player.sendMessage(c(line));
         }
     }
 }

@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyResult;
@@ -32,7 +34,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -245,7 +246,7 @@ public final class ParliamentHandler {
         villagerPremierInauguralService.tablePendingBudgetAfterAssent(kingdomId);
         kingdomStore.saveFrom(kingdomService);
         player.sendMessage(success(((EconomyResult.Success) enacted).message() + " Act archived in the registrar."));
-        broadcastParliament(kingdomId, ChatColor.GREEN + "Royal assent granted: " + draft.get().title());
+        broadcastParliament(kingdomId, c("&aRoyal assent granted: ")+ draft.get().title());
         return true;
     }
 
@@ -257,7 +258,7 @@ public final class ParliamentHandler {
         for (Player online : Bukkit.getOnlinePlayers()) {
             kingdomService.getMembership(online.getUniqueId()).ifPresent(membership -> {
                 if (membership.getKingdomId().equals(kingdomId)) {
-                    online.sendMessage(ChatColor.DARK_AQUA + "[Parliament] " + ChatColor.RESET + message);
+                    online.sendMessage(c("&3[Parliament] ")+ c("&r" + message));
                 }
             });
         }
@@ -339,10 +340,9 @@ public final class ParliamentHandler {
             if (success.message().contains("passed")) {
                 broadcastParliament(
                         kingdomId,
-                        ChatColor.GREEN + "A bill passed the Commons: "
-                                + parliamentService.currentBill(kingdomId).map(Bill::title).orElse("bill"));
+                        c("&aA bill passed the Commons: ")+ parliamentService.currentBill(kingdomId).map(Bill::title).orElse("bill"));
             } else if (success.message().contains("failed")) {
-                broadcastParliament(kingdomId, ChatColor.RED + "A bill failed the Commons division.");
+                broadcastParliament(kingdomId, c("&cA bill failed the Commons division."));
             }
             kingdomStore.saveFrom(kingdomService);
             return result;
@@ -356,7 +356,7 @@ public final class ParliamentHandler {
         if (result instanceof ParliamentResult.Success success) {
             player.sendMessage(success(success.message()));
             villagerPremierInauguralService.clearPendingBudgetOnBillFailure(kingdomId);
-            broadcastParliament(kingdomId, ChatColor.RED + "Royal assent withheld. Bill rejected.");
+            broadcastParliament(kingdomId, c("&cRoyal assent withheld. Bill rejected."));
             kingdomStore.saveFrom(kingdomService);
             return result;
         }
@@ -387,18 +387,16 @@ public final class ParliamentHandler {
         sender.sendMessage(siteLine("Lords", sites.lords()));
         sites.registrar()
                 .ifPresentOrElse(
-                        registrar -> sender.sendMessage(ChatColor.GRAY + "Registrar: " + ChatColor.WHITE
-                                + registrar.worldName() + " @ " + registrar.blockX() + ", "
+                        registrar -> sender.sendMessage(c("&7Registrar: ")+ c("&f" + registrar.worldName()) + " @ " + registrar.blockX() + ", "
                                 + registrar.blockY() + ", " + registrar.blockZ()),
-                        () -> sender.sendMessage(ChatColor.GRAY + "Registrar: " + ChatColor.WHITE + "not set"));
+                        () -> sender.sendMessage(c("&7Registrar: ")+ c("&fnot set")));
 
         parliamentService.currentBill(kingdomId).ifPresentOrElse(
                 bill -> {
-                    sender.sendMessage(ChatColor.GRAY + "Current bill: " + ChatColor.WHITE + bill.title());
-                    sender.sendMessage(ChatColor.GRAY + "State: " + ChatColor.WHITE
-                            + bill.state().name().toLowerCase(Locale.ROOT));
+                    sender.sendMessage(c("&7Current bill: ")+ c("&f" + bill.title()));
+                    sender.sendMessage(c("&7State: ")+ c("&f" + bill.state().name().toLowerCase(Locale.ROOT)));
                 },
-                () -> sender.sendMessage(ChatColor.GRAY + "No bill is before Parliament."));
+                () -> sender.sendMessage(c("&7No bill is before Parliament.")));
         return true;
     }
 
@@ -469,29 +467,24 @@ public final class ParliamentHandler {
 
     public String help() {
         return info("Parliament:")
-                + "\n" + ChatColor.YELLOW + "/kingdom parliament"
-                + ChatColor.GRAY + " — open the parliamentary hub (in Commons or Lords)"
-                + "\n" + ChatColor.YELLOW + "/kingdom parliament set commons|lords|registrar"
-                + ChatColor.GRAY + " — set chamber sites (monarch)"
-                + "\n" + ChatColor.YELLOW + "/kingdom parliament status"
-                + ChatColor.GRAY + " — view parliamentary state";
+                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|registrar")+ c("&7 — set chamber sites (monarch)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
     }
 
     public String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     public String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 
     private String siteLine(String label, Optional<ChamberSite> site) {
-        return site.map(chamber -> ChatColor.GRAY + label + ": " + ChatColor.WHITE + chamber.worldName()
+        return site.map(chamber -> c("&7" + label) + ": " + c("&f" + chamber.worldName())
                 + " @ " + String.format(Locale.UK, "%.1f, %.1f, %.1f", chamber.x(), chamber.y(), chamber.z()))
-                .orElse(ChatColor.GRAY + label + ": " + ChatColor.WHITE + "not set");
+                .orElse(c("&7" + label) + ": " + c("&fnot set"));
     }
 }

@@ -1,9 +1,10 @@
 package dev.mrlemoos.kingdom.mint;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import java.util.Locale;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -11,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class TreasuryWithdrawGui implements InventoryHolder {
 
-    public static final String TITLE = ChatColor.GOLD + "Treasury Withdrawal";
+    public static final String TITLE = c("&6Treasury Withdrawal");
 
     static final int SLOT_BALANCE = 4;
     static final int SLOT_ONE = 10;
@@ -83,10 +84,10 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
 
     private static ItemStack balanceItem(int wholeBalance) {
         return new ItemBuilder(Material.GOLD_BLOCK)
-                .displayAs(ChatColor.YELLOW + "Your wallet")
+                .displayAs(c("&eYour wallet"))
                 .lore(
-                        ChatColor.WHITE + String.valueOf(wholeBalance) + ChatColor.GRAY + " Corona available",
-                        ChatColor.GRAY + "1 gold nugget = 1 Corona")
+                        c("&f" + String.valueOf(wholeBalance)) + c("&7 Corona available"),
+                        c("&71 gold nugget = 1 Corona"))
                 .build();
     }
 
@@ -98,10 +99,10 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
         boolean enabled = amount > 0 && wholeBalance >= amount;
         String label = labelOverride != null ? labelOverride : "Withdraw " + amount;
         ItemBuilder builder = new ItemBuilder(Material.GOLD_NUGGET, Math.min(amount, 64))
-                .displayAs((enabled ? ChatColor.GREEN : ChatColor.DARK_GRAY) + label)
+                .displayAs((enabled ? c("&a") : c("&8")) + label)
                 .lore(enabled
-                        ? ChatColor.GRAY + "Click to withdraw " + amount + " Corona"
-                        : ChatColor.RED + "Insufficient balance");
+                        ? c("&7Click to withdraw ")+ amount + " Corona"
+                        : c("&cInsufficient balance"));
         if (!enabled) {
             builder.type(Material.GRAY_DYE);
         }
@@ -110,10 +111,10 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
 
     private static ItemStack customAmountButton() {
         return new ItemBuilder(Material.PAPER)
-                .displayAs(ChatColor.AQUA + "Custom amount")
+                .displayAs(c("&bCustom amount"))
                 .lore(
-                        ChatColor.GRAY + "Click, then type the amount in chat",
-                        ChatColor.GRAY + "Whole Corona only")
+                        c("&7Click, then type the amount in chat"),
+                        c("&7Whole Corona only"))
                 .build();
     }
 

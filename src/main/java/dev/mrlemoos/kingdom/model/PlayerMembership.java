@@ -2,7 +2,6 @@ package dev.mrlemoos.kingdom.model;
 
 import java.util.Objects;
 import java.util.UUID;
-import org.bukkit.ChatColor;
 
 public final class PlayerMembership {
     private final UUID playerId;
@@ -51,15 +50,15 @@ public final class PlayerMembership {
         return formattedTitle(rank.chatColor());
     }
 
-    private String formattedTitle(ChatColor color) {
+    private String formattedTitle(String colorPrefix) {
         if (rank == null) {
             return "";
         }
         TitleStyle style = titleStyle != null ? titleStyle : TitleStyle.MASCULINE;
         String title = rank.displayTitle(style);
         StringBuilder prefix = new StringBuilder();
-        if (color != null) {
-            prefix.append(color);
+        if (colorPrefix != null) {
+            prefix.append(colorPrefix);
         }
         prefix.append('[').append(title).append("] ");
         return prefix.toString();

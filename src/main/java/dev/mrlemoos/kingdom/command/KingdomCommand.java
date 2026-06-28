@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
@@ -18,7 +20,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -154,11 +155,10 @@ public final class KingdomCommand {
                     .filter(m -> kingdom.getId().equals(m.getKingdomId()))
                     .count();
             String wealthLabel = economyService != null
-                    ? ChatColor.GRAY + ", " + ChatColor.WHITE + formatCorona(realmWealthFor(kingdom))
-                            + ChatColor.GRAY + " Corona realm wealth"
-                    : "";
-            sender.sendMessage(ChatColor.GRAY + " - " + ChatColor.YELLOW + kingdom.getDisplayName()
-                    + ChatColor.GRAY + " (" + kingdom.getId() + ", " + members + " members)" + wealthLabel);
+                    ? c("&7, ")+ c("&f" + formatCorona(realmWealthFor(kingdom)))
+                            + c("&7 Corona realm wealth"): "";
+            sender.sendMessage(c("&7 - ")+ c("&e" + kingdom.getDisplayName())
+                    + c("&7 (")+ kingdom.getId() + ", " + members + " members)" + wealthLabel);
         }
         return;
     }
@@ -191,7 +191,7 @@ public final class KingdomCommand {
     private void sendKingdomInfo(CommandSender sender, Kingdom kingdom) {
         sender.sendMessage(info(kingdom.getDisplayName()));
         service.territoryLabel(kingdom).ifPresent(label ->
-                sender.sendMessage(ChatColor.GRAY + "Territory: " + ChatColor.WHITE + label));
+                sender.sendMessage(c("&7Territory: ")+ c("&f" + label)));
         if (economyService != null) {
             String kingdomId = kingdom.getId();
             boolean hasTerritory = kingdom.getWorldGuardRegion() != null
@@ -205,36 +205,27 @@ public final class KingdomCommand {
                     : 0.0;
             double realmWealth = economyService.getRealmWealth(kingdomId, realmWealthRates);
 
-            sender.sendMessage(ChatColor.GRAY + "Treasury: "
-                    + ChatColor.WHITE + formatCorona(treasury) + " Corona");
-            sender.sendMessage(ChatColor.GRAY + "Material reserves: "
-                    + ChatColor.WHITE + formatCorona(materialReserves) + " Corona");
-            sender.sendMessage(ChatColor.GRAY + "Estates: "
-                    + ChatColor.WHITE + formatCorona(estateValue) + " Corona");
-            sender.sendMessage(ChatColor.GRAY + "Realm wealth: "
-                    + ChatColor.WHITE + formatCorona(realmWealth) + " Corona");
+            sender.sendMessage(c("&7Treasury: ")+ c("&f" + formatCorona(treasury)) + " Corona");
+            sender.sendMessage(c("&7Material reserves: ")+ c("&f" + formatCorona(materialReserves)) + " Corona");
+            sender.sendMessage(c("&7Estates: ")+ c("&f" + formatCorona(estateValue)) + " Corona");
+            sender.sendMessage(c("&7Realm wealth: ")+ c("&f" + formatCorona(realmWealth)) + " Corona");
             if (!hasTerritory) {
-                sender.sendMessage(ChatColor.GRAY + "No territory linked — physical reserves and estates are not counted.");
+                sender.sendMessage(c("&7No territory linked — physical reserves and estates are not counted."));
             }
-            sender.sendMessage(ChatColor.GRAY + "Tax revenue: "
-                    + ChatColor.WHITE + formatCorona(economyService.getTotalTaxRevenue(kingdomId)) + " Corona");
-            sender.sendMessage(ChatColor.GRAY + "GDP: "
-                    + ChatColor.WHITE + formatCorona(economyService.getLastDailyGdp(kingdomId)) + " Corona/day");
-            sender.sendMessage(ChatColor.GRAY + "Active villager wallets: "
-                    + ChatColor.WHITE + formatCorona(economyService.getTotalActiveVillagerWalletBalance(kingdomId))
+            sender.sendMessage(c("&7Tax revenue: ")+ c("&f" + formatCorona(economyService.getTotalTaxRevenue(kingdomId))) + " Corona");
+            sender.sendMessage(c("&7GDP: ")+ c("&f" + formatCorona(economyService.getLastDailyGdp(kingdomId))) + " Corona/day");
+            sender.sendMessage(c("&7Active villager wallets: ")+ c("&f" + formatCorona(economyService.getTotalActiveVillagerWalletBalance(kingdomId)))
                     + " Corona");
-            sender.sendMessage(ChatColor.GRAY + "Villager trades settled (last day): "
-                    + ChatColor.WHITE + economyService.getLastDayTradesSettled(kingdomId));
+            sender.sendMessage(c("&7Villager trades settled (last day): ")+ c("&f" + economyService.getLastDayTradesSettled(kingdomId)));
             double totalGdpRevenue = economyService.getTotalGdpRevenue(kingdomId);
             if (totalGdpRevenue > 0.0) {
-                sender.sendMessage(ChatColor.GRAY + "Total GDP revenue: "
-                        + ChatColor.WHITE + formatCorona(totalGdpRevenue) + " Corona");
+                sender.sendMessage(c("&7Total GDP revenue: ")+ c("&f" + formatCorona(totalGdpRevenue)) + " Corona");
             }
         }
         if (sender instanceof Player player
                 && kingdom.getWorldGuardRegion() != null
                 && service.resolveWorldName(kingdom).equals(player.getWorld().getName())) {
-            sender.sendMessage(ChatColor.GRAY + "You are in this kingdom's linked overworld.");
+            sender.sendMessage(c("&7You are in this kingdom's linked overworld."));
         }
         List<PlayerMembership> members = service.getMembershipsView().values().stream()
                 .filter(m -> kingdom.getId().equals(m.getKingdomId()))
@@ -247,9 +238,9 @@ public final class KingdomCommand {
             OfflinePlayer member = Bukkit.getOfflinePlayer(membership.getPlayerId());
             String name = member.getName() != null ? member.getName() : membership.getPlayerId().toString();
             if (membership.hasNobleTitle()) {
-                sender.sendMessage(membership.coloredChatPrefix().trim() + ChatColor.WHITE + " " + name);
+                sender.sendMessage(membership.coloredChatPrefix().trim() + c("&f ")+ name);
             } else {
-                sender.sendMessage(ChatColor.GRAY + "  " + name);
+                sender.sendMessage(c("&7  ")+ name);
             }
         }
     }
@@ -267,7 +258,7 @@ public final class KingdomCommand {
                 : "Citizen";
         sender.sendMessage(info(name + ": " + kingdom.getDisplayName() + " — " + rank));
         service.territoryLabel(kingdom).ifPresent(label ->
-                sender.sendMessage(ChatColor.GRAY + "Territory: " + ChatColor.WHITE + label));
+                sender.sendMessage(c("&7Territory: ")+ c("&f" + label)));
     }
 
     private void handleCreate(CommandSender sender, String[] args) {
@@ -483,31 +474,31 @@ public final class KingdomCommand {
 
     private String help(CommandSender sender) {
         StringBuilder builder = new StringBuilder(info("Kingdom commands:"));
-        builder.append("\n").append(ChatColor.YELLOW).append("/kingdom list");
-        builder.append(ChatColor.GRAY).append(" — list realms");
-        builder.append("\n").append(ChatColor.YELLOW).append("/kingdom join <name>");
-        builder.append(ChatColor.GRAY).append(" — choose your kingdom once");
-        builder.append("\n").append(ChatColor.YELLOW).append("/kingdom info [name]");
-        builder.append(ChatColor.GRAY).append(" — realm or player details");
+        builder.append("\n").append(c("&e")).append("/kingdom list");
+        builder.append(c("&7")).append(" — list realms");
+        builder.append("\n").append(c("&e")).append("/kingdom join <name>");
+        builder.append(c("&7")).append(" — choose your kingdom once");
+        builder.append("\n").append(c("&e")).append("/kingdom info [name]");
+        builder.append(c("&7")).append(" — realm or player details");
         if (fiscalHandler != null) {
-            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom election ...");
-            builder.append(ChatColor.GRAY).append(" — MP elections and nominations");
-            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom parliament ...");
-            builder.append(ChatColor.GRAY).append(" — table bills, divisions, royal assent");
-            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom fiscal show");
-            builder.append(ChatColor.GRAY).append(" — view active fiscal rates");
-            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom budget status");
-            builder.append(ChatColor.GRAY).append(" — treasury budget");
-            builder.append("\n").append(ChatColor.YELLOW).append("/kingdom mint list");
-            builder.append(ChatColor.GRAY).append(" — kingdom mints");
+            builder.append("\n").append(c("&e")).append("/kingdom election ...");
+            builder.append(c("&7")).append(" — MP elections and nominations");
+            builder.append("\n").append(c("&e")).append("/kingdom parliament ...");
+            builder.append(c("&7")).append(" — table bills, divisions, royal assent");
+            builder.append("\n").append(c("&e")).append("/kingdom fiscal show");
+            builder.append(c("&7")).append(" — view active fiscal rates");
+            builder.append("\n").append(c("&e")).append("/kingdom budget status");
+            builder.append(c("&7")).append(" — treasury budget");
+            builder.append("\n").append(c("&e")).append("/kingdom mint list");
+            builder.append(c("&7")).append(" — kingdom mints");
         }
         if (sender.isOp()) {
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom create <id> [display]");
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom move <player> <kingdom>");
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom title <player> <rank|none> [style]");
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom setregion <kingdom> <region>");
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom setworld <kingdom> <world>");
-            builder.append("\n").append(ChatColor.GOLD).append("/kingdom treasury credit <kingdom> <amount>");
+            builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");
+            builder.append("\n").append(c("&6")).append("/kingdom move <player> <kingdom>");
+            builder.append("\n").append(c("&6")).append("/kingdom title <player> <rank|none> [style]");
+            builder.append("\n").append(c("&6")).append("/kingdom setregion <kingdom> <region>");
+            builder.append("\n").append(c("&6")).append("/kingdom setworld <kingdom> <world>");
+            builder.append("\n").append(c("&6")).append("/kingdom treasury credit <kingdom> <amount>");
         }
         return builder.toString();
     }
@@ -520,15 +511,15 @@ public final class KingdomCommand {
     }
 
     private String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 
     private static String formatCorona(double amount) {

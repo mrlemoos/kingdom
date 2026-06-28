@@ -1,7 +1,8 @@
 package dev.mrlemoos.kingdom.model;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import java.util.List;
-import org.bukkit.ChatColor;
 
 public enum NobleRank {
     KING(1, 1, "King", "Queen"),
@@ -48,17 +49,17 @@ public enum NobleRank {
         };
     }
 
-    public ChatColor chatColor() {
+    public String chatColor() {
         return switch (this) {
-            case KING, QUEEN -> ChatColor.GOLD;
-            case PRINCE -> ChatColor.YELLOW;
-            case PREMIER -> ChatColor.DARK_GREEN;
-            case SPEAKER -> ChatColor.AQUA;
-            case DUKE -> ChatColor.BLUE;
-            case LORD -> ChatColor.LIGHT_PURPLE;
-            case COUNT -> ChatColor.RED;
-            case MP -> ChatColor.GRAY;
-            case KNIGHT -> ChatColor.WHITE;
+            case KING, QUEEN -> c("&6");
+            case PRINCE -> c("&e");
+            case PREMIER -> c("&2");
+            case SPEAKER -> c("&b");
+            case DUKE -> c("&9");
+            case LORD -> c("&d");
+            case COUNT -> c("&c");
+            case MP -> c("&7");
+            case KNIGHT -> c("&f");
         };
     }
 

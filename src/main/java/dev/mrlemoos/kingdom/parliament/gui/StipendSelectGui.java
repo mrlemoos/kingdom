@@ -1,11 +1,12 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
@@ -14,7 +15,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class StipendSelectGui implements InventoryHolder {
 
-    public static final String TITLE = ChatColor.DARK_GREEN + "Stipend recipient";
+    public static final String TITLE = c("&2Stipend recipient");
 
     static final int SLOT_OTHER = 49;
 
@@ -53,7 +54,7 @@ public final class StipendSelectGui implements InventoryHolder {
                 SLOT_OTHER,
                 ItemBuilder.labelled(
                         Material.NAME_TAG,
-                        ChatColor.AQUA + "Other player",
+                        c("&bOther player"),
                         "Type a player name in chat"));
         fillBackground(inventory);
     }
@@ -72,8 +73,8 @@ public final class StipendSelectGui implements InventoryHolder {
     private static ItemStack playerHead(UUID uuid, String name) {
         return new ItemBuilder(Material.PLAYER_HEAD)
                 .skullOwner(uuid)
-                .displayAs(ChatColor.WHITE + name)
-                .lore(ChatColor.GRAY + "Table stipend for this member")
+                .displayAs(c("&f" + name))
+                .lore(c("&7Table stipend for this member"))
                 .build();
     }
 

@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.model.Kingdom;
@@ -14,7 +16,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
@@ -175,8 +176,7 @@ public final class TpCommand {
         }
         sender.sendMessage(info(kingdom.getDisplayName() + " checkpoints:"));
         for (TeleportPlace place : places) {
-            sender.sendMessage(ChatColor.GRAY + "  " + place.name() + ChatColor.WHITE + " — "
-                    + place.worldName() + " "
+            sender.sendMessage(c("&7  ")+ place.name() + c("&f — ")+ place.worldName() + " "
                     + formatCoord(place.x()) + " "
                     + formatCoord(place.y()) + " "
                     + formatCoord(place.z()));
@@ -410,22 +410,22 @@ public final class TpCommand {
     private String help(CommandSender sender) {
         StringBuilder builder = new StringBuilder(info("Teleport commands:"));
         if (sender.hasPermission(PERM_CHECKPOINT)) {
-            builder.append("\n").append(ChatColor.YELLOW).append("/tp <checkpoint>");
-            builder.append(ChatColor.GRAY).append(" — teleport to a kingdom checkpoint");
+            builder.append("\n").append(c("&e")).append("/tp <checkpoint>");
+            builder.append(c("&7")).append(" — teleport to a kingdom checkpoint");
         }
         if (sender.hasPermission(PERM_TELEPORT)) {
-            builder.append("\n").append(ChatColor.YELLOW).append("/tp <player>");
-            builder.append(ChatColor.GRAY).append(" — teleport to a player");
-            builder.append("\n").append(ChatColor.YELLOW).append("/tp <player> <destination>");
-            builder.append(ChatColor.GRAY).append(" — teleport a player to another player or checkpoint");
-            builder.append("\n").append(ChatColor.YELLOW).append("/tp <x> <y> <z>");
-            builder.append(ChatColor.GRAY).append(" — teleport to coordinates (~ supported)");
+            builder.append("\n").append(c("&e")).append("/tp <player>");
+            builder.append(c("&7")).append(" — teleport to a player");
+            builder.append("\n").append(c("&e")).append("/tp <player> <destination>");
+            builder.append(c("&7")).append(" — teleport a player to another player or checkpoint");
+            builder.append("\n").append(c("&e")).append("/tp <x> <y> <z>");
+            builder.append(c("&7")).append(" — teleport to coordinates (~ supported)");
         }
         if (sender.isOp()) {
-            builder.append("\n").append(ChatColor.GOLD).append("/tp checkpoint create <name>");
-            builder.append("\n").append(ChatColor.GOLD).append("/tp checkpoint create <kingdom> <name>");
-            builder.append("\n").append(ChatColor.GOLD).append("/tp checkpoint delete <name>");
-            builder.append("\n").append(ChatColor.GOLD).append("/tp checkpoint list [kingdom]");
+            builder.append("\n").append(c("&6")).append("/tp checkpoint create <name>");
+            builder.append("\n").append(c("&6")).append("/tp checkpoint create <kingdom> <name>");
+            builder.append("\n").append(c("&6")).append("/tp checkpoint delete <name>");
+            builder.append("\n").append(c("&6")).append("/tp checkpoint list [kingdom]");
         }
         return builder.toString();
     }
@@ -438,15 +438,15 @@ public final class TpCommand {
     }
 
     private String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 
     private static String formatCoord(double value) {

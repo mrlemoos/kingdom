@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import java.util.ArrayList;
@@ -7,7 +9,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -15,7 +16,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class MintPrepareGui implements InventoryHolder {
 
-    public static final String TITLE = ChatColor.DARK_GREEN + "Prepare mint";
+    public static final String TITLE = c("&2Prepare mint");
 
     static final int SLOT_CONFIRM = 11;
     static final int SLOT_LECTERN = 13;
@@ -58,17 +59,17 @@ public final class MintPrepareGui implements InventoryHolder {
                 SLOT_CONFIRM,
                 ItemBuilder.labelled(
                         Material.LIME_CONCRETE,
-                        ChatColor.GREEN + "Confirm",
+                        c("&aConfirm"),
                         preparedLocation.isPresent()
                                 ? "Keep this prepared mint location"
                                 : "Confirm the lectern you are facing"));
         if (preparedLocation.isPresent()) {
             inventory.setItem(
                     SLOT_REPLACE,
-                    ItemBuilder.labelled(Material.ORANGE_CONCRETE, ChatColor.GOLD + "Replace", "Choose a different lectern"));
+                    ItemBuilder.labelled(Material.ORANGE_CONCRETE, c("&6Replace"), "Choose a different lectern"));
         }
         inventory.setItem(
-                SLOT_CANCEL, ItemBuilder.labelled(Material.BARRIER, ChatColor.RED + "Cancel", "Close without saving"));
+                SLOT_CANCEL, ItemBuilder.labelled(Material.BARRIER, c("&cCancel"), "Close without saving"));
         fillBackground(inventory);
     }
 
@@ -93,21 +94,21 @@ public final class MintPrepareGui implements InventoryHolder {
     }
 
     private static ItemStack lecternInfoItem(Optional<MintLocation> preparedLocation) {
-        ItemBuilder builder = new ItemBuilder(Material.LECTERN).displayAs(ChatColor.GOLD + "Mint location");
+        ItemBuilder builder = new ItemBuilder(Material.LECTERN).displayAs(c("&6Mint location"));
         List<String> lore = new ArrayList<>();
         if (preparedLocation.isPresent()) {
             MintLocation location = preparedLocation.get();
-            lore.add(ChatColor.GREEN + "Prepared");
-            lore.add(ChatColor.GRAY + String.format(
+            lore.add(c("&aPrepared"));
+            lore.add(c("&7" + String.format(
                     Locale.UK,
                     "%s %d, %d, %d",
                     location.worldName(),
                     location.x(),
                     location.y(),
-                    location.z()));
+                    location.z())));
         } else {
-            lore.add(ChatColor.YELLOW + "Not yet prepared");
-            lore.add(ChatColor.GRAY + "Face a lectern and confirm");
+            lore.add(c("&eNot yet prepared"));
+            lore.add(c("&7Face a lectern and confirm"));
         }
         return builder.lore(lore).build();
     }

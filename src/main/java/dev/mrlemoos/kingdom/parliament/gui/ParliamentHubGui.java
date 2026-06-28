@@ -1,9 +1,10 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import java.util.OptionalInt;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -11,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class ParliamentHubGui implements InventoryHolder {
 
-    public static final String TITLE = ChatColor.DARK_GREEN + "Parliament";
+    public static final String TITLE = c("&2Parliament");
 
     static final int SLOT_BILL_INFO = 4;
 
@@ -92,14 +93,14 @@ public final class ParliamentHubGui implements InventoryHolder {
                 view,
                 ParliamentHubAction.CUSTOM_AMOUNT,
                 SLOT_CUSTOM_AMOUNT,
-                ItemBuilder.labelled(Material.PAPER, ChatColor.AQUA + "Custom budget", "Enter an amount in chat"));
+                ItemBuilder.labelled(Material.PAPER, c("&bCustom budget"), "Enter an amount in chat"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.OPEN_DIVISION,
                 SLOT_OPEN_DIVISION,
-                ItemBuilder.labelled(Material.LIME_BANNER, ChatColor.GREEN + "Open division", "Begin a Commons vote"));
+                ItemBuilder.labelled(Material.LIME_BANNER, c("&aOpen division"), "Begin a Commons vote"));
         placeIfVisible(
                 inventory,
                 view,
@@ -116,45 +117,45 @@ public final class ParliamentHubGui implements InventoryHolder {
                 view,
                 ParliamentHubAction.CAST_AYE,
                 SLOT_CAST_AYE,
-                ItemBuilder.labelled(Material.LIME_WOOL, ChatColor.GREEN + "Casting vote: Aye", "Break a tied division"));
+                ItemBuilder.labelled(Material.LIME_WOOL, c("&aCasting vote: Aye"), "Break a tied division"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.CAST_NAY,
                 SLOT_CAST_NAY,
-                ItemBuilder.labelled(Material.RED_WOOL, ChatColor.RED + "Casting vote: Nay", "Break a tied division"));
+                ItemBuilder.labelled(Material.RED_WOOL, c("&cCasting vote: Nay"), "Break a tied division"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_AYE,
                 SLOT_VOTE_AYE,
-                ItemBuilder.labelled(Material.LIME_CONCRETE, ChatColor.GREEN + "Vote Aye", "Support the bill"));
+                ItemBuilder.labelled(Material.LIME_CONCRETE, c("&aVote Aye"), "Support the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_NAY,
                 SLOT_VOTE_NAY,
-                ItemBuilder.labelled(Material.RED_CONCRETE, ChatColor.RED + "Vote Nay", "Oppose the bill"));
+                ItemBuilder.labelled(Material.RED_CONCRETE, c("&cVote Nay"), "Oppose the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.VOTE_ABSTAIN,
                 SLOT_VOTE_ABSTAIN,
-                ItemBuilder.labelled(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Abstain", "Record no vote"));
+                ItemBuilder.labelled(Material.YELLOW_CONCRETE, c("&eAbstain"), "Record no vote"));
 
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.ASSENT,
                 SLOT_ASSENT,
-                ItemBuilder.labelled(Material.EMERALD_BLOCK, ChatColor.GOLD + "Grant royal assent", "Enact the bill"));
+                ItemBuilder.labelled(Material.EMERALD_BLOCK, c("&6Grant royal assent"), "Enact the bill"));
         placeIfVisible(
                 inventory,
                 view,
                 ParliamentHubAction.REJECT,
                 SLOT_REJECT,
-                ItemBuilder.labelled(Material.BARRIER, ChatColor.RED + "Withhold assent", "Reject the bill"));
+                ItemBuilder.labelled(Material.BARRIER, c("&cWithhold assent"), "Reject the bill"));
         view.resignationSummary()
                 .ifPresent(summary -> placeIfVisible(
                         inventory,
@@ -163,7 +164,7 @@ public final class ParliamentHubGui implements InventoryHolder {
                         SLOT_REVIEW_RESIGNATION,
                         ItemBuilder.labelled(
                                 Material.WRITABLE_BOOK,
-                                ChatColor.DARK_RED + "Review resignation",
+                                c("&4Review resignation"),
                                 summary)));
 
         fillBackground(inventory);
@@ -218,9 +219,9 @@ public final class ParliamentHubGui implements InventoryHolder {
     }
 
     private static ItemStack billInfoItem(String title, dev.mrlemoos.kingdom.model.parliament.BillState billState) {
-        ItemBuilder builder = new ItemBuilder(Material.WRITTEN_BOOK).displayAs(ChatColor.GOLD + title);
+        ItemBuilder builder = new ItemBuilder(Material.WRITTEN_BOOK).displayAs(c("&6" + title));
         if (billState != null) {
-            builder.lore(ChatColor.GRAY + "State: " + formatBillState(billState));
+            builder.lore(c("&7State: ")+ formatBillState(billState));
         }
         return builder.build();
     }
@@ -272,8 +273,8 @@ public final class ParliamentHubGui implements InventoryHolder {
                 "Table a budget bill for " + amount + " Corona");
     }
 
-    private static ChatColor enabledColour(boolean enabled) {
-        return enabled ? ChatColor.GREEN : ChatColor.DARK_GRAY;
+    private static String enabledColour(boolean enabled) {
+        return enabled ? c("&a") : c("&8");
     }
 
     private static void fillBackground(Inventory inventory) {

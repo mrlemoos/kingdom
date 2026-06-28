@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.CoronaItem;
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.income.ActivityCategory;
@@ -17,7 +19,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
@@ -61,7 +62,7 @@ public final class CoronaCommand {
 
     private void handleBalance(Player player) {
         double balance = economyService.getWalletBalance(player.getUniqueId());
-        player.sendMessage(info("Your Corona balance: " + ChatColor.WHITE + formatCorona(balance)));
+        player.sendMessage(info("Your Corona balance: " + c("&f" + formatCorona(balance))));
     }
 
     private void handlePay(Player player, String[] args) {
@@ -208,10 +209,7 @@ public final class CoronaCommand {
 
     private String help() {
         return info("Corona commands:")
-                + "\n" + ChatColor.YELLOW + "/corona balance"
-                + "\n" + ChatColor.YELLOW + "/corona pay <player> <amount>"
-                + "\n" + ChatColor.YELLOW + "/corona deposit"
-                + "\n" + ChatColor.GRAY + "Withdraw at the Lord of the Treasury at your mint.";
+                + "\n" + c("&e/corona balance")+ "\n" + c("&e/corona pay <player> <amount>")+ "\n" + c("&e/corona deposit")+ "\n" + c("&7Withdraw at the Lord of the Treasury at your mint.");
     }
 
     private static String formatCorona(double amount) {
@@ -222,14 +220,14 @@ public final class CoronaCommand {
     }
 
     private String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 }

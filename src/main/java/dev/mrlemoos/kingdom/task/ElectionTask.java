@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.task;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.command.ElectionHandler;
 import dev.mrlemoos.kingdom.election.ElectionConfig;
 import dev.mrlemoos.kingdom.election.ElectionResult;
@@ -10,7 +12,6 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.Objects;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -69,8 +70,7 @@ public final class ElectionTask implements Runnable {
             villagerPremierInauguralService.tryBeginDueInauguralFiscal(kingdom.getId(), currentMcDay).ifPresent(result -> {
                 store.saveFrom(kingdomService);
                 if (result instanceof ElectionResult.Success) {
-                    Bukkit.broadcastMessage(ChatColor.GOLD + "The inaugural fiscal package has been tabled in "
-                            + kingdom.getDisplayName() + ".");
+                    Bukkit.broadcastMessage(c("&6The inaugural fiscal package has been tabled in ")+ kingdom.getDisplayName() + ".");
                 }
             });
         }
@@ -94,8 +94,7 @@ public final class ElectionTask implements Runnable {
             if (result instanceof ElectionResult.Success) {
                 kingdom.getElectionState().setLastGeneralElectionMcDay(currentMcDay);
                 store.saveFrom(kingdomService);
-                Bukkit.broadcastMessage(ChatColor.GOLD
-                        + "A general election has opened in " + kingdom.getDisplayName() + ".");
+                Bukkit.broadcastMessage(c("&6A general election has opened in ")+ kingdom.getDisplayName() + ".");
             }
         }
     }

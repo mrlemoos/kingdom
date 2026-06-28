@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.economy.model.FiscalProposal;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
@@ -27,7 +29,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -160,7 +161,7 @@ public final class KingdomFiscalHandler {
 
         Optional<FiscalProposal> pending = kingdomEconomy(kingdomId).pendingProposal();
         if (pending.isEmpty()) {
-            sender.sendMessage(ChatColor.GRAY + "No fiscal proposal is pending.");
+            sender.sendMessage(c("&7No fiscal proposal is pending."));
             return true;
         }
 
@@ -172,7 +173,7 @@ public final class KingdomFiscalHandler {
         sender.sendMessage(rateLine("Cross-kingdom transfer fee", proposed.crossKingdomTransferFee()));
         OfflinePlayer proposer = Bukkit.getOfflinePlayer(pending.get().proposerId());
         String proposerName = proposer.getName() != null ? proposer.getName() : pending.get().proposerId().toString();
-        sender.sendMessage(ChatColor.GRAY + "Proposed by: " + ChatColor.WHITE + proposerName);
+        sender.sendMessage(c("&7Proposed by: ")+ c("&f" + proposerName));
         return true;
     }
 
@@ -202,10 +203,10 @@ public final class KingdomFiscalHandler {
         double spent = budget.spentAmount();
         double remaining = approved - spent;
         sender.sendMessage(info("Treasury budget:"));
-        sender.sendMessage(ChatColor.GRAY + "Treasury balance: " + ChatColor.WHITE + formatCorona(treasury));
-        sender.sendMessage(ChatColor.GRAY + "Approved: " + ChatColor.WHITE + formatCorona(approved));
-        sender.sendMessage(ChatColor.GRAY + "Spent: " + ChatColor.WHITE + formatCorona(spent));
-        sender.sendMessage(ChatColor.GRAY + "Remaining: " + ChatColor.WHITE + formatCorona(remaining));
+        sender.sendMessage(c("&7Treasury balance: ")+ c("&f" + formatCorona(treasury)));
+        sender.sendMessage(c("&7Approved: ")+ c("&f" + formatCorona(approved)));
+        sender.sendMessage(c("&7Spent: ")+ c("&f" + formatCorona(spent)));
+        sender.sendMessage(c("&7Remaining: ")+ c("&f" + formatCorona(remaining)));
         return true;
     }
 
@@ -291,8 +292,8 @@ public final class KingdomFiscalHandler {
         }
         sender.sendMessage(info("Kingdom mints:"));
         for (MintLocation mint : mints) {
-            sender.sendMessage(ChatColor.GRAY + " - " + ChatColor.WHITE + mint.worldName()
-                    + ChatColor.GRAY + " @ " + mint.x() + ", " + mint.y() + ", " + mint.z());
+            sender.sendMessage(c("&7 - ")+ c("&f" + mint.worldName())
+                    + c("&7 @ ")+ mint.x() + ", " + mint.y() + ", " + mint.z());
         }
         return true;
     }
@@ -466,9 +467,7 @@ public final class KingdomFiscalHandler {
     }
 
     private String treasuryHelp() {
-        return ChatColor.GOLD + "Treasury commands:"
-                + "\n" + ChatColor.YELLOW + "/kingdom treasury credit <kingdom> <amount>"
-                + ChatColor.GRAY + " — add Corona to a kingdom treasury (admin)";
+        return c("&6Treasury commands:")+ "\n" + c("&e/kingdom treasury credit <kingdom> <amount>")+ c("&7 — add Corona to a kingdom treasury (admin)");
     }
 
     private String mintTerritoryError(String kingdomId, Location location, TerritoryLocation territory) {
@@ -549,30 +548,21 @@ public final class KingdomFiscalHandler {
 
     private String fiscalHelp() {
         return info("Fiscal commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom fiscal show"
-                + "\n" + ChatColor.GRAY + " — view active and pending rates (pending via Parliament)";
+                + "\n" + c("&e/kingdom fiscal show")+ "\n" + c("&7 — view active and pending rates (pending via Parliament)");
     }
 
     private String budgetHelp() {
         return info("Budget commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom budget status"
-                + "\n" + ChatColor.GRAY + " — view approved cap and spending";
+                + "\n" + c("&e/kingdom budget status")+ "\n" + c("&7 — view approved cap and spending");
     }
 
     private String mintHelp() {
         return info("Mint commands:")
-                + "\n" + ChatColor.YELLOW + "/kingdom mint place"
-                + ChatColor.GRAY + " — place a mint at a lectern in your territory (King or Queen)"
-                + "\n" + ChatColor.YELLOW + "/kingdom mint list"
-                + "\n" + ChatColor.YELLOW + "/kingdom mint remove"
-                + ChatColor.GRAY + " — remove the nearest mint (King or Queen)"
-                + "\n" + ChatColor.YELLOW + "/kingdom mint despawn"
-                + ChatColor.GRAY + " — remove the Lord of the Treasury you are looking at, or at the nearest mint"
-                + "\n" + ChatColor.GRAY + " — Premier mint placement via /kingdom parliament";
+                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint at a lectern in your territory (King or Queen)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint")+ "\n" + c("&7 — Premier mint placement via /kingdom parliament");
     }
 
     private String rateLine(String label, double rate) {
-        return ChatColor.GRAY + label + ": " + ChatColor.WHITE + formatPercent(rate);
+        return c("&7" + label) + ": " + c("&f" + formatPercent(rate));
     }
 
     private static String formatPercent(double rate) {
@@ -594,14 +584,14 @@ public final class KingdomFiscalHandler {
     }
 
     private String success(String message) {
-        return ChatColor.GREEN + message;
+        return c("&a" + message);
     }
 
     private String error(String message) {
-        return ChatColor.RED + message;
+        return c("&c" + message);
     }
 
     private String info(String message) {
-        return ChatColor.AQUA + message;
+        return c("&b" + message);
     }
 }

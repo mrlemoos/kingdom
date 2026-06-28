@@ -1,7 +1,8 @@
 package dev.mrlemoos.kingdom.economy;
 
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -9,8 +10,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public final class CoronaItem {
 
-    public static final String DISPLAY_NAME_SINGULAR = ChatColor.GOLD + "Corona";
-    public static final String DISPLAY_NAME_PLURAL = ChatColor.GOLD + "Coronas";
+    public static final String DISPLAY_NAME_SINGULAR = c("&6Corona");
+    public static final String DISPLAY_NAME_PLURAL = c("&6Coronas");
 
     private CoronaItem() {}
 
