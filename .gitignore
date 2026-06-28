@@ -1,4 +1,5 @@
 target/
+test-server/
 .idea/
 *.iml
 .classpath

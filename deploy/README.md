@@ -21,6 +21,15 @@ scp -P 2224 /Users/leo/Developer/kingdom/deploy/plugins/*.jar \
 
 Then **restart the server** (full restart, not `/reload`).
 
+## Local enable test (Paper)
+
+```bash
+mvn package
+./scripts/paper-test-server.sh
+```
+
+Downloads Paper **1.21.11** (closest public build to MC **26.x** / Paper **26.1.2**), copies `target/kingdom-0.1.0-SNAPSHOT.jar`, starts a headless server, and exits once Kingdom enables successfully. Override with `PAPER_VERSION` / `PAPER_BUILD` if needed.
+
 Check console for:
 
 ```

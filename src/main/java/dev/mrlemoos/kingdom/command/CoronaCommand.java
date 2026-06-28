@@ -12,24 +12,18 @@ import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-public final class CoronaCommand implements CommandExecutor, TabCompleter {
+public final class CoronaCommand {
 
     private final EconomyService economyService;
     private final KingdomService kingdomService;
@@ -47,54 +41,50 @@ public final class CoronaCommand implements CommandExecutor, TabCompleter {
         this.economyCoordinator = economyCoordinator;
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public void execute(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Only players may use Corona commands."));
-            return true;
+            return;
         }
 
         if (args.length == 0 || "balance".equalsIgnoreCase(args[0])) {
-            return handleBalance(player);
+            handleBalance(player);
+            return;
         }
 
-        return switch (args[0].toLowerCase(Locale.ROOT)) {
+        switch (args[0].toLowerCase(Locale.ROOT)) {
             case "pay" -> handlePay(player, args);
             case "deposit" -> handleDeposit(player);
-            default -> {
-                player.sendMessage(help());
-                yield true;
-            }
-        };
+            default -> player.sendMessage(help());
+        }
     }
 
-    private boolean handleBalance(Player player) {
+    private void handleBalance(Player player) {
         double balance = economyService.getWalletBalance(player.getUniqueId());
         player.sendMessage(info("Your Corona balance: " + ChatColor.WHITE + formatCorona(balance)));
-        return true;
     }
 
-    private boolean handlePay(Player player, String[] args) {
+    private void handlePay(Player player, String[] args) {
         if (args.length < 3) {
             player.sendMessage(error("Usage: /corona pay <player> <amount>"));
-            return true;
+            return;
         }
 
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
         if (!target.hasPlayedBefore() && !target.isOnline()) {
             player.sendMessage(error("Unknown player."));
-            return true;
+            return;
         }
         if (target.getUniqueId().equals(player.getUniqueId())) {
             player.sendMessage(error("You cannot pay yourself."));
-            return true;
+            return;
         }
 
         try {
             double amount = Double.parseDouble(args[2]);
             if (amount <= 0) {
                 player.sendMessage(error("Amount must be positive."));
-                return true;
+                return;
             }
 
             String fromKingdom = kingdomService.getMembership(player.getUniqueId())
@@ -133,31 +123,29 @@ public final class CoronaCommand implements CommandExecutor, TabCompleter {
         } catch (IllegalArgumentException ex) {
             player.sendMessage(error(ex.getMessage()));
         }
-        return true;
     }
 
-    private boolean handleDeposit(Player player) {
+    private void handleDeposit(Player player) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
         if (membership.isEmpty()) {
             player.sendMessage(error("You must join a kingdom to use a mint."));
-            return true;
+            return;
         }
         if (!isAtMint(player, membership.get().getKingdomId())) {
             player.sendMessage(error("You must be at a kingdom mint to deposit Coronas."));
-            return true;
+            return;
         }
 
         int nuggetCount = CoronaItem.count(player.getInventory());
         if (nuggetCount <= 0) {
             player.sendMessage(error("You have no Coronas to deposit."));
-            return true;
+            return;
         }
 
         CoronaItem.removeAll(player.getInventory());
         economyService.depositFromNuggets(player.getUniqueId(), nuggetCount);
         economyStore.saveFrom(economyService);
         player.sendMessage(success("Deposited " + nuggetCount + " Corona" + pluralSuffix(nuggetCount) + "."));
-        return true;
     }
 
     private boolean isAtMint(Player player, String kingdomId) {
@@ -243,34 +231,5 @@ public final class CoronaCommand implements CommandExecutor, TabCompleter {
 
     private String info(String message) {
         return ChatColor.AQUA + message;
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player)) {
-            return Collections.emptyList();
-        }
-        if (args.length == 1) {
-            return filter(List.of("balance", "pay", "deposit"), args[0]);
-        }
-        if (args.length == 2 && "pay".equalsIgnoreCase(args[0])) {
-            return filter(onlineNames(), args[1]);
-        }
-        return Collections.emptyList();
-    }
-
-    private List<String> onlineNames() {
-        return Bukkit.getOnlinePlayers().stream().map(Player::getName).sorted().toList();
-    }
-
-    private List<String> filter(List<String> options, String token) {
-        String lower = token.toLowerCase(Locale.ROOT);
-        List<String> matches = new ArrayList<>();
-        for (String option : options) {
-            if (option.toLowerCase(Locale.ROOT).startsWith(lower)) {
-                matches.add(option);
-            }
-        }
-        return matches;
     }
 }

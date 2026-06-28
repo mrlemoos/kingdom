@@ -9,23 +9,18 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.TeleportResult;
 import dev.mrlemoos.kingdom.service.TeleportService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-public final class TpCommand implements CommandExecutor, TabCompleter {
+public final class TpCommand {
 
     private static final String PERM_TELEPORT = "minecraft.command.teleport";
     private static final String PERM_CHECKPOINT = "kingdom.teleport.checkpoint";
@@ -46,42 +41,39 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         this.territoryResolver = territoryResolver;
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public void execute(CommandSender sender, String[] args) {
         if (args.length > 0 && "checkpoint".equalsIgnoreCase(args[0])) {
-            return handleCheckpoint(sender, Arrays.copyOfRange(args, 1, args.length));
+            handleCheckpoint(sender, Arrays.copyOfRange(args, 1, args.length));
+            return;
         }
-        return handleVanillaTeleport(sender, args);
+        handleVanillaTeleport(sender, args);
     }
 
-    private boolean handleCheckpoint(CommandSender sender, String[] args) {
+    private void handleCheckpoint(CommandSender sender, String[] args) {
         if (!requireAdmin(sender)) {
-            return true;
+            return;
         }
         if (args.length == 0) {
             sender.sendMessage(error("Usage: /tp checkpoint <create|delete|list> ..."));
-            return true;
+            return;
         }
-        return switch (args[0].toLowerCase(Locale.ROOT)) {
+        switch (args[0].toLowerCase(Locale.ROOT)) {
             case "create" -> handleCheckpointCreate(sender, args);
             case "delete" -> handleCheckpointDelete(sender, args);
             case "list" -> handleCheckpointList(sender, args);
-            default -> {
-                sender.sendMessage(error("Usage: /tp checkpoint <create|delete|list> ..."));
-                yield true;
-            }
-        };
+            default -> sender.sendMessage(error("Usage: /tp checkpoint <create|delete|list> ..."));
+        }
     }
 
-    private boolean handleCheckpointCreate(CommandSender sender, String[] args) {
+    private void handleCheckpointCreate(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Only players may create checkpoints."));
-            return true;
+            return;
         }
         if (args.length < 2) {
             sender.sendMessage(error("Usage: /tp checkpoint create <name>"));
             sender.sendMessage(error("       /tp checkpoint create <kingdom> <name>"));
-            return true;
+            return;
         }
 
         String kingdomId;
@@ -93,7 +85,7 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
             Optional<String> territoryKingdom = kingdomAt(player.getLocation());
             if (territoryKingdom.isEmpty()) {
                 sender.sendMessage(error("Stand in a kingdom territory or specify the kingdom."));
-                return true;
+                return;
             }
             kingdomId = territoryKingdom.get();
             rawName = args[1];
@@ -113,14 +105,14 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         if (result instanceof TeleportResult.Success) {
             store.saveFrom(kingdomService);
         }
-        return true;
+        return;
     }
 
-    private boolean handleCheckpointDelete(CommandSender sender, String[] args) {
+    private void handleCheckpointDelete(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage(error("Usage: /tp checkpoint delete <name>"));
             sender.sendMessage(error("       /tp checkpoint delete <kingdom> <name>"));
-            return true;
+            return;
         }
 
         String kingdomId;
@@ -131,12 +123,12 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         } else {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage(error("Specify the kingdom when using the console."));
-                return true;
+                return;
             }
             Optional<String> territoryKingdom = kingdomAt(player.getLocation());
             if (territoryKingdom.isEmpty()) {
                 sender.sendMessage(error("Stand in a kingdom territory or specify the kingdom."));
-                return true;
+                return;
             }
             kingdomId = territoryKingdom.get();
             name = args[1];
@@ -147,19 +139,19 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         if (result instanceof TeleportResult.Success) {
             store.saveFrom(kingdomService);
         }
-        return true;
+        return;
     }
 
-    private boolean handleCheckpointList(CommandSender sender, String[] args) {
+    private void handleCheckpointList(CommandSender sender, String[] args) {
         if (args.length >= 2) {
             String kingdomId = Kingdom.normaliseId(args[1]);
             Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
             if (kingdom.isEmpty()) {
                 sender.sendMessage(error("Unknown kingdom."));
-                return true;
+                return;
             }
             listKingdomCheckpoints(sender, kingdom.get());
-            return true;
+            return;
         }
 
         List<Kingdom> kingdoms = kingdomService.listKingdoms().stream()
@@ -168,12 +160,12 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
                 .toList();
         if (kingdoms.isEmpty()) {
             sender.sendMessage(info("No checkpoints defined."));
-            return true;
+            return;
         }
         for (Kingdom kingdom : kingdoms) {
             listKingdomCheckpoints(sender, kingdom);
         }
-        return true;
+        return;
     }
 
     private void listKingdomCheckpoints(CommandSender sender, Kingdom kingdom) {
@@ -191,32 +183,34 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private boolean handleVanillaTeleport(CommandSender sender, String[] args) {
+    private void handleVanillaTeleport(CommandSender sender, String[] args) {
         if (args.length == 0) {
             sender.sendMessage(help(sender));
-            return true;
+            return;
         }
 
         if (isCoordinateForm(args)) {
-            return handleCoordinateTeleport(sender, args);
+            handleCoordinateTeleport(sender, args);
+            return;
         }
 
         if (args.length == 1) {
-            return handleSelfToDestination(sender, args[0]);
+            handleSelfToDestination(sender, args[0]);
+            return;
         }
 
         if (args.length == 2) {
-            return handleTargetToDestination(sender, args[0], args[1]);
+            handleTargetToDestination(sender, args[0], args[1]);
+            return;
         }
 
         sender.sendMessage(error("Unrecognised teleport command."));
-        return true;
     }
 
-    private boolean handleCoordinateTeleport(CommandSender sender, String[] args) {
+    private void handleCoordinateTeleport(CommandSender sender, String[] args) {
         if (!sender.hasPermission(PERM_TELEPORT)) {
             sender.sendMessage(error("You do not have permission to teleport."));
-            return true;
+            return;
         }
 
         Player target;
@@ -224,7 +218,7 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
         if (args.length == 3 || args.length == 5) {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage(error("Specify a player when teleporting from the console."));
-                return true;
+                return;
             }
             target = player;
             coordStart = 0;
@@ -232,12 +226,12 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
             target = findOnlinePlayer(args[0]).orElse(null);
             if (target == null) {
                 sender.sendMessage(error("Unknown player."));
-                return true;
+                return;
             }
             coordStart = 1;
         } else {
             sender.sendMessage(error("Unrecognised coordinate teleport."));
-            return true;
+            return;
         }
 
         World world = target.getWorld();
@@ -246,78 +240,80 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
             destination = TeleportCoordinateParser.parseLocation(world, args, coordStart, target.getLocation());
         } catch (IllegalArgumentException ex) {
             sender.sendMessage(error("Invalid coordinates."));
-            return true;
+            return;
         }
 
         if (!teleportPlayer(sender, target, destination)) {
-            return true;
+            return;
         }
         if (!target.equals(sender)) {
             sender.sendMessage(success("Teleported " + target.getName() + "."));
         }
-        return true;
+        return;
     }
 
-    private boolean handleSelfToDestination(CommandSender sender, String destinationName) {
+    private void handleSelfToDestination(CommandSender sender, String destinationName) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Specify a player or coordinates when using the console."));
-            return true;
+            return;
         }
 
         Optional<Player> online = findOnlinePlayer(destinationName);
         if (online.isPresent()) {
             if (!sender.hasPermission(PERM_TELEPORT)) {
                 sender.sendMessage(error("You do not have permission to teleport."));
-                return true;
+                return;
             }
-            return teleportPlayer(sender, player, online.get().getLocation());
+            teleportPlayer(sender, player, online.get().getLocation());
+            return;
         }
 
         Optional<TeleportPlace> checkpoint = resolveMemberCheckpoint(player, destinationName);
         if (checkpoint.isPresent()) {
-            return teleportToPlace(sender, player, checkpoint.get());
+            teleportToPlace(sender, player, checkpoint.get());
+            return;
         }
 
         sender.sendMessage(error("Unknown destination."));
-        return true;
+        return;
     }
 
-    private boolean handleTargetToDestination(CommandSender sender, String targetName, String destinationName) {
+    private void handleTargetToDestination(CommandSender sender, String targetName, String destinationName) {
         if (!sender.hasPermission(PERM_TELEPORT)) {
             sender.sendMessage(error("You do not have permission to teleport."));
-            return true;
+            return;
         }
 
         Player target = findOnlinePlayer(targetName).orElse(null);
         if (target == null) {
             sender.sendMessage(error("Unknown player."));
-            return true;
+            return;
         }
 
         Optional<Player> destinationPlayer = findOnlinePlayer(destinationName);
         if (destinationPlayer.isPresent()) {
             if (!teleportPlayer(sender, target, destinationPlayer.get().getLocation())) {
-                return true;
+                return;
             }
             if (!target.equals(sender)) {
                 sender.sendMessage(success("Teleported " + target.getName() + " to " + destinationPlayer.get().getName() + "."));
             }
-            return true;
+            return;
         }
 
         Optional<TeleportPlace> checkpoint = resolveCheckpointForSender(sender, target, destinationName);
         if (checkpoint.isPresent()) {
             if (!teleportToPlace(sender, target, checkpoint.get())) {
-                return true;
+                return;
             }
             if (!target.equals(sender)) {
                 sender.sendMessage(success("Teleported " + target.getName() + " to " + checkpoint.get().name() + "."));
             }
-            return true;
+            return;
         }
 
         sender.sendMessage(error("Unknown destination."));
-        return true;
+        return;
     }
 
     private Optional<TeleportPlace> resolveCheckpointForSender(
@@ -458,83 +454,5 @@ public final class TpCommand implements CommandExecutor, TabCompleter {
             return String.format(Locale.UK, "%.0f", value);
         }
         return String.format(Locale.UK, "%.2f", value);
-    }
-
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
-            List<String> options = new ArrayList<>();
-            if (sender.isOp()) {
-                options.add("checkpoint");
-            }
-            if (sender.hasPermission(PERM_TELEPORT)) {
-                options.addAll(onlineNames());
-            }
-            if (sender instanceof Player player && sender.hasPermission(PERM_CHECKPOINT)) {
-                kingdomService.getMembership(player.getUniqueId()).ifPresent(membership -> options.addAll(
-                        teleportService.listPlaces(membership.getKingdomId()).stream()
-                                .map(TeleportPlace::name)
-                                .toList()));
-            }
-            return filter(options, args[0]);
-        }
-
-        if ("checkpoint".equalsIgnoreCase(args[0])) {
-            if (!sender.isOp()) {
-                return List.of();
-            }
-            if (args.length == 2) {
-                return filter(List.of("create", "delete", "list"), args[1]);
-            }
-            String sub = args[1].toLowerCase(Locale.ROOT);
-            if (args.length == 3) {
-                return switch (sub) {
-                    case "create", "delete" -> filter(kingdomIds(), args[2]);
-                    case "list" -> filter(kingdomIds(), args[2]);
-                    default -> List.of();
-                };
-            }
-            if (args.length == 4) {
-                String kingdomId = kingdomService.getKingdom(args[2]).map(Kingdom::getId).orElse(null);
-                if (kingdomId == null) {
-                    return List.of();
-                }
-                return filter(
-                        teleportService.listPlaces(kingdomId).stream()
-                                .map(TeleportPlace::name)
-                                .toList(),
-                        args[3]);
-            }
-        }
-
-        if (sender.hasPermission(PERM_TELEPORT)) {
-            if (args.length == 2 && !TeleportCoordinateParser.isCoordinateToken(args[0])) {
-                List<String> destinations = new ArrayList<>(onlineNames());
-                if (sender instanceof Player player) {
-                    kingdomService.getMembership(player.getUniqueId()).ifPresent(membership -> destinations.addAll(
-                            teleportService.listPlaces(membership.getKingdomId()).stream()
-                                    .map(TeleportPlace::name)
-                                    .toList()));
-                }
-                return filter(destinations, args[1]);
-            }
-        }
-
-        return List.of();
-    }
-
-    private List<String> kingdomIds() {
-        return kingdomService.listKingdoms().stream().map(Kingdom::getId).sorted().toList();
-    }
-
-    private List<String> onlineNames() {
-        return Bukkit.getOnlinePlayers().stream().map(Player::getName).sorted().toList();
-    }
-
-    private static List<String> filter(List<String> options, String prefix) {
-        String lower = prefix.toLowerCase(Locale.ROOT);
-        return options.stream()
-                .filter(option -> option.toLowerCase(Locale.ROOT).startsWith(lower))
-                .collect(Collectors.toList());
     }
 }

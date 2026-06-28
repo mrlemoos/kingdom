@@ -5,23 +5,6 @@ api-version: '1.21'
 description: Noble titles and kingdom membership
 authors: [ leo ]
 
-commands:
-  kingdom:
-    description: Kingdom membership and noble titles
-    usage: /kingdom <join|list|info|create|move|title|setregion|setworld|fiscal|budget|mint|treasury>
-    aliases: [ kdm ]
-  corona:
-    description: Player Corona wallet and mint transactions
-    usage: /corona <balance|pay|deposit>
-    aliases: [ cr ]
-  tp:
-    description: Teleport to players, coordinates, or kingdom checkpoints
-    usage: /tp <player|checkpoint|x> <y> <z>
-    aliases: [ teleport ]
-  resign:
-    description: Offer your MP or Premier seat for royal approval
-    usage: /resign
-
 permissions:
   kingdom.teleport.checkpoint:
     description: Teleport to named kingdom checkpoints

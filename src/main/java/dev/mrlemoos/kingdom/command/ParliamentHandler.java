@@ -167,12 +167,14 @@ public final class ParliamentHandler {
             }
             case "commons" -> {
                 ParliamentResult result = parliamentService.setCommons(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(), location.getZ()));
+                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
+                                location.getZ()));
                 yield finish(sender, result);
             }
             case "lords" -> {
                 ParliamentResult result = parliamentService.setLords(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(), location.getZ()));
+                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
+                                location.getZ()));
                 yield finish(sender, result);
             }
             case "registrar" -> {
@@ -231,8 +233,8 @@ public final class ParliamentHandler {
                 .flatMap(k -> k.getParliamentSites().registrar());
         if (registrar.isPresent()) {
             List<RegistrarSite> existing = existingShelfSites(kingdomId);
-            RegistrarShelfWriter.ShelfPlacement placement =
-                    RegistrarShelfWriter.placeActBook(registrar.get(), draft.get().bookPages(), existing);
+            RegistrarShelfWriter.ShelfPlacement placement = RegistrarShelfWriter.placeActBook(registrar.get(),
+                    draft.get().bookPages(), existing);
             parliamentService.commitArchivedAct(kingdomId, draft.get(), placement.shelf(), placement.slot());
         }
 
@@ -262,7 +264,8 @@ public final class ParliamentHandler {
     }
 
     public boolean inCommons(Player player, String kingdomId) {
-        Optional<ChamberSite> commons = kingdomService.getKingdom(kingdomId).flatMap(k -> k.getParliamentSites().commons());
+        Optional<ChamberSite> commons = kingdomService.getKingdom(kingdomId)
+                .flatMap(k -> k.getParliamentSites().commons());
         if (commons.isEmpty()) {
             return false;
         }
@@ -307,7 +310,8 @@ public final class ParliamentHandler {
         return parliamentService.tableFiscal(kingdomId, rank, proposerId, proposed, title);
     }
 
-    public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount, String title) {
+    public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount,
+            String title) {
         return parliamentService.tableBudget(kingdomId, rank, proposerId, amount, title);
     }
 
@@ -391,7 +395,8 @@ public final class ParliamentHandler {
         parliamentService.currentBill(kingdomId).ifPresentOrElse(
                 bill -> {
                     sender.sendMessage(ChatColor.GRAY + "Current bill: " + ChatColor.WHITE + bill.title());
-                    sender.sendMessage(ChatColor.GRAY + "State: " + ChatColor.WHITE + bill.state().name().toLowerCase(Locale.ROOT));
+                    sender.sendMessage(ChatColor.GRAY + "State: " + ChatColor.WHITE
+                            + bill.state().name().toLowerCase(Locale.ROOT));
                 },
                 () -> sender.sendMessage(ChatColor.GRAY + "No bill is before Parliament."));
         return true;
@@ -401,7 +406,8 @@ public final class ParliamentHandler {
         List<RegistrarSite> shelves = new ArrayList<>();
         kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
             for (AssentedAct act : kingdom.getParliamentState().assentedActsView()) {
-                shelves.add(RegistrarSite.of(act.shelfWorld(), act.shelfBlockX(), act.shelfBlockY(), act.shelfBlockZ()));
+                shelves.add(
+                        RegistrarSite.of(act.shelfWorld(), act.shelfBlockX(), act.shelfBlockY(), act.shelfBlockZ()));
             }
         });
         return shelves;
@@ -485,7 +491,7 @@ public final class ParliamentHandler {
 
     private String siteLine(String label, Optional<ChamberSite> site) {
         return site.map(chamber -> ChatColor.GRAY + label + ": " + ChatColor.WHITE + chamber.worldName()
-                        + " @ " + String.format(Locale.UK, "%.1f, %.1f, %.1f", chamber.x(), chamber.y(), chamber.z()))
+                + " @ " + String.format(Locale.UK, "%.1f, %.1f, %.1f", chamber.x(), chamber.y(), chamber.z()))
                 .orElse(ChatColor.GRAY + label + ": " + ChatColor.WHITE + "not set");
     }
 }
