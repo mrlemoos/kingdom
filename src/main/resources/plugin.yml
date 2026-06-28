@@ -1,6 +1,6 @@
 name: Kingdom
 version: ${project.version}
-main: dev.leo.kingdom.KingdomPlugin
+main: dev.mrlemoos.kingdom.KingdomPlugin
 api-version: '1.21'
 description: Noble titles and kingdom membership
 authors: [ leo ]
