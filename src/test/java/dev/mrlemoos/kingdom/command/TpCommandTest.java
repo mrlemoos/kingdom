@@ -94,6 +94,39 @@ class TpCommandTest {
         assertTrue(sender.nextMessage().contains("Unknown"));
     }
 
+    @Test
+    void hereNotifiesOtherStaffWithTeleportPermission() {
+        PlayerMock actor = addPlayerWithPerms("Alice", SENDER_ID, TpCommandSuggestions.PERM_TELEPORT);
+        PlayerMock observer = addPlayerWithPerms(
+                "Staff", UUID.fromString("00000000-0000-0000-0000-000000000002"), TpCommandSuggestions.PERM_TELEPORT);
+        PlayerMock target = server.addPlayer("Target");
+        World world = actor.getWorld();
+        actor.setLocation(new Location(world, 10, 64, 20, 90f, 0f));
+        target.setLocation(new Location(world, 0, 64, 0, 0f, 0f));
+
+        tpCommand.execute(actor, new String[] {"here", "Target"});
+
+        target.assertTeleported(actor.getLocation(), 0.01);
+        assertTrue(actor.nextMessage().contains("Teleported Target here."));
+        assertTrue(observer.nextMessage().contains("Alice teleported Target to 10 64 20."));
+    }
+
+    private PlayerMock addPlayerWithPerms(String name, UUID id, String... permissions) {
+        PlayerMock player = new PlayerMock(server, name, id) {
+            @Override
+            public boolean hasPermission(String permission) {
+                for (String granted : permissions) {
+                    if (granted.equals(permission)) {
+                        return true;
+                    }
+                }
+                return super.hasPermission(permission);
+            }
+        };
+        server.addPlayer(player);
+        return player;
+    }
+
     private PlayerMock playerWithPerms(String name, String... permissions) {
         return new PlayerMock(server, name, SENDER_ID) {
             @Override

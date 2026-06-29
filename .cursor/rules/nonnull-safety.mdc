@@ -1,0 +1,36 @@
+---
+description: Satisfy null analysis when Optional values flow into @Nonnull APIs
+alwaysApply: true
+---
+
+# Non-null safety
+
+This project is checked with Eclipse JDT null analysis in the IDE. Avoid warnings such as unchecked conversion to `@Nonnull`.
+
+## Optional → instance methods
+
+Do not pass `Optional.map` a method reference when the receiver type is treated as `@Nonnull` (e.g. `Kingdom::getDisplayName`). The mapper argument is not proven non-null to the analyser.
+
+```java
+// ❌ BAD — method reference on Optional value
+kingdomService.getKingdom(id)
+    .map(Kingdom::getDisplayName)
+    .orElse(id);
+
+// ✅ GOOD — guard before calling instance methods
+Optional<Kingdom> kingdom = kingdomService.getKingdom(id);
+String displayName = kingdom.isPresent() ? kingdom.get().getDisplayName() : id;
+
+// ✅ GOOD — explicit lambda when the analyser accepts it
+kingdomService.getKingdom(id)
+    .map(kingdom -> kingdom.getDisplayName())
+    .orElse(id);
+```
+
+Prefer `isPresent()` / `isEmpty()` guards when the warning persists.
+
+## General habits
+
+- Narrow `Optional` with `isPresent()` before `get()`, or use `orElse` / `orElseGet` with a safe default.
+- Do not call `Optional.get()` without a prior empty check.
+- After editing Java, run `ReadLints` on touched files and fix null-safety warnings before finishing.

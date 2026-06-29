@@ -248,13 +248,15 @@ public final class TpCommand {
             return;
         }
 
-        if (!teleportPlayer(sender, target, destination)) {
+        String staffNotifyDestination = shouldNotifyStaff(sender, target)
+                ? TeleportStaffNotifier.formatCoordinates(destination)
+                : null;
+        if (!teleportPlayer(sender, target, destination, staffNotifyDestination)) {
             return;
         }
         if (!target.equals(sender)) {
             sender.sendMessage(success("Teleported " + target.getName() + "."));
         }
-        return;
     }
 
     private void handleBringHere(CommandSender sender, String targetName) {
@@ -273,7 +275,11 @@ public final class TpCommand {
             return;
         }
 
-        if (!teleportPlayer(sender, target, source.getLocation())) {
+        if (!teleportPlayer(
+                sender,
+                target,
+                source.getLocation(),
+                TeleportStaffNotifier.formatCoordinates(source.getLocation()))) {
             return;
         }
         if (!target.equals(sender)) {
@@ -299,7 +305,7 @@ public final class TpCommand {
 
         Optional<TeleportPlace> checkpoint = resolveMemberCheckpoint(player, destinationName);
         if (checkpoint.isPresent()) {
-            teleportToPlace(sender, player, checkpoint.get());
+            teleportToPlace(sender, player, checkpoint.get(), null);
             return;
         }
 
@@ -321,7 +327,10 @@ public final class TpCommand {
 
         Optional<Player> destinationPlayer = findOnlinePlayer(destinationName);
         if (destinationPlayer.isPresent()) {
-            if (!teleportPlayer(sender, target, destinationPlayer.get().getLocation())) {
+            String staffNotifyDestination = shouldNotifyStaff(sender, target)
+                    ? destinationPlayer.get().getName()
+                    : null;
+            if (!teleportPlayer(sender, target, destinationPlayer.get().getLocation(), staffNotifyDestination)) {
                 return;
             }
             if (!target.equals(sender)) {
@@ -332,7 +341,10 @@ public final class TpCommand {
 
         Optional<TeleportPlace> checkpoint = resolveCheckpointForSender(sender, target, destinationName);
         if (checkpoint.isPresent()) {
-            if (!teleportToPlace(sender, target, checkpoint.get())) {
+            String staffNotifyDestination = shouldNotifyStaff(sender, target)
+                    ? staffNotifyCheckpoint(target, checkpoint.get())
+                    : null;
+            if (!teleportToPlace(sender, target, checkpoint.get(), staffNotifyDestination)) {
                 return;
             }
             if (!target.equals(sender)) {
@@ -368,24 +380,55 @@ public final class TpCommand {
         return teleportService.getPlace(membership.get().getKingdomId(), destinationName);
     }
 
-    private boolean teleportToPlace(CommandSender sender, Player target, TeleportPlace place) {
+    private boolean teleportToPlace(CommandSender sender, Player target, TeleportPlace place, String staffNotifyDestination) {
         World world = Bukkit.getWorld(place.worldName());
         if (world == null) {
             sender.sendMessage(error("Checkpoint world is not loaded."));
             return false;
         }
-        return teleportPlayer(sender, target, new Location(world, place.x(), place.y(), place.z(), place.yaw(), place.pitch()));
+        return teleportPlayer(
+                sender,
+                target,
+                new Location(world, place.x(), place.y(), place.z(), place.yaw(), place.pitch()),
+                staffNotifyDestination);
     }
 
     private boolean teleportPlayer(CommandSender sender, Player target, Location destination) {
+        return teleportPlayer(sender, target, destination, null);
+    }
+
+    private boolean teleportPlayer(
+            CommandSender sender, Player target, Location destination, String staffNotifyDestination) {
         if (!target.teleport(destination)) {
             sender.sendMessage(error("Teleport failed."));
             return false;
+        }
+        if (staffNotifyDestination != null) {
+            TeleportStaffNotifier.notifyCrossPlayerTeleport(sender, target, staffNotifyDestination);
         }
         if (target.equals(sender)) {
             sender.sendMessage(success("Teleported."));
         }
         return true;
+    }
+
+    private String staffNotifyCheckpoint(Player target, TeleportPlace place) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(target.getUniqueId());
+        if (membership.isEmpty()) {
+            return place.name();
+        }
+        PlayerMembership member = membership.get();
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(member.getKingdomId());
+        String kingdomDisplayName =
+                kingdom.isPresent() ? kingdom.get().getDisplayName() : member.getKingdomId();
+        return TeleportStaffNotifier.formatCheckpointDestination(kingdomDisplayName, place.name());
+    }
+
+    private static boolean shouldNotifyStaff(CommandSender sender, Player target) {
+        if (!(sender instanceof Player actor)) {
+            return true;
+        }
+        return !actor.equals(target);
     }
 
     private Optional<String> kingdomAt(Location location) {

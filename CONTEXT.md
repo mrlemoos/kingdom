@@ -253,3 +253,7 @@ _Avoid_: Chat-only notice, Lords-only review, forged paper
 **Locate compass**:
 A compass given by `/locate` that points at the requested place: a kingdom checkpoint, or the nearest structure or biome in the player's current world. Named with the target label and block coordinates on the lore. Untracked lodestone behaviour — no physical lodestone required.
 _Avoid_: Recovery compass, map marker, waypoint pearl
+
+**Staff teleport notification**:
+A private audit message sent to online players with `minecraft.command.teleport` when another player with that permission teleports someone else. The actor is not notified; console actors appear as "Console". Destinations name players, kingdom checkpoints, or coordinates as appropriate.
+_Avoid_: Teleport broadcast, public teleport announce, server-wide tp alert
