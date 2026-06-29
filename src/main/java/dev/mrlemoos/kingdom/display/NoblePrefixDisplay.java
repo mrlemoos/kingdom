@@ -6,6 +6,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.UUID;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
@@ -14,6 +15,7 @@ import org.bukkit.scoreboard.Team;
 public final class NoblePrefixDisplay {
 
     private static final String TEAM_PREFIX = "k";
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private final KingdomService service;
 
@@ -40,7 +42,7 @@ public final class NoblePrefixDisplay {
         if (team == null) {
             team = board.registerNewTeam(teamName);
         }
-        team.setPrefix(service.colouredNobleChatPrefix(player.getUniqueId()));
+        team.prefix(LEGACY.deserialize(service.colouredNobleChatPrefix(player.getUniqueId())));
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }
