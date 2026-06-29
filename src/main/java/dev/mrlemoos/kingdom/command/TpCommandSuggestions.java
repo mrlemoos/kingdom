@@ -34,6 +34,8 @@ public final class TpCommandSuggestions {
                 options.add("checkpoint");
             }
             if (sender.hasPermission(PERM_TELEPORT)) {
+                options.add("here");
+                options.add("@s");
                 options.addAll(onlineNames());
             }
             if (sender instanceof Player player && sender.hasPermission(PERM_CHECKPOINT)) {
@@ -73,6 +75,9 @@ public final class TpCommandSuggestions {
         }
 
         if (sender.hasPermission(PERM_TELEPORT)) {
+            if (args.length == 2 && isBringHereToken(args[0])) {
+                return filter(onlineNames(), args[1]);
+            }
             if (args.length == 2 && !TeleportCoordinateParser.isCoordinateToken(args[0])) {
                 List<String> destinations = new ArrayList<>(onlineNames());
                 if (sender instanceof Player player) {
@@ -115,5 +120,9 @@ public final class TpCommandSuggestions {
         return options.stream()
                 .filter(option -> option.toLowerCase(Locale.ROOT).startsWith(lower))
                 .collect(Collectors.toList());
+    }
+
+    private static boolean isBringHereToken(String token) {
+        return "here".equalsIgnoreCase(token) || "@s".equalsIgnoreCase(token);
     }
 }

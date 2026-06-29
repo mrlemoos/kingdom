@@ -97,6 +97,29 @@ class TpCommandSuggestionsTest {
     }
 
     @Test
+    void firstArgIncludesHereAndAtSelfWhenPermitted() {
+        PlayerMock member = playerWithPerms("Member", TpCommandSuggestions.PERM_TELEPORT);
+
+        List<String> suggestions =
+                TpCommandSuggestions.suggest(member, new String[] {""}, kingdomService, teleportService);
+
+        Set<String> values = Set.copyOf(suggestions);
+        assertTrue(values.contains("here"));
+        assertTrue(values.contains("@s"));
+    }
+
+    @Test
+    void hereSecondArgSuggestsOnlinePlayers() {
+        PlayerMock member = playerWithPerms("Member", TpCommandSuggestions.PERM_TELEPORT);
+        server.addPlayer("Bob");
+
+        List<String> suggestions = TpCommandSuggestions.suggest(
+                member, new String[] {"here", ""}, kingdomService, teleportService);
+
+        assertTrue(suggestions.contains("Bob"));
+    }
+
+    @Test
     void trailingSpaceStartsNextArgumentSuggestions() {
         List<String> suggestions = TpCommandSuggestions.suggest(
                 opSender(),

@@ -194,6 +194,11 @@ public final class TpCommand {
             return;
         }
 
+        if (args.length == 2 && isBringHereToken(args[0])) {
+            handleBringHere(sender, args[1]);
+            return;
+        }
+
         if (args.length == 1) {
             handleSelfToDestination(sender, args[0]);
             return;
@@ -250,6 +255,30 @@ public final class TpCommand {
             sender.sendMessage(success("Teleported " + target.getName() + "."));
         }
         return;
+    }
+
+    private void handleBringHere(CommandSender sender, String targetName) {
+        if (!sender.hasPermission(PERM_TELEPORT)) {
+            sender.sendMessage(error("You do not have permission to teleport."));
+            return;
+        }
+        if (!(sender instanceof Player source)) {
+            sender.sendMessage(error("Only players may bring others here."));
+            return;
+        }
+
+        Player target = findOnlinePlayer(targetName).orElse(null);
+        if (target == null) {
+            sender.sendMessage(error("Unknown player."));
+            return;
+        }
+
+        if (!teleportPlayer(sender, target, source.getLocation())) {
+            return;
+        }
+        if (!target.equals(sender)) {
+            sender.sendMessage(success("Teleported " + target.getName() + " here."));
+        }
     }
 
     private void handleSelfToDestination(CommandSender sender, String destinationName) {
@@ -372,6 +401,10 @@ public final class TpCommand {
         return Optional.empty();
     }
 
+    private static boolean isBringHereToken(String token) {
+        return "here".equalsIgnoreCase(token) || "@s".equalsIgnoreCase(token);
+    }
+
     private static boolean isCoordinateForm(String[] args) {
         if (args.length == 3 || args.length == 5) {
             return TeleportCoordinateParser.isCoordinateToken(args[0])
@@ -414,6 +447,10 @@ public final class TpCommand {
             builder.append(c("&7")).append(" — teleport to a kingdom checkpoint");
         }
         if (sender.hasPermission(PERM_TELEPORT)) {
+            builder.append("\n").append(c("&e")).append("/tp here <player>");
+            builder.append(c("&7")).append(" — bring a player to you");
+            builder.append("\n").append(c("&e")).append("/tp @s <player>");
+            builder.append(c("&7")).append(" — alias for /tp here");
             builder.append("\n").append(c("&e")).append("/tp <player>");
             builder.append(c("&7")).append(" — teleport to a player");
             builder.append("\n").append(c("&e")).append("/tp <player> <destination>");
