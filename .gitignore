@@ -6,3 +6,4 @@ test-server/
 .project
 .settings/
 .DS_Store
+.cursor/hooks/state
