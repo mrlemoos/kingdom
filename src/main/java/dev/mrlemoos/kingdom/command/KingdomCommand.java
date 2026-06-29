@@ -238,7 +238,7 @@ public final class KingdomCommand {
             OfflinePlayer member = Bukkit.getOfflinePlayer(membership.getPlayerId());
             String name = member.getName() != null ? member.getName() : membership.getPlayerId().toString();
             if (membership.hasNobleTitle()) {
-                sender.sendMessage(membership.coloredChatPrefix().trim() + c("&f ")+ name);
+                sender.sendMessage(membership.colouredChatPrefix().trim() + c("&f ")+ name);
             } else {
                 sender.sendMessage(c("&7  ")+ name);
             }

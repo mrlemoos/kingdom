@@ -28,7 +28,11 @@ public final class VillagerMpProfessionMatcher {
     }
 
     public static String professionName(Villager villager) {
-        return normaliseProfessionKey(professionKey(villager));
+        return professionName(villager.getProfession());
+    }
+
+    public static String professionName(Villager.Profession profession) {
+        return normaliseProfessionKey(profession.getKey().toString());
     }
 
     private static String normaliseProfessionKey(String key) {

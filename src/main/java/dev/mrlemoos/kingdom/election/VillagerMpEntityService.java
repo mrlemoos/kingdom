@@ -113,21 +113,26 @@ public final class VillagerMpEntityService {
     }
 
     public void refreshNametagAfterProfessionChange(Villager villager) {
-        Location location = villager.getLocation();
-        World world = location.getWorld();
-        if (world == null) {
+        refreshNametagAfterProfessionChange(villager, villager.getProfession());
+    }
+
+    public void refreshNametagAfterProfessionChange(Villager villager, Villager.Profession profession) {
+        if (!isEligibleForOrdinaryTerritoryNametag(villager)) {
             return;
         }
-        boolean inTerritory = territoryResolver
-                .owningKingdomId(
-                        world.getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ())
-                .isPresent();
-        boolean seatedMp = isSeatedMpVillager(villager.getUniqueId());
-        if (!VillagerNametagRefreshEligibility.shouldRefreshOrdinaryTerritoryNametag(
-                isTreasuryLord(villager), isMpVillager(villager), seatedMp, inTerritory)) {
+        applyStandardNametag(villager, VillagerMpProfessionMatcher.professionName(profession));
+    }
+
+    public void reconcileTerritoryVillagerNametag(Villager villager) {
+        if (!isEligibleForOrdinaryTerritoryNametag(villager)) {
             return;
         }
-        applyStandardNametag(villager);
+        String professionName = VillagerMpProfessionMatcher.professionName(villager);
+        if (!VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
+                villager.getCustomName(), professionName, true)) {
+            return;
+        }
+        applyStandardNametag(villager, professionName);
     }
 
     public boolean isTreasuryLordVillager(Villager villager) {
@@ -164,12 +169,17 @@ public final class VillagerMpEntityService {
         for (Entity entity : chunk.getEntities()) {
             if (entity instanceof Villager villager) {
                 reconcileTerritoryVillagerDespawn(villager);
+                reconcileTerritoryVillagerNametag(villager);
             }
         }
     }
 
     public void reconcileAllTerritoryVillagerDespawn() {
         reconcileTerritoryVillagersInWorlds(distinctKingdomWorldNames());
+    }
+
+    public void reconcileAllTerritoryVillagerNametags() {
+        reconcileTerritoryVillagerNametagsInWorlds(distinctKingdomWorldNames());
     }
 
     public void refreshTerritoryVillagerNametags(Kingdom kingdom) {
@@ -188,6 +198,9 @@ public final class VillagerMpEntityService {
                 continue;
             }
             if (isMpVillager(villager)) {
+                continue;
+            }
+            if (!isInKingdomTerritory(villager, kingdom)) {
                 continue;
             }
             applyStandardNametag(villager);
@@ -370,6 +383,18 @@ public final class VillagerMpEntityService {
         }
     }
 
+    private void reconcileTerritoryVillagerNametagsInWorlds(Set<String> worldNames) {
+        for (String worldName : worldNames) {
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                continue;
+            }
+            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                reconcileTerritoryVillagerNametag(villager);
+            }
+        }
+    }
+
     private Set<String> distinctKingdomWorldNames() {
         Set<String> worldNames = new HashSet<>();
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
@@ -400,6 +425,35 @@ public final class VillagerMpEntityService {
                 .isPresent();
     }
 
+    private boolean isInKingdomTerritory(Villager villager, Kingdom kingdom) {
+        String regionId = kingdom.getWorldGuardRegion();
+        if (regionId == null || regionId.isBlank()) {
+            return false;
+        }
+        Location location = villager.getLocation();
+        World world = location.getWorld();
+        if (world == null) {
+            return false;
+        }
+        String worldName = kingdomService.resolveWorldName(kingdom);
+        if (!worldName.equals(world.getName())) {
+            return false;
+        }
+        return territoryResolver
+                .owningKingdomId(
+                        world.getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ())
+                .filter(kingdom.getId()::equals)
+                .isPresent();
+    }
+
+    private boolean isEligibleForOrdinaryTerritoryNametag(Villager villager) {
+        return VillagerNametagRefreshEligibility.shouldRefreshOrdinaryTerritoryNametag(
+                isTreasuryLord(villager),
+                isMpVillager(villager),
+                isSeatedMpVillager(villager.getUniqueId()),
+                isInAnyKingdomTerritory(villager));
+    }
+
     private void restoreDefaultBehaviour(Villager villager) {
         villager.setAI(true);
         villager.setInvulnerable(false);
@@ -412,8 +466,11 @@ public final class VillagerMpEntityService {
     }
 
     private static void applyStandardNametag(Villager villager) {
-        String label = ProfessionConstituencyResolver.villagerProfessionNametag(
-                VillagerMpProfessionMatcher.professionName(villager));
+        applyStandardNametag(villager, VillagerMpProfessionMatcher.professionName(villager));
+    }
+
+    private static void applyStandardNametag(Villager villager, String professionName) {
+        String label = VillagerTerritoryNametagReconciliation.labelForProfession(professionName);
         villager.setCustomNameVisible(true);
         villager.setCustomName(label);
     }

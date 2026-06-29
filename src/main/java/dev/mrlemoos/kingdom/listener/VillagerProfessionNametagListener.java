@@ -20,6 +20,6 @@ public final class VillagerProfessionNametagListener implements Listener {
         if (!(event.getEntity() instanceof Villager villager)) {
             return;
         }
-        villagerMpEntityService.refreshNametagAfterProfessionChange(villager);
+        villagerMpEntityService.refreshNametagAfterProfessionChange(villager, event.getProfession());
     }
 }

@@ -40,7 +40,7 @@ public final class NoblePrefixDisplay {
         if (team == null) {
             team = board.registerNewTeam(teamName);
         }
-        team.setPrefix(service.coloredNobleChatPrefix(player.getUniqueId()));
+        team.setPrefix(service.colouredNobleChatPrefix(player.getUniqueId()));
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }

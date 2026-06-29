@@ -18,8 +18,8 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.DUKE, TitleStyle.MASCULINE);
 
-        assertTrue(membership.coloredChatPrefix().startsWith(c("&9")));
-        assertEquals(c("&9[Duke] "), membership.coloredChatPrefix());
+        assertTrue(membership.colouredChatPrefix().startsWith(c("&9")));
+        assertEquals(c("&9[Duke] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -27,7 +27,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.DUKE, TitleStyle.FEMININE);
 
-        assertEquals(c("&9[Duchess] "), membership.coloredChatPrefix());
+        assertEquals(c("&9[Duchess] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -35,7 +35,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.KING, TitleStyle.MASCULINE);
 
-        assertEquals(c("&6[King] "), membership.coloredChatPrefix());
+        assertEquals(c("&6[King] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -43,7 +43,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.COUNT, TitleStyle.MASCULINE);
 
-        assertEquals(c("&c[Count] "), membership.coloredChatPrefix());
+        assertEquals(c("&c[Count] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -51,7 +51,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.PREMIER, TitleStyle.MASCULINE);
 
-        assertEquals(c("&2[Premier] "), membership.coloredChatPrefix());
+        assertEquals(c("&2[Premier] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -59,7 +59,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.LORD, TitleStyle.FEMININE);
 
-        assertEquals(c("&d[Lady] "), membership.coloredChatPrefix());
+        assertEquals(c("&d[Lady] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -67,7 +67,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.MP, TitleStyle.MASCULINE);
 
-        assertEquals(c("&7[MP] "), membership.coloredChatPrefix());
+        assertEquals(c("&7[MP] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -76,7 +76,7 @@ class NobleRankTest {
         membership.assignTitle(NobleRank.MP, TitleStyle.MASCULINE);
 
         assertEquals(
-                membership.coloredChatPrefix() + c("&fFarmer"),
+                membership.colouredChatPrefix() + c("&fFarmer"),
                 NoblePrefixDisplay.mpVillagerNametag("Farmer"));
     }
 
@@ -86,7 +86,7 @@ class NobleRankTest {
         membership.assignTitle(NobleRank.PREMIER, TitleStyle.MASCULINE);
 
         assertEquals(
-                membership.coloredChatPrefix() + c("&fFarmer"),
+                membership.colouredChatPrefix() + c("&fFarmer"),
                 NoblePrefixDisplay.premierVillagerNametag("Farmer"));
     }
 
@@ -95,7 +95,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.KNIGHT, TitleStyle.MASCULINE);
 
-        assertEquals(c("&f[Knight] "), membership.coloredChatPrefix());
+        assertEquals(c("&f[Knight] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -103,7 +103,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.KNIGHT, TitleStyle.FEMININE);
 
-        assertEquals(c("&f[Dame] "), membership.coloredChatPrefix());
+        assertEquals(c("&f[Dame] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -111,7 +111,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.PRINCE, TitleStyle.MASCULINE);
 
-        assertEquals(c("&e[Prince] "), membership.coloredChatPrefix());
+        assertEquals(c("&e[Prince] "), membership.colouredChatPrefix());
     }
 
     @Test
@@ -119,7 +119,7 @@ class NobleRankTest {
         PlayerMembership membership = new PlayerMembership(playerId, "northmarch");
         membership.assignTitle(NobleRank.PRINCE, TitleStyle.FEMININE);
 
-        assertEquals(c("&e[Princess] "), membership.coloredChatPrefix());
+        assertEquals(c("&e[Princess] "), membership.colouredChatPrefix());
     }
 
     @Test

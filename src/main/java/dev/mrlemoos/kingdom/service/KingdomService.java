@@ -133,8 +133,8 @@ public class KingdomService {
         return getMembership(playerId).map(PlayerMembership::chatPrefix).orElse("");
     }
 
-    public String coloredNobleChatPrefix(UUID playerId) {
-        return getMembership(playerId).map(PlayerMembership::coloredChatPrefix).orElse("");
+    public String colouredNobleChatPrefix(UUID playerId) {
+        return getMembership(playerId).map(PlayerMembership::colouredChatPrefix).orElse("");
     }
 
     public String resolveWorldName(Kingdom kingdom) {

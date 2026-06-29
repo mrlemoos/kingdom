@@ -29,6 +29,9 @@ public final class TerritoryVillagerDespawnListener implements Listener {
         if (!(event.getEntity() instanceof Villager villager)) {
             return;
         }
-        plugin.getServer().getScheduler().runTask(plugin, () -> villagerMpEntityService.reconcileTerritoryVillagerDespawn(villager));
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            villagerMpEntityService.reconcileTerritoryVillagerDespawn(villager);
+            villagerMpEntityService.reconcileTerritoryVillagerNametag(villager);
+        });
     }
 }

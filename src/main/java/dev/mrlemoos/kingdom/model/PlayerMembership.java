@@ -43,7 +43,7 @@ public final class PlayerMembership {
         return formattedTitle(null);
     }
 
-    public String coloredChatPrefix() {
+    public String colouredChatPrefix() {
         if (rank == null) {
             return "";
         }

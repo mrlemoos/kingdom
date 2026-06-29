@@ -24,5 +24,6 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     @Override
     public void run() {
         villagerMpEntityService.reconcileAllTerritoryVillagerDespawn();
+        villagerMpEntityService.reconcileAllTerritoryVillagerNametags();
     }
 }

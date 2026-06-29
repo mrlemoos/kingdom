@@ -1,21 +1,27 @@
 package dev.mrlemoos.kingdom.election;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.bukkit.entity.Villager;
 import org.junit.jupiter.api.Test;
 
 class VillagerMpProfessionMatcherTest {
 
     @Test
-    void citizenProfessionMatchesUnemployedKey() {
-        assertTrue(VillagerMpProfessionMatcher.matchesKey(
-                ProfessionConstituencyResolver.CITIZEN_PROFESSION, VillagerMpProfessionMatcher.NONE_PROFESSION_KEY));
+    void professionNameFromEnum_normalisesMinecraftKey() {
+        assertEquals("farmer", VillagerMpProfessionMatcher.professionName(Villager.Profession.FARMER));
+        assertEquals("none", VillagerMpProfessionMatcher.professionName(Villager.Profession.NONE));
     }
 
     @Test
-    void farmerProfessionMatchesFarmerKey() {
-        assertTrue(VillagerMpProfessionMatcher.matchesKey("farmer", "minecraft:farmer"));
-        assertFalse(VillagerMpProfessionMatcher.matchesKey("librarian", "minecraft:farmer"));
+    void ordinaryTerritoryNametag_usesEventProfessionNotStaleEntityState() {
+        assertEquals(
+                "Farmer",
+                ProfessionConstituencyResolver.villagerProfessionNametag(
+                        VillagerMpProfessionMatcher.professionName(Villager.Profession.FARMER)));
+        assertEquals(
+                "Commoner",
+                ProfessionConstituencyResolver.villagerProfessionNametag(
+                        VillagerMpProfessionMatcher.professionName(Villager.Profession.NONE)));
     }
 }
