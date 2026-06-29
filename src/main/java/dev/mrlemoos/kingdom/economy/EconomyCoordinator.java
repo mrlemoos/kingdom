@@ -20,7 +20,9 @@ import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -173,6 +175,14 @@ public final class EconomyCoordinator {
             }
         }
         return Optional.empty();
+    }
+
+    public List<MintLocation> allMintLocations() {
+        List<MintLocation> mints = new ArrayList<>();
+        for (KingdomEconomy economy : economyService.kingdomEconomies().values()) {
+            mints.addAll(economy.mintLocations());
+        }
+        return mints;
     }
 
     public TerritoryLocation resolveTerritory(Player player, Location location) {

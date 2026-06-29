@@ -20,7 +20,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class TreasuryLordService {
 
-    private final JavaPlugin plugin;
     private final EconomyService economyService;
     private final YamlEconomyStore economyStore;
     private final NamespacedKey lordTagKey;
@@ -28,11 +27,11 @@ public final class TreasuryLordService {
 
     public TreasuryLordService(
             JavaPlugin plugin, EconomyService economyService, YamlEconomyStore economyStore) {
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        JavaPlugin pluginRef = Objects.requireNonNull(plugin, "plugin");
         this.economyService = Objects.requireNonNull(economyService, "economyService");
         this.economyStore = Objects.requireNonNull(economyStore, "economyStore");
-        this.lordTagKey = new NamespacedKey(plugin, "treasury_lord");
-        this.kingdomTagKey = new NamespacedKey(plugin, "treasury_kingdom");
+        this.lordTagKey = new NamespacedKey(pluginRef, "treasury_lord");
+        this.kingdomTagKey = new NamespacedKey(pluginRef, "treasury_kingdom");
     }
 
     public MintLocation ensureLord(String kingdomId, MintLocation mint) {
@@ -42,6 +41,7 @@ public final class TreasuryLordService {
         if (canonicalId.isPresent()) {
             Optional<Villager> canonical = findVillagerById(canonicalId.get());
             if (canonical.isPresent() && isValidLord(canonical.get(), kingdomId)) {
+                TreasuryLordAppearance.apply(canonical.get());
                 removeLordsAtMint(kingdomId, mint, canonicalId);
                 MintLocation updated = mint.lordEntityId()
                                 .filter(canonicalId.get()::equals)
@@ -190,9 +190,7 @@ public final class TreasuryLordService {
         villager.setRemoveWhenFarAway(false);
         villager.setCustomName(TreasuryLordPlacement.LORD_DISPLAY_NAME);
         villager.setCustomNameVisible(true);
-        villager.setProfession(Villager.Profession.LIBRARIAN);
-        villager.setVillagerType(Villager.Type.PLAINS);
-        villager.setRecipes(new java.util.ArrayList<>());
+        TreasuryLordAppearance.apply(villager);
         villager.getPersistentDataContainer().set(lordTagKey, PersistentDataType.BYTE, (byte) 1);
         villager.getPersistentDataContainer().set(kingdomTagKey, PersistentDataType.STRING, kingdomId);
     }

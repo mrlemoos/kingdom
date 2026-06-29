@@ -26,6 +26,7 @@ import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
 import dev.mrlemoos.kingdom.listener.JoinReminderListener;
 import dev.mrlemoos.kingdom.listener.LifeEventListener;
 import dev.mrlemoos.kingdom.listener.MintInteractListener;
+import dev.mrlemoos.kingdom.listener.MintLecternGuardListener;
 import dev.mrlemoos.kingdom.listener.MintPrepareListener;
 import dev.mrlemoos.kingdom.listener.ParliamentGuiListener;
 import dev.mrlemoos.kingdom.listener.TreasuryBriefingListener;
@@ -186,6 +187,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
+                getServer().getPluginManager().registerEvents(
+                                new MintLecternGuardListener(this, economyCoordinator, treasuryLordService),
+                                this);
                 getServer().getPluginManager().registerEvents(
                                 new TreasuryBriefingListener(kingdomService, economyService, territoryResolver, this),
                                 this);
