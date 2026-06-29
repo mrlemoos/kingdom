@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
@@ -24,8 +23,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 
 public final class TreasuryLordListener implements Listener {
 
@@ -101,7 +98,7 @@ public final class TreasuryLordListener implements Listener {
             player.closeInventory();
             pendingCustomWithdrawals.put(player.getUniqueId(), gui.kingdomId());
             player.sendMessage(info("Type the whole Corona amount to withdraw in chat, or type "
-                    + c("&ecancel")+ c("&b.")));
+                    + c("&ecancel") + c("&b.")));
             return;
         }
 

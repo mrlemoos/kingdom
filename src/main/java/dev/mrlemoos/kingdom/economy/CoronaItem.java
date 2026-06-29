@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.economy;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -12,6 +13,8 @@ public final class CoronaItem {
 
     public static final String DISPLAY_NAME_SINGULAR = c("&6Corona");
     public static final String DISPLAY_NAME_PLURAL = c("&6Coronas");
+
+    private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
 
     private CoronaItem() {}
 
@@ -44,7 +47,7 @@ public final class CoronaItem {
         if (meta == null || !meta.hasDisplayName()) {
             return false;
         }
-        String name = meta.getDisplayName();
+        String name = LEGACY_SECTION.serialize(meta.displayName());
         return isCoronaDisplayName(name);
     }
 

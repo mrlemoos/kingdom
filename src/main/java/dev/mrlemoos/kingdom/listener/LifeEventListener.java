@@ -22,7 +22,8 @@ public final class LifeEventListener implements Listener {
     public LifeEventListener(EconomyCoordinator coordinator, Plugin plugin) {
         this.coordinator = coordinator;
         this.plugin = plugin;
-        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runSocialCheck, SOCIAL_CHECK_TICKS, SOCIAL_CHECK_TICKS);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::runSocialCheck, SOCIAL_CHECK_TICKS,
+                SOCIAL_CHECK_TICKS);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -84,7 +85,8 @@ public final class LifeEventListener implements Listener {
             return;
         }
 
-        double baseAmount = Math.min(coordinator.config().buildRewardPerBlock(), coordinator.config().buildDailyCap() - buildingEarnedToday);
+        double baseAmount = Math.min(coordinator.config().buildRewardPerBlock(),
+                coordinator.config().buildDailyCap() - buildingEarnedToday);
         coordinator.creditPlayerFromLifeEvent(player, amount, inOwnKingdom).ifPresent(result -> {
             tracker.recordBuild(player.getUniqueId(), epochDay, baseAmount, result.net());
         });

@@ -15,12 +15,10 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -58,7 +56,8 @@ public final class ElectionService {
         electionState.clearPremierVillager();
         electionState.clearAllSeats();
         electionState.election().openGeneral(clockMs.get() + config.durationMs());
-        return ElectionResult.ok("General election called. Nominations open for " + config.durationMcDays() + " in-game days.");
+        return ElectionResult
+                .ok("General election called. Nominations open for " + config.durationMcDays() + " in-game days.");
     }
 
     public ElectionResult startByElection(String kingdomId, int seatIndex) {
@@ -207,7 +206,8 @@ public final class ElectionService {
         return switch (election.type().orElseThrow()) {
             case GENERAL -> closeGeneralElection(kingdom.get(), electionState, election, professionCounts);
             case BY_ELECTION_PLAYER -> closePlayerByElection(kingdom.get(), electionState, election);
-            case BY_ELECTION_VILLAGER -> closeVillagerByElection(kingdom.get(), electionState, election, professionCounts);
+            case BY_ELECTION_VILLAGER ->
+                closeVillagerByElection(kingdom.get(), electionState, election, professionCounts);
             case PREMIER -> closePremierElection(kingdom.get(), electionState, election);
         };
     }
@@ -326,8 +326,8 @@ public final class ElectionService {
 
         List<UUID> playerWinners = resolution.winners();
         int villagerSlots = config.totalSeats() - playerWinners.size();
-        List<String> professions =
-                ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(professionCounts, villagerSlots);
+        List<String> professions = ProfessionConstituencyResolver.topProfessionsWithCitizenBackfill(professionCounts,
+                villagerSlots);
 
         clearAllMpTitles(kingdom.getId());
         electionState.clearPremierVillager();
@@ -377,8 +377,8 @@ public final class ElectionService {
             Map<String, Integer> professionCounts) {
         int seatIndex = election.byElectionSeatIndex().orElseThrow();
         List<String> seatedProfessions = seatedProfessions(electionState);
-        List<String> candidates =
-                ProfessionConstituencyResolver.topProfessionsExcluding(professionCounts, 1, seatedProfessions);
+        List<String> candidates = ProfessionConstituencyResolver.topProfessionsExcluding(professionCounts, 1,
+                seatedProfessions);
         String profession = candidates.isEmpty()
                 ? ProfessionConstituencyResolver.CITIZEN_PROFESSION
                 : candidates.getFirst();
@@ -559,7 +559,8 @@ public final class ElectionService {
         }
 
         static ElectionCloseOutcome awaitingSpeakerTie() {
-            return new ElectionCloseOutcome(false, true, "Speaker must cast an election casting vote.", List.of(), List.of(), null);
+            return new ElectionCloseOutcome(false, true, "Speaker must cast an election casting vote.", List.of(),
+                    List.of(), null);
         }
 
         static ElectionCloseOutcome failed(String message) {

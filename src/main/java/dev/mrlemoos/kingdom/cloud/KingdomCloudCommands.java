@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.cloud;
 import dev.mrlemoos.kingdom.command.CommandArgTokenizer;
 import dev.mrlemoos.kingdom.command.CoronaCommand;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
+import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -27,11 +28,13 @@ public final class KingdomCloudCommands {
             KingdomCommand kingdomCommand,
             CoronaCommand coronaCommand,
             TpCommand tpCommand,
+            LocateCommand locateCommand,
             ResignCommand resignCommand,
             KingdomService kingdomService,
             TeleportService teleportService) {
         registerKingdomCommands(manager, kingdomCommand, kingdomService);
         registerTpCommands(manager, tpCommand, kingdomService, teleportService);
+        registerLocateCommands(manager, locateCommand, kingdomService, teleportService);
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudCoronaCommands(coronaCommand));
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudResignCommands(resignCommand));
     }
@@ -134,6 +137,23 @@ public final class KingdomCloudCommands {
                 .handler(ctx -> kingdomCommand.execute(
                         ctx.sender(),
                         prepend(subcommand, CommandArgTokenizer.tokenize(ctx.get("args"))))));
+    }
+
+    private static void registerLocateCommands(
+            LegacyPaperCommandManager<CommandSender> manager,
+            LocateCommand locateCommand,
+            KingdomService kingdomService,
+            TeleportService teleportService) {
+        SuggestionProvider<CommandSender> locateArgs =
+                CloudSuggestionProviders.locateArgs(kingdomService, teleportService);
+
+        manager.command(manager.commandBuilder("locate")
+                .handler(ctx -> locateCommand.execute(ctx.sender(), new String[0])));
+
+        manager.command(manager.commandBuilder("locate")
+                .required("args", StringParser.greedyStringParser(), locateArgs)
+                .handler(ctx -> locateCommand.execute(
+                        ctx.sender(), CommandArgTokenizer.tokenize(ctx.get("args")))));
     }
 
     private static void registerTpCommands(

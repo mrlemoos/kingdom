@@ -7,8 +7,6 @@ import dev.mrlemoos.kingdom.resignation.ResignationLetterItem;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.parliament.gui.ResignationReviewGui;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
-import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
-import dev.mrlemoos.kingdom.resignation.ResignationLetterItem;
 import dev.mrlemoos.kingdom.resignation.ResignationService;
 import dev.mrlemoos.kingdom.resignation.ResignationSummaries;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -73,7 +71,8 @@ public final class ResignationLetterListener implements Listener {
             return;
         }
         if (!ResignationAuthority.canResolveResignation(kingdomId.get(), kingdomService, membership.get().getRank())) {
-            player.sendMessage(c("&cOnly the monarch, or a Prince when no King or Queen is seated, may review this letter."));
+            player.sendMessage(
+                    c("&cOnly the monarch, or a Prince when no King or Queen is seated, may review this letter."));
             return;
         }
         if (resignationService.pendingResignation(kingdomId.get()).isEmpty()) {
@@ -83,8 +82,8 @@ public final class ResignationLetterListener implements Listener {
         }
 
         resignationService.pendingResignation(kingdomId.get()).ifPresent(pending -> {
-            ResignationReviewGui gui =
-                    ResignationReviewGui.create(kingdomId.get(), ResignationSummaries.describe(pending));
+            ResignationReviewGui gui = ResignationReviewGui.create(kingdomId.get(),
+                    ResignationSummaries.describe(pending));
             player.openInventory(gui.getInventory());
         });
     }

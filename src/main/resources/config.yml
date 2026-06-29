@@ -46,10 +46,6 @@ economy:
       - item: book
         corona-price: 5
         max-uses: 12
-    none:
-      - item: apple
-        corona-price: 1
-        max-uses: 16
   realm-wealth:
     materials:
       gold-block: 100

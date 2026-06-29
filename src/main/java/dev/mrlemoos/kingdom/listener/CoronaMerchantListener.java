@@ -10,6 +10,7 @@ import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeFactor
 import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeService;
 import dev.mrlemoos.kingdom.election.TerritoryVillagerCommercePolicy;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
+import dev.mrlemoos.kingdom.election.VillagerPlayerTradePolicy;
 import java.util.Map;
 import java.util.Optional;
 import org.bukkit.entity.Player;
@@ -54,6 +55,11 @@ public final class CoronaMerchantListener implements Listener {
         if (!isEligibleTerritoryVillager(villager)) {
             return;
         }
+        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
+            event.setCancelled(true);
+            recipeService.refreshRecipes(villager);
+            return;
+        }
         recipeService.refreshRecipes(villager);
     }
 
@@ -93,7 +99,9 @@ public final class CoronaMerchantListener implements Listener {
         if (!CoronaMerchantRecipeFactory.isCoronaRecipe(selected)) {
             return;
         }
-        if (!(merchantInventory.getMerchant() instanceof Villager villager) || !isEligibleTerritoryVillager(villager)) {
+        if (!(merchantInventory.getMerchant() instanceof Villager villager)
+                || !isEligibleTerritoryVillager(villager)
+                || !VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
             return;
         }
 
@@ -109,7 +117,7 @@ public final class CoronaMerchantListener implements Listener {
         Optional<CoronaMerchantPayment.Result> payment = CoronaMerchantPayment.collect(
                 player.getInventory(), coordinator.economyService(), player.getUniqueId(), coronaPrice);
         if (payment.isEmpty()) {
-            player.sendMessage(c("&cYou need ")+ coronaPrice + " Corona to buy that.");
+            player.sendMessage(c("&cYou need ") + coronaPrice + " Corona to buy that.");
             return;
         }
 
@@ -153,8 +161,8 @@ public final class CoronaMerchantListener implements Listener {
                 continue;
             }
             if (recipe.getResult().getType() != selected.getResult().getType()
-                    || CoronaMerchantRecipeFactory.coronaPrice(recipe)
-                            != CoronaMerchantRecipeFactory.coronaPrice(selected)) {
+                    || CoronaMerchantRecipeFactory.coronaPrice(recipe) != CoronaMerchantRecipeFactory
+                            .coronaPrice(selected)) {
                 continue;
             }
             int remainingUses = recipe.getUses();

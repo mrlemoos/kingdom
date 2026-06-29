@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.economy.villager.merchant;
 
 import dev.mrlemoos.kingdom.election.VillagerMpProfessionMatcher;
+import dev.mrlemoos.kingdom.election.VillagerPlayerTradePolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,10 @@ public final class CoronaMerchantRecipeService {
 
     public void refreshRecipes(Villager villager) {
         if (villager == null) {
+            return;
+        }
+        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
+            villager.setRecipes(List.of());
             return;
         }
         List<MerchantRecipe> merged = new ArrayList<>();

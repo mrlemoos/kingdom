@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public final class VillagerEconomyProcessor {
 
@@ -33,9 +32,10 @@ public final class VillagerEconomyProcessor {
         }
         economyService.setLastDailyGdp(kingdomId, totalGdp);
 
-        Set<UUID> activeIds = participants.stream()
-                .map(VillagerEconomicParticipant::villagerId)
-                .collect(Collectors.toCollection(HashSet::new));
+        Set<UUID> activeIds = new HashSet<>();
+        for (VillagerEconomicParticipant participant : participants) {
+            activeIds.add(participant.villagerId());
+        }
         economyService.syncVillagerWalletActivity(kingdomId, activeIds, epochDay);
 
         List<VillagerTradeSettlement> plannedTrades = tradeService.planTrades(

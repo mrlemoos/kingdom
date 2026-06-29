@@ -249,3 +249,7 @@ _Avoid_: Instant quit, auto-vacancy, Speaker dismissal
 **Resignation letter**:
 A paper item delivered to the King, Queen, or regent Prince when a resignation offer is pending. Right-clicking it opens the resignation review interface. Tagged to the kingdom so only the Crown may use it. Removed when the offer is resolved or if it is no longer current.
 _Avoid_: Chat-only notice, Lords-only review, forged paper
+
+**Locate compass**:
+A compass given by `/locate` that points at the requested place: a kingdom checkpoint, or the nearest structure or biome in the player's current world. Named with the target label and block coordinates on the lore. Untracked lodestone behaviour — no physical lodestone required.
+_Avoid_: Recovery compass, map marker, waypoint pearl

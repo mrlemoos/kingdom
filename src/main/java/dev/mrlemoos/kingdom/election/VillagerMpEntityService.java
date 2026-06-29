@@ -319,7 +319,8 @@ public final class VillagerMpEntityService {
                 .map(this::seatedVillagerEntityIds)
                 .orElseGet(Set::of);
         for (Villager villager : allVillagers()) {
-            String taggedKingdom = villager.getPersistentDataContainer().get(mpKingdomTagKey, PersistentDataType.STRING);
+            String taggedKingdom = villager.getPersistentDataContainer().get(mpKingdomTagKey,
+                    PersistentDataType.STRING);
             if (!kingdomId.equals(taggedKingdom)) {
                 continue;
             }
@@ -346,7 +347,7 @@ public final class VillagerMpEntityService {
             boolean treasuryLord = isTreasuryLord(villager);
             boolean kingdomTaggedMp = isMpVillager(villager);
             if (!VillagerMpCombatPolicy.needsCombatRestore(
-                            kingdomTaggedMp, seated, villager.isInvulnerable(), villager.getCustomName())
+                    kingdomTaggedMp, seated, villager.isInvulnerable(), villager.getCustomName())
                     && !VillagerMpDespawnPolicy.needsDespawnRestore(
                             kingdomTaggedMp,
                             seated,
@@ -531,8 +532,8 @@ public final class VillagerMpEntityService {
 
     private static void applyProfession(Villager villager, String profession) {
         try {
-            org.bukkit.entity.Villager.Profession bukkitProfession =
-                    org.bukkit.entity.Villager.Profession.valueOf(profession.toUpperCase(Locale.ROOT));
+            org.bukkit.entity.Villager.Profession bukkitProfession = org.bukkit.entity.Villager.Profession
+                    .valueOf(profession.toUpperCase(Locale.ROOT));
             villager.setProfession(bukkitProfession);
         } catch (IllegalArgumentException ignored) {
             villager.setProfession(org.bukkit.entity.Villager.Profession.NONE);

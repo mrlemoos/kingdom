@@ -62,7 +62,8 @@ public final class VillagerPremierInauguralService {
     }
 
     public ElectionResult resolveAfterFailedPremierElection(String kingdomId, Map<String, Integer> professionCounts) {
-        ElectionResult appointed = electionService.resolvePremierAfterFailedPremierElection(kingdomId, professionCounts);
+        ElectionResult appointed = electionService.resolvePremierAfterFailedPremierElection(kingdomId,
+                professionCounts);
         if (!(appointed instanceof ElectionResult.Success success)) {
             return appointed;
         }

@@ -17,8 +17,7 @@ public record CoronaMerchantOfferConfig(Map<String, List<CoronaMerchantOffer>> o
     public static CoronaMerchantOfferConfig defaults() {
         return new CoronaMerchantOfferConfig(Map.of(
                 "farmer", List.of(new CoronaMerchantOffer(Material.BREAD, 3, 12)),
-                "librarian", List.of(new CoronaMerchantOffer(Material.BOOK, 5, 12)),
-                "none", List.of(new CoronaMerchantOffer(Material.APPLE, 1, 16))));
+                "librarian", List.of(new CoronaMerchantOffer(Material.BOOK, 5, 12))));
     }
 
     public static CoronaMerchantOfferConfig fromPluginConfig(org.bukkit.configuration.file.FileConfiguration config) {

@@ -45,6 +45,7 @@ import dev.mrlemoos.kingdom.resignation.ResignationService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
+import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
 import dev.mrlemoos.kingdom.service.TeleportService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
@@ -154,6 +155,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
                 TpCommand tpCommand = new TpCommand(teleportService, kingdomService, store, territoryResolver);
+                LocateCommand locateCommand = new LocateCommand(this, kingdomService, teleportService);
 
                 LegacyPaperCommandManager<CommandSender> commandManager = KingdomCloudManagerFactory.create(this);
                 KingdomCloudCommands.register(
@@ -161,6 +163,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomCommand,
                                 coronaCommand,
                                 tpCommand,
+                                locateCommand,
                                 resignCommand,
                                 kingdomService,
                                 teleportService);

@@ -112,8 +112,8 @@ public final class ParliamentGuiListener implements Listener {
         var pendingResignation = handler.kingdomService()
                 .getKingdom(kingdomId)
                 .flatMap(k -> k.getElectionState().pendingResignation());
-        boolean canResolveResignation =
-                ResignationAuthority.canResolveResignation(kingdomId, handler.kingdomService(), membership.getRank());
+        boolean canResolveResignation = ResignationAuthority.canResolveResignation(kingdomId, handler.kingdomService(),
+                membership.getRank());
 
         return new ParliamentHubView(
                 membership.getRank(),
@@ -177,7 +177,8 @@ public final class ParliamentGuiListener implements Listener {
         String kingdomId = membership.get().getKingdomId();
         switch (action) {
             case TABLE_FISCAL -> startFiscalPrompt(player, kingdomId);
-            case TABLE_BUDGET -> {}
+            case TABLE_BUDGET -> {
+            }
             case CUSTOM_AMOUNT -> startBudgetCustomPrompt(player, kingdomId);
             case TABLE_SPEND_MINT -> tableMintBill(player, membership.get());
             case TABLE_SPEND_STIPEND -> openStipendSelect(player, kingdomId);
@@ -194,7 +195,8 @@ public final class ParliamentGuiListener implements Listener {
             case ASSENT -> grantAssent(player, membership.get());
             case REJECT -> withholdAssent(player, membership.get());
             case REVIEW_RESIGNATION -> openResignationReview(player, hub.kingdomId());
-            default -> {}
+            default -> {
+            }
         }
     }
 
@@ -203,8 +205,8 @@ public final class ParliamentGuiListener implements Listener {
                 .getKingdom(kingdomId)
                 .flatMap(k -> k.getElectionState().pendingResignation())
                 .ifPresent(pending -> {
-                    ResignationReviewGui gui =
-                            ResignationReviewGui.create(kingdomId, ResignationSummaries.describe(pending));
+                    ResignationReviewGui gui = ResignationReviewGui.create(kingdomId,
+                            ResignationSummaries.describe(pending));
                     player.openInventory(gui.getInventory());
                 });
     }
@@ -230,7 +232,8 @@ public final class ParliamentGuiListener implements Listener {
                 resignCommand.reject(player, resignationGui.kingdomId());
                 player.closeInventory();
             }
-            default -> {}
+            default -> {
+            }
         }
     }
 
@@ -259,11 +262,11 @@ public final class ParliamentGuiListener implements Listener {
         OfflinePlayer recipient = Bukkit.getOfflinePlayer(recipientId);
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
-                        ParliamentChatSessions.SessionType.STIPEND_AMOUNT,
-                        stipendGui.kingdomId(),
-                        player.getUniqueId())
+                ParliamentChatSessions.SessionType.STIPEND_AMOUNT,
+                stipendGui.kingdomId(),
+                player.getUniqueId())
                 .withStipendRecipient(recipientId, recipient.getName()));
-        player.sendMessage(c("&bType the stipend amount for ")+ recipient.getName() + " in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the stipend amount for ") + recipient.getName() + " in chat (or 'cancel'):");
     }
 
     private void openStipendSelect(Player player, String kingdomId) {
@@ -341,7 +344,8 @@ public final class ParliamentGuiListener implements Listener {
                 player.sendMessage(c("&bRight-click a lectern in your kingdom to choose a new location."));
             }
             case CONFIRM -> confirmMintPrepare(player, membership.get(), mintGui);
-            default -> {}
+            default -> {
+            }
         }
     }
 
@@ -371,7 +375,8 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.FISCAL, kingdomId, player.getUniqueId()));
-        player.sendMessage(c("&bType fiscal rates: ")+ c("&fbase foreign transferFee crossFee [title]")+ c("&7 (or 'cancel')"));
+        player.sendMessage(
+                c("&bType fiscal rates: ") + c("&fbase foreign transferFee crossFee [title]") + c("&7 (or 'cancel')"));
     }
 
     private void startBudgetCustomPrompt(Player player, String kingdomId) {
@@ -431,8 +436,8 @@ public final class ParliamentGuiListener implements Listener {
     }
 
     private void castSpeakerVote(Player player, PlayerMembership membership, VoteChoice choice) {
-        ParliamentResult result =
-                parliamentService.castSpeakerVote(membership.getKingdomId(), membership.getRank(), choice);
+        ParliamentResult result = parliamentService.castSpeakerVote(membership.getKingdomId(), membership.getRank(),
+                choice);
         if (result instanceof ParliamentResult.Success) {
             handler.finish(player, result);
             openHubGui(player);
@@ -477,8 +482,7 @@ public final class ParliamentGuiListener implements Listener {
             return;
         }
 
-        ParliamentChatSessions.Session session =
-                chatSessions.get(player.getUniqueId()).orElseThrow();
+        ParliamentChatSessions.Session session = chatSessions.get(player.getUniqueId()).orElseThrow();
         Bukkit.getScheduler().runTask(handler.plugin(), () -> handleChatInput(player, session, message));
     }
 
@@ -567,7 +571,7 @@ public final class ParliamentGuiListener implements Listener {
                 player.getUniqueId(),
                 session.withStipendRecipient(target.getUniqueId(), target.getName())
                         .next(ParliamentChatSessions.SessionType.STIPEND_AMOUNT));
-        player.sendMessage(c("&bType the stipend amount for ")+ target.getName() + " in chat (or 'cancel'):");
+        player.sendMessage(c("&bType the stipend amount for ") + target.getName() + " in chat (or 'cancel'):");
     }
 
     private void handleStipendAmountChat(
