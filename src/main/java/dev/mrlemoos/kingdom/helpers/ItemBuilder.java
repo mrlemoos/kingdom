@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -15,6 +17,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemRarity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.inventory.meta.components.FoodComponent;
@@ -22,8 +25,12 @@ import org.bukkit.inventory.meta.components.ToolComponent;
 import org.bukkit.persistence.PersistentDataType;
 
 public final class ItemBuilder {
+  private static final LegacyComponentSerializer LEGACY_SECTION =
+      LegacyComponentSerializer.legacySection();
+
   // #region immutable props
   private final ItemStack itemStack;
+  private Material material;
   // #endregion
 
   // #region mutable props
@@ -46,10 +53,12 @@ public final class ItemBuilder {
   // #region constructors
   public ItemBuilder(Material material) {
     this.itemStack = new ItemStack(material);
+    this.material = material;
   }
 
   public ItemBuilder(Material material, int amount) {
     this.itemStack = new ItemStack(material, amount);
+    this.material = material;
     this.amount = amount;
   }
   // #endregion
@@ -108,12 +117,12 @@ public final class ItemBuilder {
   }
 
   public ItemBuilder type(final Material m) {
-    this.itemStack.setType(m);
+    this.material = m;
     return this;
   }
 
   public Material type() {
-    return itemStack.getType();
+    return material;
   }
 
   public ItemBuilder rarity(final ItemRarity r) {
@@ -183,7 +192,6 @@ public final class ItemBuilder {
   // #region build
   public ItemStack build() {
     itemStack.setAmount(amount);
-    itemStack.setDurability((short) durability);
 
     ItemMeta itemMeta = itemStack.getItemMeta();
     if (itemMeta == null) {
@@ -191,10 +199,13 @@ public final class ItemBuilder {
     }
 
     if (displayName != null) {
-      itemMeta.setDisplayName(displayName);
+      itemMeta.displayName(LEGACY_SECTION.deserialize(displayName));
     }
     if (!lore.isEmpty()) {
-      itemMeta.setLore(lore);
+      List<Component> loreComponents = lore.stream()
+          .<Component>map(LEGACY_SECTION::deserialize)
+          .toList();
+      itemMeta.lore(loreComponents);
     }
     if (!enchantments.isEmpty()) {
       for (EnchantmentBuilder enchantment : enchantments) {
@@ -233,7 +244,10 @@ public final class ItemBuilder {
         bookMeta.setAuthor(bookAuthor);
       }
       if (bookPages != null) {
-        bookMeta.setPages(bookPages);
+        List<Component> pages = bookPages.stream()
+            .<Component>map(LEGACY_SECTION::deserialize)
+            .toList();
+        bookMeta.pages(pages);
       }
       itemMeta = bookMeta;
     }
@@ -246,7 +260,17 @@ public final class ItemBuilder {
       itemMeta = skullMeta;
     }
 
+    if (durability != 0) {
+      if (!(itemMeta instanceof Damageable damageable)) {
+        throw new IllegalStateException("Damageable meta required for damaged items");
+      }
+      damageable.setDamage(durability);
+    }
+
     itemStack.setItemMeta(itemMeta);
+    if (material != itemStack.getType()) {
+      return itemStack.withType(material);
+    }
     return itemStack;
   }
   // #endregion

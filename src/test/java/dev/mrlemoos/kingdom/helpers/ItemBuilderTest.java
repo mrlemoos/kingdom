@@ -3,16 +3,19 @@ package dev.mrlemoos.kingdom.helpers;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -23,6 +26,9 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
 class ItemBuilderTest {
+
+    private static final LegacyComponentSerializer LEGACY_SECTION =
+            LegacyComponentSerializer.legacySection();
 
     private ServerMock server;
 
@@ -48,8 +54,10 @@ class ItemBuilderTest {
         assertEquals(3, stack.getAmount());
         ItemMeta meta = stack.getItemMeta();
         assertNotNull(meta);
-        assertEquals(c("&6Test"), meta.getDisplayName());
-        assertEquals(List.of(c("&7Line one"), c("&7Line two")), meta.getLore());
+        assertEquals(LEGACY_SECTION.deserialize(c("&6Test")), meta.displayName());
+        assertEquals(
+                List.of(LEGACY_SECTION.deserialize(c("&7Line one")), LEGACY_SECTION.deserialize(c("&7Line two"))),
+                meta.lore());
     }
 
     @Test
@@ -79,7 +87,9 @@ class ItemBuilderTest {
         assertNotNull(meta);
         assertEquals("Budget Bill", meta.getTitle());
         assertEquals("Parliament", meta.getAuthor());
-        assertEquals(pages, meta.getPages());
+        assertEquals(
+                pages.stream().map(LegacyComponentSerializer.legacySection()::deserialize).toList(),
+                meta.pages());
     }
 
     @Test
@@ -96,7 +106,7 @@ class ItemBuilderTest {
         assertNotNull(meta);
         assertNotNull(meta.getOwningPlayer());
         assertEquals("Alice", meta.getOwningPlayer().getName());
-        assertEquals(c("&fAlice"), meta.getDisplayName());
+        assertEquals(LEGACY_SECTION.deserialize(c("&fAlice")), meta.displayName());
     }
 
     @Test
@@ -105,8 +115,8 @@ class ItemBuilderTest {
 
         ItemMeta meta = stack.getItemMeta();
         assertNotNull(meta);
-        assertEquals(c("&aAction"), meta.getDisplayName());
-        assertEquals(List.of(c("&7Do the thing")), meta.getLore());
+        assertEquals(LEGACY_SECTION.deserialize(c("&aAction")), meta.displayName());
+        assertEquals(List.of(LEGACY_SECTION.deserialize(c("&7Do the thing"))), meta.lore());
     }
 
     @Test
@@ -116,7 +126,32 @@ class ItemBuilderTest {
         assertEquals(Material.GRAY_STAINED_GLASS_PANE, stack.getType());
         ItemMeta meta = stack.getItemMeta();
         assertNotNull(meta);
-        assertEquals(" ", meta.getDisplayName());
+        assertEquals(LEGACY_SECTION.deserialize(" "), meta.displayName());
+    }
+
+    @Test
+    void durabilitySetsDamageOnDamageableItem() {
+        ItemStack stack = new ItemBuilder(Material.DIAMOND_SWORD)
+                .durability(42)
+                .build();
+
+        ItemMeta meta = stack.getItemMeta();
+        assertNotNull(meta);
+        Damageable damageable = assertInstanceOf(Damageable.class, meta);
+        assertEquals(42, damageable.getDamage());
+    }
+
+    @Test
+    void typeSwapsMaterialWhilePreservingMeta() {
+        ItemStack stack = new ItemBuilder(Material.GOLD_NUGGET)
+                .displayAs(c("&aWithdraw"))
+                .type(Material.GRAY_DYE)
+                .build();
+
+        assertEquals(Material.GRAY_DYE, stack.getType());
+        ItemMeta meta = stack.getItemMeta();
+        assertNotNull(meta);
+        assertEquals(LEGACY_SECTION.deserialize(c("&aWithdraw")), meta.displayName());
     }
 
     @Test
