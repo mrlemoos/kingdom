@@ -78,7 +78,8 @@ public final class MintLecternGuardListener implements Listener {
         if (!shouldReleaseClaim(villager)) {
             return;
         }
-        plugin.getServer().getScheduler().runTask(plugin, () -> MintLecternGuard.releaseClaim(villager));
+        boolean treasuryLord = treasuryLordService.isLordEntity(villager);
+        plugin.getServer().getScheduler().runTask(plugin, () -> MintLecternGuard.releaseClaim(villager, treasuryLord));
     }
 
     private List<MintLocation> mintLocations() {
