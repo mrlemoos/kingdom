@@ -1,7 +1,6 @@
 package dev.mrlemoos.kingdom.command;
 
 import dev.mrlemoos.kingdom.locate.LocateCheckpointResolver;
-import dev.mrlemoos.kingdom.locate.LocateKeyParser;
 import dev.mrlemoos.kingdom.locate.LocateRegistries;
 import dev.mrlemoos.kingdom.model.TeleportPlace;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -21,7 +20,8 @@ public final class LocateCommandSuggestions {
     static final String PERM_CHECKPOINT = "kingdom.teleport.checkpoint";
     static final String PERM_LOCATE = "minecraft.command.locate";
 
-    private LocateCommandSuggestions() {}
+    private LocateCommandSuggestions() {
+    }
 
     public static List<String> suggest(
             CommandSender sender,

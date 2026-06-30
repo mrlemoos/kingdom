@@ -1,10 +1,11 @@
 package dev.mrlemoos.kingdom.listener;
 
+import java.util.List;
+
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.mint.MintLecternGuard;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
-import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -33,7 +34,8 @@ public final class MintLecternGuardListener implements Listener {
         this.treasuryLordService = treasuryLordService;
         plugin.getServer()
                 .getScheduler()
-                .runTaskTimer(plugin, this::reconcileNearMintLecterns, RECONCILE_INTERVAL_TICKS, RECONCILE_INTERVAL_TICKS);
+                .runTaskTimer(plugin, this::reconcileNearMintLecterns, RECONCILE_INTERVAL_TICKS,
+                        RECONCILE_INTERVAL_TICKS);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

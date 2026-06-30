@@ -1,8 +1,10 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
+import static dev.mrlemoos.kingdom.helpers.ColourEncoder.component;
 
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
@@ -11,7 +13,7 @@ import org.bukkit.inventory.ItemStack;
 
 public final class ResignationReviewGui implements InventoryHolder {
 
-    public static final String TITLE = c("&4Resignation");
+    public static final Component TITLE = component("&4Resignation");
 
     static final int SLOT_SUMMARY = 4;
     static final int SLOT_ACCEPT = 20;

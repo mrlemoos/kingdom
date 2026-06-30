@@ -40,10 +40,13 @@ public final class MintInteractListener implements Listener {
         double walletBalance = coordinator.getWalletBalance(player.getUniqueId());
         double treasuryBalance = coordinator.getTreasuryBalance(mintMatch.get().kingdomId());
 
+        player.sendMessage("              ");
         player.sendMessage(c("&6Kingdom Mint"));
-        player.sendMessage(c("&eYour wallet: ")+ c("&f" + formatCorona(walletBalance)));
-        player.sendMessage(c("&eTreasury: ")+ c("&f" + formatCorona(treasuryBalance)));
-        player.sendMessage(c("&7Use ")+ c("&e/corona deposit")+ c("&7 to convert gold ingots. Right-click the ")+ c("&6Lord of the Treasury")+ c("&7 to withdraw Corona."));
+        player.sendMessage(c("&eYour wallet: ") + c("&f" + formatCorona(walletBalance)));
+        player.sendMessage(c("&eTreasury: ") + c("&f" + formatCorona(treasuryBalance)));
+        player.sendMessage(c("&7Use ") + c("&e/corona deposit") + c("&7 to convert gold ingots. Right-click the ")
+                + c("&6Lord of the Treasury") + c("&7 to withdraw Corona."));
+        player.sendMessage("              ");
     }
 
     private static String formatCorona(double amount) {

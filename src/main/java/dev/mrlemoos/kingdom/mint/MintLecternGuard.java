@@ -1,14 +1,17 @@
 package dev.mrlemoos.kingdom.mint;
 
-import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import java.util.List;
+
+import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import org.bukkit.Location;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.memory.MemoryKey;
 
 public final class MintLecternGuard {
 
     /**
-     * Vanilla lectern employment profession. Distinct from {@link TreasuryLordAppearance#PROFESSION},
+     * Vanilla lectern employment profession. Distinct from
+     * {@link TreasuryLordAppearance#PROFESSION},
      * which is cosmetic for the treasury lord NPC.
      */
     private static final Villager.Profession LECTERN_EMPLOYMENT_PROFESSION = Villager.Profession.LIBRARIAN;
@@ -33,10 +36,10 @@ public final class MintLecternGuard {
     }
 
     public static void releaseClaim(Villager villager, boolean treasuryLord) {
-        Location employedSite = villager.getMemory(org.bukkit.entity.memory.MemoryKey.JOB_SITE);
+        Location employedSite = villager.getMemory(MemoryKey.JOB_SITE);
         Villager.Profession profession = villager.getProfession();
-        villager.setMemory(org.bukkit.entity.memory.MemoryKey.JOB_SITE, null);
-        villager.setMemory(org.bukkit.entity.memory.MemoryKey.POTENTIAL_JOB_SITE, null);
+        villager.setMemory(MemoryKey.JOB_SITE, null);
+        villager.setMemory(MemoryKey.POTENTIAL_JOB_SITE, null);
         if (treasuryLord) {
             return;
         }

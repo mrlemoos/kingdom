@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.helpers;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +35,14 @@ public final class ColourEncoder {
       }
     }
     return serialized;
+  }
+
+  /** Parse {@code &}-prefixed colour codes into an Adventure {@link Component}. */
+  public static Component component(@NotNull String text) {
+    if (text == null) {
+      throw new IllegalArgumentException("Text cannot be null");
+    }
+    return AMPERSAND.deserialize(text);
   }
 
   /** Strip legacy section-sign colour codes from {@code text}. */

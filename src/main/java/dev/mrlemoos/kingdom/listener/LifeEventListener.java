@@ -1,7 +1,6 @@
 package dev.mrlemoos.kingdom.listener;
 
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
-import dev.mrlemoos.kingdom.model.PlayerMembership;
 import java.util.Collection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -142,7 +141,7 @@ public final class LifeEventListener implements Listener {
 
             String otherKingdom = coordinator.kingdomService()
                     .getMembership(other.getUniqueId())
-                    .map(PlayerMembership::getKingdomId)
+                    .map(membership -> membership.getKingdomId())
                     .orElse(null);
             if (kingdomId.equals(otherKingdom)) {
                 return true;
