@@ -35,9 +35,10 @@ public final class KingdomCommand {
     private final ParliamentHandler parliamentHandler;
     private final ElectionHandler electionHandler;
     private final KingdomPoliceHandler policeHandler;
+    private final KingdomWhitelistHandler whitelistHandler;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
-        this(service, store, nobleDisplay, null, null, null, null, null);
+        this(service, store, nobleDisplay, null, null, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -45,7 +46,7 @@ public final class KingdomCommand {
             YamlKingdomStore store,
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, null, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, null, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -54,7 +55,7 @@ public final class KingdomCommand {
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -64,7 +65,7 @@ public final class KingdomCommand {
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService,
             ParliamentHandler parliamentHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -75,7 +76,8 @@ public final class KingdomCommand {
             EconomyService economyService,
             ParliamentHandler parliamentHandler,
             ElectionHandler electionHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler, null,
+                null, null);
     }
 
     public KingdomCommand(
@@ -88,7 +90,7 @@ public final class KingdomCommand {
             ElectionHandler electionHandler,
             RealmWealthRates realmWealthRates) {
         this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
-                realmWealthRates, null);
+                realmWealthRates, null, null);
     }
 
     public KingdomCommand(
@@ -101,6 +103,21 @@ public final class KingdomCommand {
             ElectionHandler electionHandler,
             RealmWealthRates realmWealthRates,
             KingdomPoliceHandler policeHandler) {
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
+                realmWealthRates, policeHandler, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService,
+            ParliamentHandler parliamentHandler,
+            ElectionHandler electionHandler,
+            RealmWealthRates realmWealthRates,
+            KingdomPoliceHandler policeHandler,
+            KingdomWhitelistHandler whitelistHandler) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
@@ -110,6 +127,7 @@ public final class KingdomCommand {
         this.parliamentHandler = parliamentHandler;
         this.electionHandler = electionHandler;
         this.policeHandler = policeHandler;
+        this.whitelistHandler = whitelistHandler;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -135,6 +153,7 @@ public final class KingdomCommand {
             case "parliament" -> handleParliament(sender, args);
             case "election" -> handleElection(sender, args);
             case "police" -> handlePolice(sender, args);
+            case "whitelist" -> handleWhitelist(sender, args);
             default -> sender.sendMessage(help(sender));
         }
     }
@@ -467,6 +486,15 @@ public final class KingdomCommand {
         policeHandler.handlePolice(sender, subArgs);
     }
 
+    private void handleWhitelist(CommandSender sender, String[] args) {
+        if (whitelistHandler == null) {
+            sender.sendMessage(error("Whitelist commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        whitelistHandler.handleWhitelist(sender, subArgs);
+    }
+
     private void handleSetWorld(CommandSender sender, String[] args) {
         if (!requireAdmin(sender)) {
             return;
@@ -519,6 +547,8 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — kingdom mints");
             builder.append("\n").append(c("&e")).append("/kingdom police status");
             builder.append(c("&7")).append(" — police readiness");
+            builder.append("\n").append(c("&e")).append("/kingdom whitelist status");
+            builder.append(c("&7")).append(" — server whitelist");
         }
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");

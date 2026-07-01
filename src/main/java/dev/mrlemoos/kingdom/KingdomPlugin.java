@@ -5,6 +5,7 @@ import dev.mrlemoos.kingdom.command.ElectionHandler;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.KingdomFiscalHandler;
 import dev.mrlemoos.kingdom.command.KingdomPoliceHandler;
+import dev.mrlemoos.kingdom.command.KingdomWhitelistHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.election.ElectionConfig;
@@ -45,6 +46,8 @@ import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceService;
+import dev.mrlemoos.kingdom.whitelist.BukkitServerWhitelistGateway;
+import dev.mrlemoos.kingdom.whitelist.WhitelistService;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterItem;
 import dev.mrlemoos.kingdom.resignation.ResignationService;
@@ -143,6 +146,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 store,
                                 territoryResolver,
                                 nobleDisplay);
+                WhitelistService whitelistService = new WhitelistService(new BukkitServerWhitelistGateway());
+                KingdomWhitelistHandler whitelistHandler = new KingdomWhitelistHandler(
+                                whitelistService,
+                                kingdomService);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
                                 parliamentService,
                                 kingdomService,
@@ -167,7 +174,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,
-                                electionHandler, realmWealthRates, policeHandler);
+                                electionHandler, realmWealthRates, policeHandler, whitelistHandler);
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -185,7 +192,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService,
                                 teleportService);
 
-                getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService, policeService), this);
+                getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService, policeService),
+                                this);
                 getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
                 getServer().getPluginManager().registerEvents(
                                 new JoinReminderListener(
