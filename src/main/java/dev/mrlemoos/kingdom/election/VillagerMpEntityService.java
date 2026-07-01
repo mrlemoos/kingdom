@@ -18,6 +18,7 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Pose;
 import org.bukkit.entity.Villager;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -272,6 +273,7 @@ public final class VillagerMpEntityService {
     }
 
     private void configureMpBehaviour(Villager villager, MpSeat seat, String kingdomId) {
+        ensureSeatedStance(villager);
         villager.setAI(false);
         villager.setInvulnerable(VillagerMpCombatPolicy.shouldLockFromCombat(true));
         villager.setPersistent(VillagerMpDespawnPolicy.persistentWhileSeated());
@@ -453,6 +455,18 @@ public final class VillagerMpEntityService {
                 isMpVillager(villager),
                 isSeatedMpVillager(villager.getUniqueId()),
                 isInAnyKingdomTerritory(villager));
+    }
+
+    private void ensureSeatedStance(Villager villager) {
+        if (!VillagerMpStancePolicy.needsStandingReset(villager.isSleeping(), villager.getPose())) {
+            return;
+        }
+        if (villager.isSleeping()) {
+            villager.wakeup();
+        }
+        if (villager.getPose() == Pose.SLEEPING) {
+            villager.setPose(Pose.STANDING);
+        }
     }
 
     private void restoreDefaultBehaviour(Villager villager) {
