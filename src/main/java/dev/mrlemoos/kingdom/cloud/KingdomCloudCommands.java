@@ -21,7 +21,8 @@ import org.incendo.cloud.suggestion.SuggestionProvider;
 
 public final class KingdomCloudCommands {
 
-    private KingdomCloudCommands() {}
+    private KingdomCloudCommands() {
+    }
 
     public static void register(
             LegacyPaperCommandManager<CommandSender> manager,
@@ -53,22 +54,22 @@ public final class KingdomCloudCommands {
                 .literal("join")
                 .required("kingdom", StringParser.stringParser(), kingdomIds)
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
-                    "join", ctx.get("kingdom")
+                        "join", ctx.get("kingdom")
                 })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("list")
-                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {"list"})));
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "list" })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("info")
-                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {"info"})));
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "info" })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("info")
                 .required("target", StringParser.stringParser())
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
-                    "info", ctx.get("target")
+                        "info", ctx.get("target")
                 })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
@@ -77,14 +78,14 @@ public final class KingdomCloudCommands {
                 .optional("display", StringParser.greedyStringParser())
                 .handler(ctx -> kingdomCommand.execute(
                         ctx.sender(),
-                        withOptionalGreedy(new String[] {"create", ctx.get("id")}, ctx, "display"))));
+                        withOptionalGreedy(new String[] { "create", ctx.get("id") }, ctx, "display"))));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("move")
                 .required("player", StringParser.stringParser(), onlinePlayers)
                 .required("kingdom", StringParser.stringParser(), kingdomIds)
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
-                    "move", ctx.get("player"), ctx.get("kingdom")
+                        "move", ctx.get("player"), ctx.get("kingdom")
                 })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
@@ -95,7 +96,7 @@ public final class KingdomCloudCommands {
                 .handler(ctx -> kingdomCommand.execute(
                         ctx.sender(),
                         withOptional(
-                                new String[] {"title", ctx.get("player"), ctx.get("rank")},
+                                new String[] { "title", ctx.get("player"), ctx.get("rank") },
                                 ctx,
                                 "style"))));
 
@@ -104,7 +105,7 @@ public final class KingdomCloudCommands {
                 .required("kingdom", StringParser.stringParser(), kingdomIds)
                 .required("region", StringParser.stringParser())
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
-                    "setregion", ctx.get("kingdom"), ctx.get("region")
+                        "setregion", ctx.get("kingdom"), ctx.get("region")
                 })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
@@ -112,7 +113,7 @@ public final class KingdomCloudCommands {
                 .required("kingdom", StringParser.stringParser(), kingdomIds)
                 .required("world", StringParser.stringParser())
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
-                    "setworld", ctx.get("kingdom"), ctx.get("world")
+                        "setworld", ctx.get("kingdom"), ctx.get("world")
                 })));
 
         registerGreedySubcommand(manager, kingdomCommand, "fiscal");
@@ -129,7 +130,7 @@ public final class KingdomCloudCommands {
             String subcommand) {
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal(subcommand)
-                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {subcommand})));
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { subcommand })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal(subcommand)
@@ -144,8 +145,8 @@ public final class KingdomCloudCommands {
             LocateCommand locateCommand,
             KingdomService kingdomService,
             TeleportService teleportService) {
-        SuggestionProvider<CommandSender> locateArgs =
-                CloudSuggestionProviders.locateArgs(kingdomService, teleportService);
+        SuggestionProvider<CommandSender> locateArgs = CloudSuggestionProviders.locateArgs(kingdomService,
+                teleportService);
 
         manager.command(manager.commandBuilder("locate")
                 .handler(ctx -> locateCommand.execute(ctx.sender(), new String[0])));
@@ -161,8 +162,7 @@ public final class KingdomCloudCommands {
             TpCommand tpCommand,
             KingdomService kingdomService,
             TeleportService teleportService) {
-        SuggestionProvider<CommandSender> tpArgs =
-                CloudSuggestionProviders.tpArgs(kingdomService, teleportService);
+        SuggestionProvider<CommandSender> tpArgs = CloudSuggestionProviders.tpArgs(kingdomService, teleportService);
 
         manager.command(manager.commandBuilder("tp", "teleport")
                 .handler(ctx -> tpCommand.execute(ctx.sender(), new String[0])));
@@ -214,21 +214,21 @@ public final class KingdomCloudCommands {
         @Command("corona|cr")
         @CommandDescription("Show your Corona wallet balance")
         public void balance(Player player) {
-            coronaCommand.execute(player, new String[] {"balance"});
+            coronaCommand.execute(player, new String[] { "balance" });
         }
 
         @Command("corona|cr pay <target> <amount>")
         @CommandDescription("Pay another player Corona")
         public void pay(Player player, @Argument("target") String target, @Argument("amount") double amount) {
             coronaCommand.execute(player, new String[] {
-                "pay", target, Double.toString(amount)
+                    "pay", target, Double.toString(amount)
             });
         }
 
         @Command("corona|cr deposit")
         @CommandDescription("Deposit Corona nuggets at a kingdom mint")
         public void deposit(Player player) {
-            coronaCommand.execute(player, new String[] {"deposit"});
+            coronaCommand.execute(player, new String[] { "deposit" });
         }
     }
 

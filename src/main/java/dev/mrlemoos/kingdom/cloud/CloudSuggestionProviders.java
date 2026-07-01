@@ -14,7 +14,8 @@ import org.incendo.cloud.suggestion.SuggestionProvider;
 
 public final class CloudSuggestionProviders {
 
-    private CloudSuggestionProviders() {}
+    private CloudSuggestionProviders() {
+    }
 
     public static SuggestionProvider<CommandSender> kingdomIds(KingdomService service) {
         return SuggestionProvider.blockingStrings((context, input) -> {

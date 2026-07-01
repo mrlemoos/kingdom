@@ -8,7 +8,8 @@ import org.incendo.cloud.bukkit.CloudBukkitCapabilities;
 
 public final class KingdomCloudManagerFactory {
 
-    private KingdomCloudManagerFactory() {}
+    private KingdomCloudManagerFactory() {
+    }
 
     public static LegacyPaperCommandManager<CommandSender> create(JavaPlugin plugin) {
         LegacyPaperCommandManager<CommandSender> manager = LegacyPaperCommandManager.createNative(

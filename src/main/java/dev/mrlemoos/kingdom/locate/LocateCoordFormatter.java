@@ -1,7 +1,5 @@
 package dev.mrlemoos.kingdom.locate;
 
-import java.util.Locale;
-
 public final class LocateCoordFormatter {
 
     private LocateCoordFormatter() {
