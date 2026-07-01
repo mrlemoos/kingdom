@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.model;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentSites;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
+import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -17,6 +18,7 @@ public final class Kingdom {
     private final ParliamentSites parliamentSites = new ParliamentSites();
     private final ParliamentState parliamentState = new ParliamentState();
     private final KingdomElectionState electionState = new KingdomElectionState();
+    private final KingdomPoliceState policeState = new KingdomPoliceState();
 
     public Kingdom(String id, String displayName) {
         this.id = normaliseId(id);
@@ -93,5 +95,9 @@ public final class Kingdom {
 
     public KingdomElectionState getElectionState() {
         return electionState;
+    }
+
+    public KingdomPoliceState getPoliceState() {
+        return policeState;
     }
 }

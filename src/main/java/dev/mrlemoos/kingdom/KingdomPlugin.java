@@ -4,6 +4,7 @@ import dev.mrlemoos.kingdom.command.CoronaCommand;
 import dev.mrlemoos.kingdom.command.ElectionHandler;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.KingdomFiscalHandler;
+import dev.mrlemoos.kingdom.command.KingdomPoliceHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.election.ElectionConfig;
@@ -38,7 +39,12 @@ import dev.mrlemoos.kingdom.listener.VillagerProfessionNametagListener;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
+import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
 import dev.mrlemoos.kingdom.listener.ResignationLetterListener;
+import dev.mrlemoos.kingdom.police.PoliceConfig;
+import dev.mrlemoos.kingdom.police.PoliceCourtService;
+import dev.mrlemoos.kingdom.police.PoliceGolemService;
+import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterItem;
 import dev.mrlemoos.kingdom.resignation.ResignationService;
@@ -76,7 +82,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 kingdomService = new KingdomService();
                 store = new YamlKingdomStore(this);
                 store.loadInto(kingdomService);
-                nobleDisplay = new NoblePrefixDisplay(kingdomService);
+                PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
+                nobleDisplay = new NoblePrefixDisplay(kingdomService, policeService);
 
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
                 economyStore = new YamlEconomyStore(this);
@@ -126,6 +133,16 @@ public final class KingdomPlugin extends JavaPlugin {
                 KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService,
                                 this);
+                PoliceCourtService policeCourtService = new PoliceCourtService(this, kingdomService, policeService);
+                PoliceGolemService policeGolemService = new PoliceGolemService(this, kingdomService, policeService);
+                KingdomPoliceHandler policeHandler = new KingdomPoliceHandler(
+                                policeService,
+                                policeCourtService,
+                                policeGolemService,
+                                kingdomService,
+                                store,
+                                territoryResolver,
+                                nobleDisplay);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
                                 parliamentService,
                                 kingdomService,
@@ -150,7 +167,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,
-                                electionHandler, realmWealthRates);
+                                electionHandler, realmWealthRates, policeHandler);
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -168,7 +185,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService,
                                 teleportService);
 
-                getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService), this);
+                getServer().getPluginManager().registerEvents(new ChatPrefixListener(kingdomService, policeService), this);
                 getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
                 getServer().getPluginManager().registerEvents(
                                 new JoinReminderListener(
@@ -213,8 +230,13 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new VillagerProfessionNametagListener(villagerMpEntityService), this);
                 getServer().getPluginManager().registerEvents(
                                 new TerritoryVillagerDespawnListener(this, villagerMpEntityService), this);
+                getServer().getPluginManager().registerEvents(
+                                new PoliceGolemListener(policeService, policeGolemService, kingdomService, store),
+                                this);
 
                 getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
+                getServer().getScheduler().runTaskLater(this, policeHandler::pruneStaleEntities, 20L);
+                getServer().getScheduler().runTaskLater(this, policeHandler::respawnAllJudges, 20L);
 
                 long gdpInterval = getConfig().getLong("economy.villager-gdp.tick-interval-ticks",
                                 VillagerGdpTask.DEFAULT_INTERVAL_TICKS);

@@ -23,6 +23,8 @@ import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.police.CourtLocation;
+import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -73,6 +75,7 @@ public final class YamlKingdomStore {
                 kingdom.setWorldGuardRegion(entry.getString("worldguard-region"));
                 kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
                 readParliament(entry.getConfigurationSection("parliament"), kingdom);
+                readPolice(entry.getConfigurationSection("police"), kingdom);
                 kingdoms.put(kingdom.getId(), kingdom);
             }
         }
@@ -123,6 +126,7 @@ public final class YamlKingdomStore {
             data.set(path + ".worldguard-region", kingdom.getWorldGuardRegion());
             writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
             writeParliament(data, path + ".parliament", kingdom);
+            writePolice(data, path + ".police", kingdom);
         }
 
         for (PlayerMembership membership : service.getMembershipsView().values()) {
@@ -667,5 +671,106 @@ public final class YamlKingdomStore {
             case VILLAGER_MP -> ResignationSubject.villagerSeat(seatIndex.orElseThrow(), false);
         };
         electionState.setPendingResignation(new PendingResignation(subject, offeredBy, offeredAtMs));
+    }
+
+    static void writePolice(FileConfiguration config, String path, Kingdom kingdom) {
+        var police = kingdom.getPoliceState();
+        if (!police.constablesView().isEmpty()) {
+            config.set(path + ".constables", police.constablesView().stream().map(id -> id.toString()).toList());
+        }
+        if (!police.judgesView().isEmpty()) {
+            config.set(path + ".judges", police.judgesView().stream().map(id -> id.toString()).toList());
+        }
+        for (var entry : police.cellsView().entrySet()) {
+            PrisonCellLocation cell = entry.getValue();
+            String cellPath = path + ".cells." + entry.getKey();
+            config.set(cellPath + ".world", cell.worldName());
+            config.set(cellPath + ".x", cell.x());
+            config.set(cellPath + ".y", cell.y());
+            config.set(cellPath + ".z", cell.z());
+        }
+        police.court().ifPresent(court -> {
+            config.set(path + ".court.world", court.worldName());
+            config.set(path + ".court.x", court.x());
+            config.set(path + ".court.y", court.y());
+            config.set(path + ".court.z", court.z());
+        });
+        police.judgeEntityId().ifPresent(id -> config.set(path + ".judge-entity", id.toString()));
+        if (!police.patrolGolemsView().isEmpty()) {
+            config.set(path + ".patrol-golems", police.patrolGolemsView().stream().map(id -> id.toString()).toList());
+        }
+        if (!police.guardGolemsView().isEmpty()) {
+            config.set(path + ".guard-golems", police.guardGolemsView().stream().map(id -> id.toString()).toList());
+        }
+    }
+
+    static void readPolice(ConfigurationSection section, Kingdom kingdom) {
+        if (section == null) {
+            return;
+        }
+        var police = kingdom.getPoliceState();
+        Set<UUID> constables = new LinkedHashSet<>();
+        for (String id : section.getStringList("constables")) {
+            constables.add(UUID.fromString(id));
+        }
+        police.replaceConstables(constables);
+
+        Set<UUID> judges = new LinkedHashSet<>();
+        for (String id : section.getStringList("judges")) {
+            judges.add(UUID.fromString(id));
+        }
+        police.replaceJudges(judges);
+
+        ConfigurationSection cellsSection = section.getConfigurationSection("cells");
+        if (cellsSection != null) {
+            Map<Integer, PrisonCellLocation> cells = new HashMap<>();
+            for (String key : cellsSection.getKeys(false)) {
+                ConfigurationSection cellSection = cellsSection.getConfigurationSection(key);
+                if (cellSection == null) {
+                    continue;
+                }
+                String world = cellSection.getString("world");
+                if (world == null) {
+                    continue;
+                }
+                cells.put(
+                        Integer.parseInt(key),
+                        new PrisonCellLocation(
+                                world,
+                                cellSection.getInt("x"),
+                                cellSection.getInt("y"),
+                                cellSection.getInt("z")));
+            }
+            police.replaceCells(cells);
+        }
+
+        ConfigurationSection courtSection = section.getConfigurationSection("court");
+        if (courtSection != null) {
+            String world = courtSection.getString("world");
+            if (world != null) {
+                police.setCourt(new CourtLocation(
+                        world,
+                        courtSection.getInt("x"),
+                        courtSection.getInt("y"),
+                        courtSection.getInt("z")));
+            }
+        }
+
+        String judgeEntity = section.getString("judge-entity");
+        if (judgeEntity != null && !judgeEntity.isBlank()) {
+            police.setJudgeEntityId(UUID.fromString(judgeEntity));
+        }
+
+        Set<UUID> patrolGolems = new LinkedHashSet<>();
+        for (String id : section.getStringList("patrol-golems")) {
+            patrolGolems.add(UUID.fromString(id));
+        }
+        police.replacePatrolGolems(patrolGolems);
+
+        Set<UUID> guardGolems = new LinkedHashSet<>();
+        for (String id : section.getStringList("guard-golems")) {
+            guardGolems.add(UUID.fromString(id));
+        }
+        police.replaceGuardGolems(guardGolems);
     }
 }

@@ -257,3 +257,97 @@ _Avoid_: Recovery compass, map marker, waypoint pearl
 **Staff teleport notification**:
 A private audit message sent to online players with `minecraft.command.teleport` when another player with that permission teleports someone else. The actor is not notified; console actors appear as "Console". Destinations name players, kingdom checkpoints, or coordinates as appropriate.
 _Avoid_: Teleport broadcast, public teleport announce, server-wide tp alert
+
+## Police
+
+**Police department**:
+The kingdom law-and-order system administered under `/kingdom police`. Cases follow a warrant → trial → sentence pipeline for role-play enforcement inside linked territory.
+_Avoid_: Police force, sheriff's office, militia
+
+**Sworn role**:
+A kingdom law-enforcement appointment separate from noble rank. Constable and Judge are sworn roles; the King or Queen appoints and removes them.
+_Avoid_: Noble title, rank, office of state
+
+**Constable**:
+A sworn role authorised to file warrant applications and arrest suspects with an active warrant inside kingdom territory. Displays a **[Constable]** chat prefix. Appointed by the King or Queen. A player may hold constable or judge, not both.
+_Avoid_: Officer, deputy, guard
+
+**Judge**:
+A sworn role that adjudicates trials and passes sentence. Displays a **[Judge]** chat prefix. Appointed by the King or Queen. A player may hold constable or judge, not both.
+_Avoid_: Magistrate, justice, arbiter
+
+**Court**:
+The kingdom trial venue, anchored at a lectern placed in linked territory. When no player judges are online, the seated villager judge at the court conducts a realm-handled trial.
+_Avoid_: Courthouse, tribunal hall, hearing room
+
+**Villager judge**:
+A villager NPC seated at the court lectern as the court anchor. When no player judge is available to take a case, the villager judge conducts a realm-handled trial with a weighted random verdict.
+_Avoid_: NPC justice, court clerk, automated judge
+
+**Warrant**:
+A constable's formal application to pursue a named suspect. Inactive until the Crown approves it; until then patrol golems and constables may not act on it.
+_Avoid_: Bounty, hit list, detention order
+
+**Royal warrant approval**:
+The Crown's acceptance or rejection of a warrant application, using the same paper-and-review workflow as a resignation letter. On approval the warrant becomes active; on rejection it does not.
+_Avoid_: Instant warrant, auto-approve, chat approval
+
+**Active warrant**:
+An approved warrant that authorises constables and patrol golems to arrest the named suspect inside kingdom territory.
+_Avoid_: Open case, manhunt tag, wanted flag
+
+**Infrastructure gate**:
+A requirement that at least one numbered prison cell and one court lectern are configured in linked territory before warrant applications or arrests are permitted.
+_Avoid_: Police unlock, setup check, readiness flag
+
+**Cell**:
+A numbered confinement point inside kingdom territory, set by the King, Queen, or an operator. Prison sentences assign the lowest free numbered slot up to the configured maximum (default four).
+_Avoid_: Jail bed, spawn point, detention zone
+
+**Patrol golem**:
+An iron golem officer tagged as kingdom police. Inside linked territory it automatically pursues and detains players with an active warrant, placing them in the same pending-trial flow as a constable arrest. Deployed separately from guard golems; each kingdom has a configurable cap (default two).
+_Avoid_: Warrant bot, auto-cop, pursuit mob
+
+**Guard golem**:
+A stationary iron golem officer posted at the court or prison cells. Provides presence and security but has no power to arrest or detain. Deployed separately from patrol golems; each kingdom has a configurable cap (default two).
+_Avoid_: Court sentry, prison warden mob, bouncer
+
+**Jurisdiction**:
+The scope of police authority: any person physically inside the kingdom's linked WorldGuard territory, whether a member or a visitor.
+_Avoid_: Citizens only, member crimes, home turf rule
+
+**Immunity**:
+The King, Queen, and Prince cannot be subject to a warrant or arrest under kingdom police law.
+_Avoid_: Royal exemption, crown privilege, diplomatic immunity
+
+**Arrest**:
+Taking a suspect with an active warrant into custody and opening a pending trial. Constables arrest manually; patrol golems detain automatically inside territory. A player judge is chosen at random from online judges, excluding the accused, the arresting constable, and the Crown who approved the warrant; if none qualify, the villager judge hears the case.
+_Avoid_: Ban, kick, instant jail
+
+**Pending trial**:
+The state between arrest and verdict. The assigned judge must adjudicate before a sentence takes effect.
+_Avoid_: Pre-trial hold, limbo, cooldown
+
+**Trial**:
+The hearing before a player judge or villager judge. Verdict options: guilty with a prison sentence, guilty with a fine paid to the treasury, a formal warning (record only), or not guilty.
+_Avoid_: Hearing, prosecution, court session
+
+**Prison sentence**:
+A guilty verdict that confines the player to an assigned numbered cell for a configured real-world duration (presets of five, fifteen, thirty, or sixty minutes). Hard confinement applies: kingdom teleport is blocked and the player is returned to the cell if they move more than eight blocks away.
+_Avoid_: Temp ban, mute sentence, soft jail
+
+**Fine sentence**:
+A guilty verdict that levies Corona from the convicted player to the kingdom treasury without imprisonment.
+_Avoid_: Bounty payment, damages, restitution order
+
+**Warning**:
+A guilty verdict that records the offence without prison time or a treasury fine.
+_Avoid_: Caution, slap on the wrist, strike
+
+**Realm-handled trial**:
+A trial conducted by the villager judge at the court when no eligible player judge is online to take the case. The villager judge returns a weighted random verdict from the standard options.
+_Avoid_: Auto-conviction, script trial, NPC prosecution
+
+**Sentence**:
+The outcome of a completed trial: prison, fine, warning, or acquittal. Closes the warrant → trial → sentence pipeline for that case.
+_Avoid_: Punishment roll, karma, penalty phase

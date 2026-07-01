@@ -34,6 +34,7 @@ public final class KingdomCommand {
     private final RealmWealthRates realmWealthRates;
     private final ParliamentHandler parliamentHandler;
     private final ElectionHandler electionHandler;
+    private final KingdomPoliceHandler policeHandler;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this(service, store, nobleDisplay, null, null, null, null, null);
@@ -86,6 +87,20 @@ public final class KingdomCommand {
             ParliamentHandler parliamentHandler,
             ElectionHandler electionHandler,
             RealmWealthRates realmWealthRates) {
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
+                realmWealthRates, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService,
+            ParliamentHandler parliamentHandler,
+            ElectionHandler electionHandler,
+            RealmWealthRates realmWealthRates,
+            KingdomPoliceHandler policeHandler) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
@@ -94,6 +109,7 @@ public final class KingdomCommand {
         this.realmWealthRates = realmWealthRates != null ? realmWealthRates : RealmWealthRates.defaults();
         this.parliamentHandler = parliamentHandler;
         this.electionHandler = electionHandler;
+        this.policeHandler = policeHandler;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -118,6 +134,7 @@ public final class KingdomCommand {
             case "treasury" -> handleTreasury(sender, args);
             case "parliament" -> handleParliament(sender, args);
             case "election" -> handleElection(sender, args);
+            case "police" -> handlePolice(sender, args);
             default -> sender.sendMessage(help(sender));
         }
     }
@@ -441,6 +458,15 @@ public final class KingdomCommand {
         fiscalHandler.handleMint(sender, subArgs);
     }
 
+    private void handlePolice(CommandSender sender, String[] args) {
+        if (policeHandler == null) {
+            sender.sendMessage(error("Police commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        policeHandler.handlePolice(sender, subArgs);
+    }
+
     private void handleSetWorld(CommandSender sender, String[] args) {
         if (!requireAdmin(sender)) {
             return;
@@ -491,6 +517,8 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — treasury budget");
             builder.append("\n").append(c("&e")).append("/kingdom mint list");
             builder.append(c("&7")).append(" — kingdom mints");
+            builder.append("\n").append(c("&e")).append("/kingdom police status");
+            builder.append(c("&7")).append(" — police readiness");
         }
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");
