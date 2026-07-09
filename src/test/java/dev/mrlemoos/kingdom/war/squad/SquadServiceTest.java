@@ -253,4 +253,102 @@ class SquadServiceTest {
         assertEquals(1, routedCount);
         assertTrue(bare.find(squadId).isEmpty());
     }
+
+    @Test
+    void aSteadfastOfficersFollowingSquadStaysFollowingAfterAMoralePolicyTick() {
+        squadService.assign(KINGDOM_ID, OFFICER, oneVillager());
+        UUID squadId = squadService.squadsForOfficer(OFFICER).iterator().next().id();
+        squadService.command(squadId, SquadState.FOLLOW);
+
+        boolean changed = squadService.applyMoralePolicy(squadId);
+
+        assertFalse(changed);
+        assertEquals(SquadState.FOLLOW, squadService.find(squadId).orElseThrow().state());
+    }
+
+    @Test
+    void aShakenOfficersFollowingSquadHesitatesBackToIdleAfterAMoralePolicyTick() {
+        squadService.assign(KINGDOM_ID, OFFICER, oneVillager());
+        UUID squadId = squadService.squadsForOfficer(OFFICER).iterator().next().id();
+        squadService.command(squadId, SquadState.FOLLOW);
+        moraleByOfficer.put(OFFICER, MoraleTier.SHAKEN);
+
+        boolean changed = squadService.applyMoralePolicy(squadId);
+
+        assertTrue(changed);
+        assertEquals(SquadState.IDLE, squadService.find(squadId).orElseThrow().state());
+    }
+
+    @Test
+    void aBreakingOfficersAttackingSquadScattersBackToIdleAfterAMoralePolicyTick() {
+        squadService.assign(KINGDOM_ID, OFFICER, oneVillager());
+        UUID squadId = squadService.squadsForOfficer(OFFICER).iterator().next().id();
+        squadService.command(squadId, SquadState.ATTACK);
+        moraleByOfficer.put(OFFICER, MoraleTier.BREAKING);
+
+        boolean changed = squadService.applyMoralePolicy(squadId);
+
+        assertTrue(changed);
+        assertEquals(SquadState.IDLE, squadService.find(squadId).orElseThrow().state());
+    }
+
+    @Test
+    void aRoutOfficersSquadIsRoutedByAMoralePolicyTickReleasingPressedVillagers() {
+        KingdomService kingdomService = new KingdomService();
+        kingdomService.createKingdom(KINGDOM_ID, "Northmarch");
+        ConscriptionService conscriptionService =
+                new ConscriptionService(kingdomService, new InMemoryConscriptionStore(), new ConscriptionConfig(true, 16));
+        conscriptionService.press(KINGDOM_ID, VILLAGER_ONE);
+        squadService.setConscriptionService(conscriptionService);
+        squadService.assign(KINGDOM_ID, OFFICER, oneVillager());
+        UUID squadId = squadService.squadsForOfficer(OFFICER).iterator().next().id();
+        moraleByOfficer.put(OFFICER, MoraleTier.ROUT);
+
+        boolean changed = squadService.applyMoralePolicy(squadId);
+
+        assertTrue(changed);
+        assertTrue(squadService.find(squadId).isEmpty());
+        assertFalse(conscriptionService.isPressed(VILLAGER_ONE));
+    }
+
+    @Test
+    void applyMoralePolicyOnAnUnknownSquadReturnsFalse() {
+        boolean changed = squadService.applyMoralePolicy(UUID.randomUUID());
+
+        assertFalse(changed);
+    }
+
+    @Test
+    void applyMoralePolicyIsANoOpWhenSquadsAreDisabled() {
+        SquadService disabled = new SquadService(SquadConfig.off(), eligibility, id -> MoraleTier.SHAKEN);
+
+        boolean changed = disabled.applyMoralePolicy(UUID.randomUUID());
+
+        assertFalse(changed);
+    }
+
+    @Test
+    void tickMoralePoliciesSweepsEveryAssignedSquadAndReturnsHowManyChanged() {
+        squadService.assign(KINGDOM_ID, OFFICER, oneVillager());
+        UUID followingSquadId = squadService.squadsForOfficer(OFFICER).iterator().next().id();
+        squadService.command(followingSquadId, SquadState.FOLLOW);
+        squadService.assign(KINGDOM_ID, OTHER_OFFICER, Set.of(new SquadMember.CrownUnit(CROWN_UNIT_ONE)));
+        UUID steadfastSquadId = squadService.squadsForOfficer(OTHER_OFFICER).iterator().next().id();
+        moraleByOfficer.put(OFFICER, MoraleTier.BREAKING);
+
+        int changedCount = squadService.tickMoralePolicies();
+
+        assertEquals(1, changedCount);
+        assertEquals(SquadState.IDLE, squadService.find(followingSquadId).orElseThrow().state());
+        assertEquals(SquadState.IDLE, squadService.find(steadfastSquadId).orElseThrow().state());
+    }
+
+    @Test
+    void tickMoralePoliciesIsANoOpWhenSquadsAreDisabled() {
+        SquadService disabled = new SquadService(SquadConfig.off(), eligibility, id -> MoraleTier.SHAKEN);
+
+        int changedCount = disabled.tickMoralePolicies();
+
+        assertEquals(0, changedCount);
+    }
 }

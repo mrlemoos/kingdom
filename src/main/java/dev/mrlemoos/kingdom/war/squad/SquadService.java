@@ -30,6 +30,12 @@ import java.util.function.Supplier;
  * the villager economy via the optional {@link ConscriptionService} hook, crown units are
  * destroyed via the optional {@link CrownSquadService} hook, and the squad is removed from the
  * registry outright (it does not linger in a {@link SquadState#ROUTED} state to be reassigned).
+ *
+ * <p>Phase 5, Slice 5.4 adds {@link #tickMoralePolicies} (and its single-squad counterpart {@link
+ * #applyMoralePolicy}): a periodic sweep that consults {@link SquadMoralePolicy} for every
+ * assigned squad so Shaken hesitation and Breaking scatter force a squad's state on the next tick
+ * even when its officer never re-issued a command — {@link #command} and {@link
+ * #tickOfficerMorale} alone only re-check morale at command time or explicitly for Rout.
  */
 public final class SquadService {
 
@@ -170,6 +176,56 @@ public final class SquadService {
             rout(squad);
         }
         return toRout.size();
+    }
+
+    /**
+     * Phase 5, Slice 5.4 morale-policy sweep: applies {@link #applyMoralePolicy} to every
+     * currently assigned squad, forcing a state change — or a rout — even for squads their
+     * officer last commanded to FOLLOW or ATTACK. No-op returning {@code 0} when squads are
+     * disabled. Returns how many squads changed state or routed.
+     */
+    public int tickMoralePolicies() {
+        if (!config.enabled()) {
+            return 0;
+        }
+        int changed = 0;
+        for (Squad squad : List.copyOf(squadsById.values())) {
+            if (applyMoralePolicy(squad.id())) {
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Applies {@link SquadMoralePolicy} to the single squad {@code squadId}: an officer at
+     * {@link MoraleTier#ROUT} routs the squad exactly as {@link #tickOfficerMorale} does; an
+     * officer at {@link MoraleTier#SHAKEN} or {@link MoraleTier#BREAKING} forces the squad's
+     * state to {@link SquadMoralePolicy#forcedState}'s result, overriding a standing
+     * FOLLOW/ATTACK order; {@link MoraleTier#STEADFAST} leaves the squad's state untouched.
+     * Returns {@code false} when squads are disabled, {@code squadId} is unknown, or the
+     * officer's tier leaves the squad's state as it already was.
+     */
+    public boolean applyMoralePolicy(UUID squadId) {
+        Objects.requireNonNull(squadId, "squadId");
+        if (!config.enabled()) {
+            return false;
+        }
+        Squad squad = squadsById.get(squadId);
+        if (squad == null) {
+            return false;
+        }
+        MoraleTier officerTier = officerMoraleTrack.apply(squad.officerId());
+        if (officerTier == MoraleTier.ROUT) {
+            rout(squad);
+            return true;
+        }
+        Optional<SquadState> forced = SquadMoralePolicy.forcedState(officerTier);
+        if (forced.isPresent() && forced.get() != squad.state()) {
+            squadsById.put(squadId, squad.withState(forced.get()));
+            return true;
+        }
+        return false;
     }
 
     public Optional<Squad> find(UUID squadId) {
