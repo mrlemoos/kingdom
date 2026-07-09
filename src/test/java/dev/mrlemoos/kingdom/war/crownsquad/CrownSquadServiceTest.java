@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.war.crownsquad;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -157,5 +158,38 @@ class CrownSquadServiceTest {
     void purchaseRejectsNullOrBlankKingdomId() {
         assertInstanceOf(WarResult.Failure.class, crownSquadService.purchase(null));
         assertInstanceOf(WarResult.Failure.class, crownSquadService.purchase("  "));
+    }
+
+    @Test
+    void destroyUnitRemovesOnlyTheNamedUnitAndReturnsTrue() {
+        economyService.creditTreasury(KINGDOM_ID, 500.0);
+        economyService.enactBudget(KINGDOM_ID, 500.0);
+        crownSquadService.purchase(KINGDOM_ID);
+        crownSquadService.purchase(KINGDOM_ID);
+        UUID survivingUnitId = crownSquadService.unitsOf(KINGDOM_ID).get(0).unitId();
+        UUID destroyedUnitId = crownSquadService.unitsOf(KINGDOM_ID).get(1).unitId();
+
+        boolean destroyed = crownSquadService.destroyUnit(KINGDOM_ID, destroyedUnitId);
+
+        assertTrue(destroyed);
+        assertEquals(1, crownSquadService.countOf(KINGDOM_ID));
+        assertEquals(survivingUnitId, crownSquadService.unitsOf(KINGDOM_ID).get(0).unitId());
+    }
+
+    @Test
+    void destroyUnitReturnsFalseForAnUnknownUnitOrKingdom() {
+        economyService.creditTreasury(KINGDOM_ID, 500.0);
+        economyService.enactBudget(KINGDOM_ID, 500.0);
+        crownSquadService.purchase(KINGDOM_ID);
+
+        assertFalse(crownSquadService.destroyUnit(KINGDOM_ID, UUID.randomUUID()));
+        assertFalse(crownSquadService.destroyUnit("unrelated-kingdom", UUID.randomUUID()));
+        assertEquals(1, crownSquadService.countOf(KINGDOM_ID));
+    }
+
+    @Test
+    void destroyUnitGracefullyIgnoresNullOrBlankKingdomId() {
+        assertFalse(crownSquadService.destroyUnit(null, UUID.randomUUID()));
+        assertFalse(crownSquadService.destroyUnit("  ", UUID.randomUUID()));
     }
 }

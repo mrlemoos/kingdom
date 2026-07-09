@@ -119,6 +119,15 @@ war:
   conscription:
     enabled: true
     cap: 16
+  siege-release:
+    enabled: true
+    duration-mc-days: 1
+    hardened-threshold-mc-days: 1
+  squads:
+    enabled: false
+    max-members-per-squad: 6
+    max-squads-per-officer: 1
+    max-squads-per-kingdom: 8
 
 election:
   general-interval-mc-days: 120

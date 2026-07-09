@@ -113,4 +113,26 @@ public final class CrownSquadService {
         }
         unitsByKingdom.remove(kingdomId);
     }
+
+    /**
+     * Small additive API for Slice 5.3's squad rout: destroys a single named unit rather than a
+     * kingdom's whole crown-squad ledger, so a squad rout can remove only the crown units it held
+     * without disturbing that officer's other squads or the kingdom's other crown squads. Returns
+     * {@code true} if a matching unit was found and removed; {@code false} for an unknown unit,
+     * unknown kingdom, or a null/blank kingdom id.
+     */
+    public boolean destroyUnit(String kingdomId, UUID unitId) {
+        if (kingdomId == null || kingdomId.isBlank() || unitId == null) {
+            return false;
+        }
+        List<CrownSquadUnit> units = unitsByKingdom.get(kingdomId);
+        if (units == null) {
+            return false;
+        }
+        boolean removed = units.removeIf(unit -> unit.unitId().equals(unitId));
+        if (units.isEmpty()) {
+            unitsByKingdom.remove(kingdomId);
+        }
+        return removed;
+    }
 }
