@@ -178,4 +178,23 @@ class StandingRosterServiceTest {
 
         assertFalse(rosterService.isOnDuty(ROSTERED_MEMBER));
     }
+
+    @Test
+    void demobiliseWarDutyClearsOnDutyAndHardenedButKeepsRosterMembership() {
+        rosterService.appoint("northmarch", NobleRank.KING, ROSTERED_MEMBER);
+        rosterService.mobiliseOnWarEnactment("northmarch");
+
+        rosterService.demobiliseWarDuty("northmarch");
+
+        assertFalse(rosterService.isOnDuty(ROSTERED_MEMBER));
+        assertFalse(rosterService.hasHardenedService(ROSTERED_MEMBER));
+        assertTrue(rosterService.rosterView("northmarch").contains(ROSTERED_MEMBER));
+    }
+
+    @Test
+    void demobiliseWarDutyForUnknownKingdomIsNoOp() {
+        rosterService.demobiliseWarDuty("no_such_kingdom");
+
+        assertFalse(rosterService.isOnDuty(ROSTERED_MEMBER));
+    }
 }

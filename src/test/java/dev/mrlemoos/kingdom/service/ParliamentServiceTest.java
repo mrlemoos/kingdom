@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,7 @@ import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
+import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
@@ -274,6 +276,66 @@ class ParliamentServiceTest {
         assertEquals(1_700_000_000_000L, war.startedAtMs());
         assertEquals(1_700_000_000_000L + 4 * WarConfig.DEFAULT_MS_PER_MC_DAY, war.musterDeadlineAtMs());
         assertTrue(warService.isAtWar("southreach"));
+    }
+
+    @Test
+    void onlyMonarchMayTablePeaceBill() {
+        warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        ParliamentResult tabled = parliamentService.tablePeace("northmarch", NobleRank.PREMIER, PREMIER, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+    }
+
+    @Test
+    void cannotTablePeaceBillWhenWarDisabled() {
+        warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+        warService.setConfig(WarConfig.off());
+
+        ParliamentResult tabled = parliamentService.tablePeace("northmarch", NobleRank.KING, KING, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().toLowerCase().contains("disabled"));
+    }
+
+    @Test
+    void cannotTablePeaceBillWhenNotAtWar() {
+        ParliamentResult tabled = parliamentService.tablePeace("northmarch", NobleRank.KING, KING, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().toLowerCase().contains("not at war"));
+    }
+
+    @Test
+    void monarchTablesPeaceBillAndEnactmentEndsWarAndDemobilises() {
+        warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        ParliamentResult tabled = parliamentService.tablePeace(
+                "northmarch", NobleRank.KING, KING, "Treaty of Southreach");
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertEquals(BillType.PEACE, parliamentService.currentBill("northmarch").orElseThrow().type());
+
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.openDivision("northmarch", NobleRank.SPEAKER));
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+        parliamentService.castSpeakerVote("northmarch", NobleRank.SPEAKER, VoteChoice.AYE);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.closeDivision("northmarch", NobleRank.SPEAKER));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.assent("northmarch", NobleRank.KING));
+
+        var draft = parliamentService.consumeAssentedBill("northmarch");
+        assertTrue(draft.isPresent());
+
+        DemobilisationService demobilisationService = new DemobilisationService(warService);
+        WarResult enacted = ParliamentEnactment.enactPeace(draft.get(), warService, demobilisationService);
+
+        assertInstanceOf(WarResult.Success.class, enacted);
+        assertFalse(warService.isAtWar("northmarch"));
+        assertFalse(warService.isAtWar("southreach"));
     }
 
     private void clearPlayerMpTitles() {

@@ -21,6 +21,7 @@ public final class BillTitles {
             case SPEND_MINT -> "Supply Act (Mint)";
             case SPEND_STIPEND -> "Supply Act";
             case WAR -> "War Bill";
+            case PEACE -> "Peace Bill";
         };
         return label + " — " + kingdomId + " — " + date;
     }

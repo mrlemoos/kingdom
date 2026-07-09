@@ -17,6 +17,7 @@ import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.war.WarResult;
@@ -321,6 +322,35 @@ public final class ParliamentService {
                 BillType.WAR,
                 optionalTitle,
                 new BillPayload.War(Kingdom.normaliseId(targetKingdomId), aim, outcome, musterDeadlineMcDays));
+    }
+
+    /**
+     * Tables a peace bill ending the kingdom's active war: hostilities cease, the levy demobilises,
+     * captured chunks revert (no-op until Phase 6), and no region merge occurs — peace without
+     * decisive victory carries no annexation or tribute side effect. Only tableable while war is
+     * enabled and the kingdom is actually at war.
+     */
+    public ParliamentResult tablePeace(String kingdomId, NobleRank rank, UUID proposerId, String optionalTitle) {
+        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+            return ParliamentResult.fail("Only the King or Queen may table a peace bill.");
+        }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
+        if (warService == null || !warService.config().enabled()) {
+            return ParliamentResult.fail("War is disabled.");
+        }
+        Optional<ActiveWar> activeWar = warService.activeWarFor(kingdomId);
+        if (activeWar.isEmpty()) {
+            return ParliamentResult.fail("Your kingdom is not at war.");
+        }
+        return tableBill(
+                kingdomId,
+                proposerId,
+                BillType.PEACE,
+                optionalTitle,
+                new BillPayload.Peace(activeWar.get().id()));
     }
 
     public ParliamentResult openDivision(String kingdomId, NobleRank rank) {
@@ -673,6 +703,7 @@ public final class ParliamentService {
                     war.aim().name().toLowerCase(Locale.ROOT).replace('_', ' '),
                     war.outcome().name().toLowerCase(Locale.ROOT).replace('_', ' '),
                     war.musterDeadlineMcDays());
+            case BillPayload.Peace peace -> "Peace ending war " + peace.warId();
         };
     }
 

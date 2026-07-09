@@ -232,4 +232,34 @@ class MusterServiceTest {
         assertEquals(3, ignored);
         assertEquals(MoraleTier.SHAKEN, musterService.levyMoraleTier(DEFENDER_MEMBER).orElseThrow());
     }
+
+    @Test
+    void clearForWarRemovesEligibilityAndAnswers() {
+        musterService.openMuster(war.id());
+        musterService.answer(war.id(), ATTACKER_MEMBER);
+
+        musterService.clearForWar(war.id());
+
+        assertFalse(musterService.isEligible(war.id(), ATTACKER_MEMBER));
+        assertTrue(musterService.answerOf(war.id(), ATTACKER_MEMBER).isEmpty());
+    }
+
+    @Test
+    void clearForWarClearsLevyMoraleForFormerlyEligibleMembers() {
+        musterService.openMuster(war.id());
+        musterService.answer(war.id(), ATTACKER_MEMBER);
+        musterService.refuse(war.id(), DEFENDER_MEMBER);
+
+        musterService.clearForWar(war.id());
+
+        assertTrue(musterService.levyMoraleTier(ATTACKER_MEMBER).isEmpty());
+        assertTrue(musterService.levyMoraleTier(DEFENDER_MEMBER).isEmpty());
+    }
+
+    @Test
+    void clearForWarOnUnknownWarIsNoOp() {
+        musterService.clearForWar("no-such-war");
+
+        assertTrue(musterService.answerOf("no-such-war", ATTACKER_MEMBER).isEmpty());
+    }
 }

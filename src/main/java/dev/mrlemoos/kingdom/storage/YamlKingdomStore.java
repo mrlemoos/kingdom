@@ -615,6 +615,7 @@ public final class YamlKingdomStore {
                 config.set(path + ".outcome", war.outcome().name().toLowerCase(Locale.ROOT));
                 config.set(path + ".muster-deadline-mc-days", war.musterDeadlineMcDays());
             }
+            case BillPayload.Peace peace -> config.set(path + ".war-id", peace.warId());
         }
     }
 
@@ -646,6 +647,7 @@ public final class YamlKingdomStore {
                     WarAim.valueOf(section.getString("aim", "territory_threshold").toUpperCase(Locale.ROOT)),
                     WarOutcome.valueOf(section.getString("outcome", "annexation").toUpperCase(Locale.ROOT)),
                     section.getInt("muster-deadline-mc-days"));
+            case PEACE -> new BillPayload.Peace(section.getString("war-id"));
         };
     }
 

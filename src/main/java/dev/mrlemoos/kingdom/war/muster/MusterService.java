@@ -182,6 +182,25 @@ public final class MusterService {
         return Optional.ofNullable(levyMoraleByPlayer.get(playerId));
     }
 
+    /**
+     * Peace bill demobilisation: clears the levy's muster call for the ended war — eligibility,
+     * answers, and any levy morale opened by responding to that war's muster. A member's levy
+     * morale from a different, still-active war (if any) is left untouched. No-op for an unknown
+     * or already-cleared war id.
+     */
+    public void clearForWar(String warId) {
+        if (warId == null || warId.isBlank()) {
+            return;
+        }
+        Set<UUID> eligible = eligibleByWar.remove(warId);
+        answersByWar.remove(warId);
+        if (eligible != null) {
+            for (UUID playerId : eligible) {
+                levyMoraleByPlayer.remove(playerId);
+            }
+        }
+    }
+
     private WarResult validateCanRespond(String warId, UUID playerId) {
         if (!config.enabled()) {
             return WarResult.fail("Muster is disabled.");

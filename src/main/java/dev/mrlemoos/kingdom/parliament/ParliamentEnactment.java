@@ -3,9 +3,12 @@ package dev.mrlemoos.kingdom.parliament;
 import dev.mrlemoos.kingdom.economy.service.EconomyResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
+import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.ParliamentService.AssentedActDraft;
+import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class ParliamentEnactment {
@@ -22,6 +25,8 @@ public final class ParliamentEnactment {
                     economyService, draft.kingdomId(), stipend.recipientId(), stipend.amount());
             case BillPayload.War war -> EconomyResult.fail(
                     "War bills carry no economic effect. Use ParliamentEnactment.enactWar.");
+            case BillPayload.Peace peace -> EconomyResult.fail(
+                    "Peace bills carry no economic effect. Use ParliamentEnactment.enactPeace.");
         };
     }
 
@@ -33,6 +38,22 @@ public final class ParliamentEnactment {
             return WarResult.fail("Bill is not a war bill.");
         }
         return warService.enactWarBill(draft.kingdomId(), war);
+    }
+
+    /**
+     * Peace bills do not touch the treasury — enactment ends the named war and demobilises via
+     * {@link DemobilisationService} instead of {@link #enact}.
+     */
+    public static WarResult enactPeace(
+            AssentedActDraft draft, WarService warService, DemobilisationService demobilisationService) {
+        if (!(draft.payload() instanceof BillPayload.Peace peace)) {
+            return WarResult.fail("Bill is not a peace bill.");
+        }
+        Optional<ActiveWar> war = warService.findActiveWar(peace.warId());
+        if (war.isEmpty()) {
+            return WarResult.fail("No such active war.");
+        }
+        return demobilisationService.demobilise(war.get());
     }
 
     private static EconomyResult enactStipend(

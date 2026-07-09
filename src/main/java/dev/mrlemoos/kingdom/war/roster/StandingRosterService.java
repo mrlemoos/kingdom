@@ -103,6 +103,22 @@ public final class StandingRosterService {
         }
     }
 
+    /**
+     * Peace bill demobilisation: stands the kingdom's rostered members down from wartime on-duty
+     * Steadfast/hardened footing. Roster membership itself is untouched — the standing force is not
+     * demobbed off the roster, only stood down from the war just ended, ready to be re-mobilised
+     * by {@link #mobiliseOnWarEnactment} on a future war bill.
+     */
+    public void demobiliseWarDuty(String kingdomId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return;
+        }
+        for (UUID playerId : store.findRoster(kingdom.get().getId())) {
+            store.clearOnDutyState(playerId);
+        }
+    }
+
     public boolean isOnDuty(UUID playerId) {
         return store.findOnDutyState(playerId).isPresent();
     }

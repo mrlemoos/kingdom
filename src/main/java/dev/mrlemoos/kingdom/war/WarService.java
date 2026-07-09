@@ -76,6 +76,17 @@ public final class WarService {
     }
 
     /**
+     * Looks up an active war by id, e.g. to resolve a peace bill's {@code BillPayload.Peace#warId}
+     * back to the {@link ActiveWar} it names. Empty once the war has ended.
+     */
+    public Optional<ActiveWar> findActiveWar(String warId) {
+        if (warId == null || warId.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(activeWars.get(warId));
+    }
+
+    /**
      * Battlefield treason is only possible while the kingdom is a belligerent in an active war. Query
      * only — under open PvP no damage is cancelled or gated by this flag.
      */

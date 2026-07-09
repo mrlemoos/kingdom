@@ -5,5 +5,6 @@ public enum BillType {
     BUDGET,
     SPEND_MINT,
     SPEND_STIPEND,
-    WAR
+    WAR,
+    PEACE
 }

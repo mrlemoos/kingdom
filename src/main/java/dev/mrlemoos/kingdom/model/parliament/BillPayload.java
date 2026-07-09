@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public sealed interface BillPayload
         permits BillPayload.Fiscal, BillPayload.Budget, BillPayload.SpendMint, BillPayload.SpendStipend,
-                BillPayload.War {
+                BillPayload.War, BillPayload.Peace {
 
     record Fiscal(FiscalRates rates) implements BillPayload {}
 
@@ -24,4 +24,11 @@ public sealed interface BillPayload
      */
     record War(String targetKingdomId, WarAim aim, WarOutcome outcome, int musterDeadlineMcDays)
             implements BillPayload {}
+
+    /**
+     * Names the active war to end. Enactment ceases hostilities and demobilises the levy; standing
+     * roster membership persists, and no annexation/tribute side effect applies (peace without
+     * decisive victory).
+     */
+    record Peace(String warId) implements BillPayload {}
 }
