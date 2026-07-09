@@ -100,4 +100,104 @@ class WarServiceTest {
         assertTrue(warService.isAtWar("southreach"));
         assertFalse(warService.isAtWar("eastvale"));
     }
+
+    @Test
+    void battlefieldTreasonPossibleOnlyWhileAtWar() {
+        assertFalse(warService.battlefieldTreasonPossible("northmarch"));
+        assertFalse(warService.battlefieldTreasonPossible("southreach"));
+
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 2);
+        warService.enactWarBill("northmarch", payload);
+
+        assertTrue(warService.battlefieldTreasonPossible("northmarch"));
+        assertTrue(warService.battlefieldTreasonPossible("southreach"));
+
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+        warService.endWar(war.id());
+
+        assertFalse(warService.battlefieldTreasonPossible("northmarch"));
+        assertFalse(warService.battlefieldTreasonPossible("southreach"));
+    }
+
+    @Test
+    void endWarClearsAtWarForBothBelligerents() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+
+        WarResult result = warService.endWar(war.id());
+
+        assertInstanceOf(WarResult.Success.class, result);
+        assertFalse(warService.isAtWar("northmarch"));
+        assertFalse(warService.isAtWar("southreach"));
+    }
+
+    @Test
+    void cannotEndWarThatDoesNotExist() {
+        WarResult result = warService.endWar("no-such-war");
+
+        assertInstanceOf(WarResult.Failure.class, result);
+    }
+
+    @Test
+    void counterWarValidBetweenFormerDefenderAndFormerAttacker() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+        warService.endWar(war.id());
+
+        WarResult result = warService.validateCounterWarBill("southreach", "northmarch");
+
+        assertInstanceOf(WarResult.Success.class, result);
+    }
+
+    @Test
+    void counterWarRejectedWithoutPriorDefenderRole() {
+        WarResult result = warService.validateCounterWarBill("southreach", "northmarch");
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertTrue(((WarResult.Failure) result).message().toLowerCase().contains("defender"));
+    }
+
+    @Test
+    void counterWarRejectedWhenProposerWasAttackerNotDefender() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+        warService.endWar(war.id());
+
+        WarResult result = warService.validateCounterWarBill("northmarch", "southreach");
+
+        assertInstanceOf(WarResult.Failure.class, result);
+    }
+
+    @Test
+    void counterWarRejectedWhileOriginalWarStillActive() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+
+        WarResult result = warService.validateCounterWarBill("southreach", "northmarch");
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertTrue(((WarResult.Failure) result).message().toLowerCase().contains("already at war"));
+    }
+
+    @Test
+    void declarationMessageDescribesBelligerentsAndAim() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 2);
+        warService.enactWarBill("northmarch", payload);
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+
+        String message = warService.declarationMessage(war);
+
+        assertTrue(message.contains("northmarch"));
+        assertTrue(message.contains("southreach"));
+        assertTrue(message.toLowerCase().contains("capital fall"));
+    }
 }

@@ -34,8 +34,11 @@ import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
+import dev.mrlemoos.kingdom.model.war.MoraleTier;
+import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.roster.StandingRosterStore;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,6 +63,7 @@ public final class YamlKingdomStore {
     private final File dataFile;
     private LoyaltyStore loyaltyStore;
     private WarService warService;
+    private StandingRosterStore standingRosterStore;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -72,6 +76,10 @@ public final class YamlKingdomStore {
 
     public void setWarService(WarService warService) {
         this.warService = warService;
+    }
+
+    public void setStandingRosterStore(StandingRosterStore standingRosterStore) {
+        this.standingRosterStore = standingRosterStore;
     }
 
     public void loadInto(KingdomService service) {
@@ -139,6 +147,10 @@ public final class YamlKingdomStore {
         if (warService != null) {
             warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
         }
+        if (standingRosterStore != null) {
+            standingRosterStore.replaceAllRosters(readRosters(data.getConfigurationSection("standing-roster")));
+            standingRosterStore.replaceAllOnDutyStates(readOnDutyStates(data.getConfigurationSection("on-duty")));
+        }
     }
 
     public void saveFrom(KingdomService service) {
@@ -168,6 +180,10 @@ public final class YamlKingdomStore {
         }
         if (warService != null) {
             writeWars(data, "wars", warService.activeWarsView());
+        }
+        if (standingRosterStore != null) {
+            writeRosters(data, "standing-roster", standingRosterStore.allRostersView());
+            writeOnDutyStates(data, "on-duty", standingRosterStore.allOnDutyStatesView());
         }
 
         try {
@@ -926,5 +942,77 @@ public final class YamlKingdomStore {
             }
         }
         return tiers;
+    }
+
+    static void writeRosters(FileConfiguration config, String path, Map<String, Set<UUID>> rosters) {
+        if (rosters == null || rosters.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Set<UUID>> entry : rosters.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isEmpty()) {
+                continue;
+            }
+            config.set(
+                    path + "." + entry.getKey(),
+                    entry.getValue().stream().map(UUID::toString).toList());
+        }
+    }
+
+    static Map<String, Set<UUID>> readRosters(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, Set<UUID>> rosters = new HashMap<>();
+        for (String kingdomId : section.getKeys(false)) {
+            Set<UUID> roster = new LinkedHashSet<>();
+            for (String id : section.getStringList(kingdomId)) {
+                try {
+                    roster.add(UUID.fromString(id));
+                } catch (IllegalArgumentException ignored) {
+                    // Skip malformed player entries.
+                }
+            }
+            if (!roster.isEmpty()) {
+                rosters.put(kingdomId, roster);
+            }
+        }
+        return rosters;
+    }
+
+    static void writeOnDutyStates(FileConfiguration config, String path, Map<UUID, OnDutyState> states) {
+        if (states == null || states.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, OnDutyState> entry : states.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            String statePath = path + "." + entry.getKey();
+            config.set(statePath + ".morale", entry.getValue().moraleTier().name().toLowerCase(Locale.ROOT));
+            config.set(statePath + ".hardened-service", entry.getValue().hardenedService());
+        }
+    }
+
+    static Map<UUID, OnDutyState> readOnDutyStates(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<UUID, OnDutyState> states = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID playerId = UUID.fromString(key);
+                ConfigurationSection entry = section.getConfigurationSection(key);
+                if (entry == null) {
+                    continue;
+                }
+                MoraleTier tier = MoraleTier.valueOf(
+                        entry.getString("morale", "steadfast").toUpperCase(Locale.ROOT));
+                boolean hardenedService = entry.getBoolean("hardened-service", false);
+                states.put(playerId, new OnDutyState(tier, hardenedService));
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed player or morale entries.
+            }
+        }
+        return states;
     }
 }

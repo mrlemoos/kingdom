@@ -4,9 +4,12 @@ import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,8 +24,10 @@ public final class WarService {
     private final KingdomService kingdomService;
     private final Supplier<Long> clockMs;
     private final Map<String, ActiveWar> activeWars = new HashMap<>();
+    private final List<ActiveWar> endedWars = new ArrayList<>();
     private final AtomicLong warSequence = new AtomicLong(1);
     private WarConfig config = WarConfig.off();
+    private StandingRosterService standingRosterService;
 
     public WarService(KingdomService kingdomService) {
         this(kingdomService, System::currentTimeMillis);
@@ -39,6 +44,14 @@ public final class WarService {
 
     public WarConfig config() {
         return config;
+    }
+
+    /**
+     * Optional hook (nullable setter, mirrors the loyaltyStore pattern) so {@link #enactWarBill}
+     * can auto-mobilise each belligerent's standing roster without a hard compile-time coupling.
+     */
+    public void setStandingRosterService(StandingRosterService standingRosterService) {
+        this.standingRosterService = standingRosterService;
     }
 
     public Collection<ActiveWar> activeWarsView() {
@@ -60,6 +73,14 @@ public final class WarService {
 
     public boolean isAtWar(String kingdomId) {
         return activeWarFor(kingdomId).isPresent();
+    }
+
+    /**
+     * Battlefield treason is only possible while the kingdom is a belligerent in an active war. Query
+     * only — under open PvP no damage is cancelled or gated by this flag.
+     */
+    public boolean battlefieldTreasonPossible(String kingdomId) {
+        return isAtWar(kingdomId);
     }
 
     /**
@@ -110,7 +131,74 @@ public final class WarService {
                 startedAt,
                 musterDeadlineAt);
         activeWars.put(war.id(), war);
+        if (standingRosterService != null) {
+            standingRosterService.mobiliseOnWarEnactment(normalisedAttacker);
+            standingRosterService.mobiliseOnWarEnactment(normalisedTarget);
+        }
         return WarResult.ok("War declared: " + normalisedAttacker + " against " + normalisedTarget + ".");
+    }
+
+    /**
+     * Ends an active war (the peace path domain), clearing the at-war state for both belligerents and
+     * recording the war in history for future counter-war eligibility. Fails when no active war exists
+     * with the given id.
+     */
+    public WarResult endWar(String warId) {
+        if (warId == null || warId.isBlank()) {
+            return WarResult.fail("No such active war.");
+        }
+        ActiveWar war = activeWars.remove(warId);
+        if (war == null) {
+            return WarResult.fail("No such active war.");
+        }
+        endedWars.add(war);
+        return WarResult.ok(
+                "Peace declared between " + war.attackerKingdomId() + " and " + war.defenderKingdomId() + ".");
+    }
+
+    /**
+     * Validates a counter-war bill: a former defender may table a new war bill against the former
+     * attacker's homeland, per the counter-war rule. Applies the same base checks as a war bill (master
+     * flag, target sanity, no second concurrent war for the proposer) plus a prior-defender-role check
+     * against the named target.
+     */
+    public WarResult validateCounterWarBill(String proposerKingdomId, String targetKingdomId) {
+        WarResult baseValidation = validateWarBill(proposerKingdomId, targetKingdomId);
+        if (baseValidation instanceof WarResult.Failure failure) {
+            return failure;
+        }
+        String normalisedProposer = Kingdom.normaliseId(proposerKingdomId);
+        String normalisedTarget = Kingdom.normaliseId(targetKingdomId);
+        if (!wasDefenderAgainst(normalisedProposer, normalisedTarget)) {
+            return WarResult.fail(
+                    "A counter-war may only be tabled by a former defender against that former attacker.");
+        }
+        return WarResult.ok("Counter-war bill valid.");
+    }
+
+    /**
+     * A declaration-of-war message suitable for broadcast (British spelling), naming both belligerents
+     * and the war's aim and outcome.
+     */
+    public String declarationMessage(ActiveWar war) {
+        return war.attackerKingdomId()
+                + " has declared war on "
+                + war.defenderKingdomId()
+                + ". Aim: "
+                + war.aim().name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                + ". Outcome: "
+                + war.outcome().name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                + ".";
+    }
+
+    private boolean wasDefenderAgainst(String defenderKingdomId, String attackerKingdomId) {
+        for (ActiveWar war : endedWars) {
+            if (war.defenderKingdomId().equals(defenderKingdomId)
+                    && war.attackerKingdomId().equals(attackerKingdomId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void replaceActiveWars(Collection<ActiveWar> wars) {

@@ -75,6 +75,9 @@ import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
+import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
+import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 
 import org.bukkit.command.CommandSender;
@@ -93,6 +96,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private YamlEconomyStore economyStore;
         private EconomyCoordinator economyCoordinator;
         private WarService warService;
+        private StandingRosterService standingRosterService;
 
         @Override
         public void onEnable() {
@@ -105,6 +109,11 @@ public final class KingdomPlugin extends JavaPlugin {
                 warService = new WarService(kingdomService);
                 warService.setConfig(WarConfig.fromPluginConfig(getConfig()));
                 store.setWarService(warService);
+                InMemoryStandingRosterStore standingRosterStore = new InMemoryStandingRosterStore();
+                standingRosterService = new StandingRosterService(
+                                kingdomService, standingRosterStore, StandingRosterConfig.fromPluginConfig(getConfig()));
+                warService.setStandingRosterService(standingRosterService);
+                store.setStandingRosterStore(standingRosterStore);
                 store.loadInto(kingdomService);
                 LoyaltyService loyaltyService = new LoyaltyService(
                                 loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
@@ -340,6 +349,10 @@ public final class KingdomPlugin extends JavaPlugin {
 
         public LoyaltyService getLoyaltyService() {
                 return loyaltyService;
+        }
+
+        public StandingRosterService getStandingRosterService() {
+                return standingRosterService;
         }
 
         public KingdomService getKingdomService() {
