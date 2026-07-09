@@ -41,6 +41,7 @@ import dev.mrlemoos.kingdom.listener.VillagerProfessionNametagListener;
 import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.InMemoryMoraleStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyGateService;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.loyalty.MoraleConfig;
 import dev.mrlemoos.kingdom.loyalty.MoraleService;
@@ -78,6 +79,9 @@ import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.oath.InMemorySwornOutsiderStore;
+import dev.mrlemoos.kingdom.war.oath.OathConfig;
+import dev.mrlemoos.kingdom.war.oath.OathService;
 import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
@@ -93,6 +97,8 @@ public final class KingdomPlugin extends JavaPlugin {
         private YamlKingdomStore store;
         private LoyaltyService loyaltyService;
         private MoraleService moraleService;
+        private LoyaltyGateService loyaltyGateService;
+        private OathService oathService;
         private MechanicalJusticeService mechanicalJusticeService;
         private PoliceTrialService policeTrialService;
         private NoblePrefixDisplay nobleDisplay;
@@ -127,6 +133,13 @@ public final class KingdomPlugin extends JavaPlugin {
                 MoraleService moraleService = new MoraleService(
                                 moraleStore, MoraleConfig.fromPluginConfig(getConfig()));
                 this.moraleService = moraleService;
+                loyaltyGateService = new LoyaltyGateService(loyaltyService);
+                oathService = new OathService(
+                                kingdomService,
+                                loyaltyService,
+                                moraleService,
+                                new InMemorySwornOutsiderStore(),
+                                OathConfig.fromPluginConfig(getConfig()));
                 PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
                 MechanicalJusticeService mechanicalJusticeService = new MechanicalJusticeService(
                                 kingdomService,
@@ -362,6 +375,14 @@ public final class KingdomPlugin extends JavaPlugin {
 
         public MoraleService getMoraleService() {
                 return moraleService;
+        }
+
+        public LoyaltyGateService getLoyaltyGateService() {
+                return loyaltyGateService;
+        }
+
+        public OathService getOathService() {
+                return oathService;
         }
 
         public StandingRosterService getStandingRosterService() {
