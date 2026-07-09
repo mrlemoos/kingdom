@@ -91,6 +91,15 @@ enforcement:
   build:
     enabled: true
     debounce-ms: 500
+  pvp:
+    enabled: false
+  curfew:
+    enabled: false
+    window-start-tick: 13000
+    window-end-tick: 23000
+
+war:
+  enabled: false
 
 election:
   general-interval-mc-days: 120
