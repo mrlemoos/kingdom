@@ -100,6 +100,10 @@ enforcement:
 
 war:
   enabled: false
+  muster:
+    enabled: true
+  roster:
+    cap: 8
 
 election:
   general-interval-mc-days: 120
