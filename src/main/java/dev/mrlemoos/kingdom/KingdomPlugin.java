@@ -37,6 +37,9 @@ import dev.mrlemoos.kingdom.listener.TerritoryWealthListener;
 import dev.mrlemoos.kingdom.listener.NobleDisplayListener;
 import dev.mrlemoos.kingdom.listener.TreasuryLordListener;
 import dev.mrlemoos.kingdom.listener.VillagerProfessionNametagListener;
+import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
@@ -73,6 +76,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
         private KingdomService kingdomService;
         private YamlKingdomStore store;
+        private LoyaltyService loyaltyService;
         private NoblePrefixDisplay nobleDisplay;
         private EconomyService economyService;
         private YamlEconomyStore economyStore;
@@ -84,7 +88,12 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 kingdomService = new KingdomService();
                 store = new YamlKingdomStore(this);
+                InMemoryLoyaltyStore loyaltyStore = new InMemoryLoyaltyStore();
+                store.setLoyaltyStore(loyaltyStore);
                 store.loadInto(kingdomService);
+                LoyaltyService loyaltyService = new LoyaltyService(
+                                loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
+                this.loyaltyService = loyaltyService;
                 PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
                 nobleDisplay = new NoblePrefixDisplay(kingdomService, policeService);
 
@@ -280,6 +289,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 if (economyStore != null && economyService != null) {
                         economyStore.saveFrom(economyService);
                 }
+        }
+
+        public LoyaltyService getLoyaltyService() {
+                return loyaltyService;
         }
 
         public KingdomService getKingdomService() {

@@ -79,6 +79,10 @@ economy:
     social-proximity-blocks: 16
     own-kingdom-multiplier: 1.5
 
+loyalty:
+  political:
+    enabled: true
+
 election:
   general-interval-mc-days: 120
   duration-mc-days: 3

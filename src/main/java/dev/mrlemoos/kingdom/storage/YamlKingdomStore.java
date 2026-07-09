@@ -29,6 +29,8 @@ import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.io.File;
 import java.io.IOException;
@@ -51,10 +53,15 @@ public final class YamlKingdomStore {
 
     private final JavaPlugin plugin;
     private final File dataFile;
+    private LoyaltyStore loyaltyStore;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "data.yml");
+    }
+
+    public void setLoyaltyStore(LoyaltyStore loyaltyStore) {
+        this.loyaltyStore = loyaltyStore;
     }
 
     public void loadInto(KingdomService service) {
@@ -116,6 +123,9 @@ public final class YamlKingdomStore {
         }
 
         service.replaceState(kingdoms, memberships);
+        if (loyaltyStore != null) {
+            loyaltyStore.replaceAll(readLoyalty(data.getConfigurationSection("loyalty")));
+        }
     }
 
     public void saveFrom(KingdomService service) {
@@ -138,6 +148,10 @@ public final class YamlKingdomStore {
                 data.set(path + ".rank", membership.getRank().name().toLowerCase());
                 data.set(path + ".title-style", membership.getTitleStyle().name().toLowerCase());
             }
+        }
+
+        if (loyaltyStore != null) {
+            writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
         }
 
         try {
@@ -808,5 +822,43 @@ public final class YamlKingdomStore {
             guardGolems.add(UUID.fromString(id));
         }
         police.replaceGuardGolems(guardGolems);
+    }
+
+    static void writeLoyalty(FileConfiguration config, String path, Map<UUID, LoyaltyTier> tiers) {
+        if (tiers == null || tiers.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, LoyaltyTier> entry : tiers.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            if (entry.getValue() == LoyaltyTier.FAITHFUL) {
+                continue;
+            }
+            config.set(path + "." + entry.getKey(), entry.getValue().name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    static Map<UUID, LoyaltyTier> readLoyalty(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<UUID, LoyaltyTier> tiers = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID playerId = UUID.fromString(key);
+                String tierName = section.getString(key);
+                if (tierName == null || tierName.isBlank()) {
+                    continue;
+                }
+                LoyaltyTier tier = LoyaltyTier.valueOf(tierName.toUpperCase(Locale.ROOT));
+                if (tier != LoyaltyTier.FAITHFUL) {
+                    tiers.put(playerId, tier);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed player or tier entries.
+            }
+        }
+        return tiers;
     }
 }
