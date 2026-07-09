@@ -170,8 +170,17 @@ public final class WarService {
     /**
      * Validates a counter-war bill: a former defender may table a new war bill against the former
      * attacker's homeland, per the counter-war rule. Applies the same base checks as a war bill (master
-     * flag, target sanity, no second concurrent war for the proposer) plus a prior-defender-role check
-     * against the named target.
+     * flag, target sanity, no second concurrent war for the proposer, so the proposer cannot counter
+     * while belligerent in any active war — including a still-active original war) plus a
+     * prior-defender-role check against the named target, resolved from {@link #endedWars} history.
+     *
+     * <p><b>Distinct from recapture.</b> Recapture is {@code ChunkCaptureService}'s in-war chunk-flip
+     * mechanic: sustained defender presence on a captured chunk returns that chunk to defender control
+     * while the war is still active, and never consults this method, {@link #endWar} history, or a
+     * defender role check. A counter-war, by contrast, only becomes eligible once the original war has
+     * ended (moving it into {@link #endedWars}) and tables an entirely new {@link ActiveWar} against
+     * the former attacker's homeland via {@link #enactWarBill} — it is a fresh war bill, not a
+     * chunk-level reversal within an existing one.
      */
     public WarResult validateCounterWarBill(String proposerKingdomId, String targetKingdomId) {
         WarResult baseValidation = validateWarBill(proposerKingdomId, targetKingdomId);

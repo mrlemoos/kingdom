@@ -10,6 +10,10 @@ import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
+import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
+import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -185,6 +189,46 @@ class WarServiceTest {
 
         assertInstanceOf(WarResult.Failure.class, result);
         assertTrue(((WarResult.Failure) result).message().toLowerCase().contains("already at war"));
+    }
+
+    @Test
+    void counterWarRejectedWhenProposerHasAnyOtherActiveWarEvenAfterEndingTheOriginalOne() {
+        BillPayload.War originalWar = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", originalWar);
+        ActiveWar ended = warService.activeWarFor("northmarch").orElseThrow();
+        warService.endWar(ended.id());
+
+        BillPayload.War unrelatedWar = new BillPayload.War(
+                "eastvale", WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 2);
+        warService.enactWarBill("southreach", unrelatedWar);
+
+        WarResult result = warService.validateCounterWarBill("southreach", "northmarch");
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertTrue(((WarResult.Failure) result).message().toLowerCase().contains("already at war"));
+    }
+
+    @Test
+    void recaptureDuringActiveWarIsUnrelatedToCounterWarValidation() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+
+        ChunkCaptureService captureService = new ChunkCaptureService(new CaptureConfig(true, 2));
+        ChunkCoord chunk = new ChunkCoord("world", 3, 7);
+        captureService.tick(war.id(), chunk, "northmarch", "southreach", 3, 0);
+        captureService.tick(war.id(), chunk, "northmarch", "southreach", 3, 0);
+        assertEquals(Optional.of("northmarch"), captureService.controller(war.id(), chunk));
+
+        captureService.tick(war.id(), chunk, "northmarch", "southreach", 0, 3);
+        captureService.tick(war.id(), chunk, "northmarch", "southreach", 0, 3);
+        assertTrue(captureService.controller(war.id(), chunk).isEmpty());
+
+        WarResult counterWarWhileStillActive = warService.validateCounterWarBill("southreach", "northmarch");
+        assertInstanceOf(WarResult.Failure.class, counterWarWhileStillActive);
+        assertTrue(warService.isAtWar("southreach"));
     }
 
     @Test

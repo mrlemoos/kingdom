@@ -128,6 +128,8 @@ war:
     flip-threshold-ticks: 3
   aims:
     territory-threshold-ratio: 0.5
+  tribute:
+    default-amount: 100.0
   squads:
     enabled: false
     max-members-per-squad: 6

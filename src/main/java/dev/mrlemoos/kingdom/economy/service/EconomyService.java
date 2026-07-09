@@ -75,6 +75,28 @@ public class EconomyService {
         economy.setTreasuryBalance(economy.treasuryBalance() + amount);
     }
 
+    /**
+     * Debits Corona from a kingdom treasury for an unbudgeted transfer such as a war tribute,
+     * transferring only what is available rather than failing outright. Callers such as {@link
+     * dev.mrlemoos.kingdom.war.tribute.WarTributeService} treat any shortfall (requested amount
+     * minus the returned transferred amount) as a debt owed by the kingdom.
+     *
+     * @return the Corona actually debited, which may be less than {@code amount} (or {@code 0.0})
+     *     when the treasury balance is insufficient
+     */
+    public double debitTreasury(String kingdomId, double amount) {
+        if (amount <= 0) {
+            return 0.0;
+        }
+        KingdomEconomy economy = economyFor(kingdomId);
+        double available = economy.treasuryBalance();
+        double transferred = Math.min(available, amount);
+        if (transferred > 0) {
+            economy.setTreasuryBalance(available - transferred);
+        }
+        return transferred;
+    }
+
     public void recordGdpCredit(String kingdomId, double amount) {
         if (amount <= 0) {
             return;

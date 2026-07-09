@@ -279,6 +279,35 @@ class EconomyServiceTest {
     }
 
     @Test
+    void debitTreasuryTransfersTheFullAmountWhenFundsAreSufficient() {
+        service.creditTreasury("northmarch", 150.0);
+
+        double transferred = service.debitTreasury("northmarch", 100.0);
+
+        assertEquals(100.0, transferred, 1e-9);
+        assertEquals(50.0, service.getTreasuryBalance("northmarch"), 1e-9);
+    }
+
+    @Test
+    void debitTreasuryTransfersOnlyWhatIsAvailableWhenFundsAreInsufficient() {
+        service.creditTreasury("northmarch", 40.0);
+
+        double transferred = service.debitTreasury("northmarch", 100.0);
+
+        assertEquals(40.0, transferred, 1e-9);
+        assertEquals(0.0, service.getTreasuryBalance("northmarch"), 1e-9);
+    }
+
+    @Test
+    void debitTreasuryIgnoresNonPositiveAmounts() {
+        service.creditTreasury("northmarch", 40.0);
+
+        assertEquals(0.0, service.debitTreasury("northmarch", 0.0), 1e-9);
+        assertEquals(0.0, service.debitTreasury("northmarch", -10.0), 1e-9);
+        assertEquals(40.0, service.getTreasuryBalance("northmarch"), 1e-9);
+    }
+
+    @Test
     void depositAndWithdrawWholeNuggetsRoundDownLedger() {
         service.depositFromNuggets(alice, 3);
         service.creditWallet(
