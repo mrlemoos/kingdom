@@ -18,9 +18,13 @@ import dev.mrlemoos.kingdom.war.capital.CapitalFallMode;
 import dev.mrlemoos.kingdom.war.capital.CapitalTerritoryPort;
 import dev.mrlemoos.kingdom.war.capital.WarAimConfig;
 import dev.mrlemoos.kingdom.war.capital.WarAimEvaluator;
+import dev.mrlemoos.kingdom.war.annexation.AnnexationConfig;
+import dev.mrlemoos.kingdom.war.annexation.DomainRegionMergeExecutor;
 import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
 import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
 import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
+import dev.mrlemoos.kingdom.war.capture.RegionMergePlan;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +33,10 @@ import org.junit.jupiter.api.Test;
  * math (see the Decisive victory glossary entry in {@code CONTEXT.md}): once the enacted war aim
  * is satisfied, the war ends automatically via {@link DemobilisationService} — no peace bill
  * required — and the named outcome (annexation or war tribute) is dispatched exactly once via the
- * nullable {@link VictoryOutcomeDispatcher} hook. Annexation region-merge and tribute transfer
- * themselves remain no-ops here; those land in Slices 6.6/6.7.
+ * nullable {@link VictoryOutcomeDispatcher} hook, <em>before</em> demobilisation runs so an
+ * annexation dispatcher can still see the captured-chunk snapshot even though demobilisation may
+ * go on to clear it (Slice 6.6). Tribute transfer itself remains a dispatcher no-op here; that
+ * lands in Slice 6.7.
  */
 class VictoryEvaluatorTest {
 
@@ -165,6 +171,56 @@ class VictoryEvaluatorTest {
     }
 
     @Test
+    void aimMetSnapshotsCapturedChunksBeforeDemobilisationClearsThemSoAnnexationCanStillSeeThem() {
+        ActiveWar war = enactWar(WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION);
+        captureDefenderChunks(war, 2);
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+        DomainRegionMergeExecutor regionMergeExecutor = new DomainRegionMergeExecutor(AnnexationConfig.on());
+        DefaultVictoryOutcomeDispatcher dispatcher = new DefaultVictoryOutcomeDispatcher();
+        dispatcher.setRegionMergeExecutor(regionMergeExecutor);
+        victoryEvaluator.setOutcomeDispatcher(dispatcher);
+
+        victoryEvaluator.evaluateAndApply(war, chunkCaptureService, DEFENDER_LINKED_CHUNK_TOTAL, null, null);
+
+        RegionMergePlan plan = regionMergeExecutor.lastExecutedPlan().orElseThrow();
+        assertEquals(2, plan.chunksToMerge().size());
+        assertEquals("northmarch", plan.attackerKingdomId());
+        assertEquals("southreach", plan.defenderKingdomId());
+        // Demobilisation ran after dispatch and cleared the tally the snapshot was already taken from.
+        assertTrue(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
+    }
+
+    @Test
+    void annexationDisabledMeansNoMergePlanEvenAfterAnAnnexationVictory() {
+        ActiveWar war = enactWar(WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION);
+        captureDefenderChunks(war, 2);
+        DomainRegionMergeExecutor regionMergeExecutor = new DomainRegionMergeExecutor(AnnexationConfig.off());
+        DefaultVictoryOutcomeDispatcher dispatcher = new DefaultVictoryOutcomeDispatcher();
+        dispatcher.setRegionMergeExecutor(regionMergeExecutor);
+        victoryEvaluator.setOutcomeDispatcher(dispatcher);
+
+        victoryEvaluator.evaluateAndApply(war, chunkCaptureService, DEFENDER_LINKED_CHUNK_TOTAL, null, null);
+
+        assertTrue(regionMergeExecutor.lastExecutedPlan().isEmpty());
+    }
+
+    @Test
+    void peaceDemobilisationAloneNeverInvokesTheRegionMergeExecutor() {
+        ActiveWar war = enactWar(WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION);
+        captureDefenderChunks(war, 2);
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+        DomainRegionMergeExecutor regionMergeExecutor = new DomainRegionMergeExecutor(AnnexationConfig.on());
+
+        // Negotiated peace: callers may end a war via DemobilisationService directly, entirely
+        // bypassing VictoryEvaluator/VictoryOutcomeDispatcher — this path has no reference to a
+        // RegionMergeExecutor at all, so it structurally cannot build or execute a merge plan.
+        demobilisationService.demobilise(war);
+
+        assertTrue(regionMergeExecutor.lastExecutedPlan().isEmpty());
+        assertTrue(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
+    }
+
+    @Test
     void capitalFallAimDispatchesToTheCapitalFallEvaluatorRatherThanDuplicatingThresholdMath() {
         ActiveWar war = enactWar(WarAim.CAPITAL_FALL, WarOutcome.ANNEXATION);
         ChunkCoord capitalChunk = new ChunkCoord("world", 9, 9);
@@ -214,7 +270,7 @@ class VictoryEvaluatorTest {
         private int warTributeCalls;
 
         @Override
-        public void onAnnexation(ActiveWar war) {
+        public void onAnnexation(ActiveWar war, Set<ChunkCoord> capturedChunks) {
             annexationCalls++;
         }
 

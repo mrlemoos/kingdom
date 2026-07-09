@@ -128,6 +128,8 @@ war:
     flip-threshold-ticks: 3
   aims:
     territory-threshold-ratio: 0.5
+  annexation:
+    enabled: false
   tribute:
     default-amount: 100.0
   squads:
