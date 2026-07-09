@@ -47,6 +47,7 @@ import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceService;
+import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
 import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
@@ -80,6 +81,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private YamlKingdomStore store;
         private LoyaltyService loyaltyService;
         private MechanicalJusticeService mechanicalJusticeService;
+        private PoliceTrialService policeTrialService;
         private NoblePrefixDisplay nobleDisplay;
         private EconomyService economyService;
         private YamlEconomyStore economyStore;
@@ -108,6 +110,13 @@ public final class KingdomPlugin extends JavaPlugin {
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
                 economyStore = new YamlEconomyStore(this);
                 economyStore.loadInto(economyService);
+                PoliceTrialService policeTrialService = new PoliceTrialService(
+                                kingdomService,
+                                policeService,
+                                mechanicalJusticeService,
+                                loyaltyService,
+                                economyService);
+                this.policeTrialService = policeTrialService;
 
                 EconomyConfig economyConfig = EconomyConfig.fromPluginConfig(getConfig());
                 VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.fromPluginConfig(getConfig());
@@ -297,6 +306,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 if (economyStore != null && economyService != null) {
                         economyStore.saveFrom(economyService);
                 }
+        }
+
+        public PoliceTrialService getPoliceTrialService() {
+                return policeTrialService;
         }
 
         public MechanicalJusticeService getMechanicalJusticeService() {

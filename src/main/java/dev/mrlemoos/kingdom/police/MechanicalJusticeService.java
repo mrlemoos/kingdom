@@ -114,14 +114,31 @@ public final class MechanicalJusticeService {
     }
 
     public boolean hasActiveWarrant(String kingdomId, UUID suspectId) {
+        return findActiveForSuspect(kingdomId, suspectId).isPresent();
+    }
+
+    public Optional<Warrant> findActiveForSuspect(String kingdomId, UUID suspectId) {
         for (Warrant warrant : warrants) {
             if (warrant.kingdomId().equals(kingdomId)
                     && warrant.suspectId().equals(suspectId)
                     && warrant.status() == WarrantStatus.ACTIVE) {
-                return true;
+                return Optional.of(warrant);
             }
         }
-        return false;
+        return Optional.empty();
+    }
+
+    public PoliceResult markWarrantServed(String kingdomId, String warrantId) {
+        Optional<Warrant> found = findById(kingdomId, warrantId);
+        if (found.isEmpty()) {
+            return PoliceResult.fail("Unknown warrant.");
+        }
+        Warrant warrant = found.get();
+        if (warrant.status() != WarrantStatus.ACTIVE) {
+            return PoliceResult.fail("That warrant is not active.");
+        }
+        warrant.setStatus(WarrantStatus.SERVED);
+        return PoliceResult.ok("Warrant served.");
     }
 
     public List<Warrant> warrantsView() {

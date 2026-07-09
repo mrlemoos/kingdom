@@ -297,6 +297,21 @@ public class EconomyService {
         }
     }
 
+    /**
+     * Debits Corona from a player wallet. Returns false if the balance is insufficient.
+     */
+    public boolean debitWallet(UUID playerId, double amount) {
+        if (amount <= 0) {
+            return false;
+        }
+        double balance = getWalletBalance(playerId);
+        if (balance < amount) {
+            return false;
+        }
+        wallets.put(playerId, balance - amount);
+        return true;
+    }
+
     public TransferResult transferCorona(
             UUID from,
             UUID to,
