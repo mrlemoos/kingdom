@@ -22,6 +22,7 @@ import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantOfferConfig;
 import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.listener.BuildConductListener;
 import dev.mrlemoos.kingdom.listener.ChatPrefixListener;
 import dev.mrlemoos.kingdom.listener.CoronaMerchantListener;
 import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
@@ -41,6 +42,9 @@ import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
+import dev.mrlemoos.kingdom.police.BuildConductEnforcer;
+import dev.mrlemoos.kingdom.police.BuildEnforcementConfig;
+import dev.mrlemoos.kingdom.police.ActBreachDetector;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeConfig;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
@@ -237,6 +241,18 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new TerritoryWealthListener(this, economyService, territoryResolver, economyStore),
+                                this);
+                BuildConductEnforcer buildConductEnforcer = new BuildConductEnforcer(
+                                new ActBreachDetector(),
+                                BuildEnforcementConfig.fromPluginConfig(getConfig()),
+                                System::currentTimeMillis);
+                getServer().getPluginManager().registerEvents(
+                                new BuildConductListener(
+                                                kingdomService,
+                                                territoryResolver,
+                                                buildConductEnforcer,
+                                                mechanicalJusticeService,
+                                                loyaltyService),
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);

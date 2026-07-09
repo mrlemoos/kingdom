@@ -87,6 +87,11 @@ police:
   mechanical-act-breach:
     enabled: true
 
+enforcement:
+  build:
+    enabled: true
+    debounce-ms: 500
+
 election:
   general-interval-mc-days: 120
   duration-mc-days: 3
