@@ -12,6 +12,11 @@ import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionConfig;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionService;
+import dev.mrlemoos.kingdom.war.conscription.InMemoryConscriptionStore;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadConfig;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadService;
 import dev.mrlemoos.kingdom.war.muster.MusterService;
 import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
@@ -138,6 +143,41 @@ class DemobilisationServiceTest {
         WarResult result = demobilisationService.demobilise(null);
 
         assertInstanceOf(WarResult.Failure.class, result);
+    }
+
+    @Test
+    void demobiliseDestroysCrownSquadsForBothBelligerents() {
+        EconomyService economyService = new EconomyService();
+        economyService.creditTreasury("northmarch", 500.0);
+        economyService.enactBudget("northmarch", 500.0);
+        economyService.creditTreasury("southreach", 500.0);
+        economyService.enactBudget("southreach", 500.0);
+        CrownSquadService crownSquadService =
+                new CrownSquadService(economyService, new CrownSquadConfig(true, 50.0, 4));
+        crownSquadService.purchase("northmarch");
+        crownSquadService.purchase("southreach");
+        demobilisationService.setCrownSquadService(crownSquadService);
+
+        demobilisationService.demobilise(war);
+
+        assertTrue(crownSquadService.unitsOf("northmarch").isEmpty());
+        assertTrue(crownSquadService.unitsOf("southreach").isEmpty());
+    }
+
+    @Test
+    void demobiliseReleasesPressedVillagersForBothBelligerents() {
+        UUID attackerPressed = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID defenderPressed = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        ConscriptionService conscriptionService = new ConscriptionService(
+                kingdomService, new InMemoryConscriptionStore(), new ConscriptionConfig(true, 16));
+        conscriptionService.press("northmarch", attackerPressed);
+        conscriptionService.press("southreach", defenderPressed);
+        demobilisationService.setConscriptionService(conscriptionService);
+
+        demobilisationService.demobilise(war);
+
+        assertFalse(conscriptionService.isPressed(attackerPressed));
+        assertFalse(conscriptionService.isPressed(defenderPressed));
     }
 
     @Test

@@ -112,6 +112,13 @@ war:
     cap: 8
   oath:
     enabled: true
+  crown-squads:
+    enabled: false
+    cost: 50.0
+    cap: 4
+  conscription:
+    enabled: true
+    cap: 16
 
 election:
   general-interval-mc-days: 120
