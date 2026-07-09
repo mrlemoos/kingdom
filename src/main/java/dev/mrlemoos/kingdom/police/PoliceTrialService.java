@@ -1,7 +1,6 @@
 package dev.mrlemoos.kingdom.police;
 
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
-import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.model.police.PoliceCase;
 import dev.mrlemoos.kingdom.model.police.PoliceCaseStatus;
 import dev.mrlemoos.kingdom.model.police.SentenceType;
@@ -21,14 +20,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Arrest → pending trial → sentence pipeline for Police hop 3.
- * Warning does not drop loyalty beyond the Act-breach drop already applied in slice 1.3.
+ * Warning records the offence only; loyalty was already dropped on Act breach (slice 1.3).
  */
 public final class PoliceTrialService {
 
     private final KingdomService kingdomService;
     private final PoliceService policeService;
     private final MechanicalJusticeService justiceService;
-    private final LoyaltyService loyaltyService;
     private final EconomyService economyService;
     private final AtomicLong caseSequence = new AtomicLong(1);
     private final List<PoliceCase> cases = new ArrayList<>();
@@ -40,12 +38,10 @@ public final class PoliceTrialService {
             KingdomService kingdomService,
             PoliceService policeService,
             MechanicalJusticeService justiceService,
-            LoyaltyService loyaltyService,
             EconomyService economyService) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.policeService = Objects.requireNonNull(policeService, "policeService");
         this.justiceService = Objects.requireNonNull(justiceService, "justiceService");
-        this.loyaltyService = Objects.requireNonNull(loyaltyService, "loyaltyService");
         this.economyService = Objects.requireNonNull(economyService, "economyService");
     }
 

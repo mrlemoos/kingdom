@@ -114,7 +114,6 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService,
                                 policeService,
                                 mechanicalJusticeService,
-                                loyaltyService,
                                 economyService);
                 this.policeTrialService = policeTrialService;
 

@@ -46,7 +46,7 @@ class PoliceTrialPipelineTest {
         loyaltyService = new LoyaltyService(new InMemoryLoyaltyStore(), LoyaltyConfig.enabled());
         economyService = new EconomyService(100.0);
         trialService = new PoliceTrialService(
-                kingdomService, policeService, justice, loyaltyService, economyService);
+                kingdomService, policeService, justice, economyService);
 
         kingdomService.createKingdom("northmarch", "Northmarch");
         kingdomService.joinKingdom(KING, "northmarch");
