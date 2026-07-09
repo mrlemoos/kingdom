@@ -39,8 +39,11 @@ import dev.mrlemoos.kingdom.listener.NobleDisplayListener;
 import dev.mrlemoos.kingdom.listener.TreasuryLordListener;
 import dev.mrlemoos.kingdom.listener.VillagerProfessionNametagListener;
 import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
+import dev.mrlemoos.kingdom.loyalty.InMemoryMoraleStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
+import dev.mrlemoos.kingdom.loyalty.MoraleConfig;
+import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.police.BuildConductEnforcer;
 import dev.mrlemoos.kingdom.police.BuildEnforcementConfig;
@@ -89,6 +92,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private KingdomService kingdomService;
         private YamlKingdomStore store;
         private LoyaltyService loyaltyService;
+        private MoraleService moraleService;
         private MechanicalJusticeService mechanicalJusticeService;
         private PoliceTrialService policeTrialService;
         private NoblePrefixDisplay nobleDisplay;
@@ -106,6 +110,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 store = new YamlKingdomStore(this);
                 InMemoryLoyaltyStore loyaltyStore = new InMemoryLoyaltyStore();
                 store.setLoyaltyStore(loyaltyStore);
+                InMemoryMoraleStore moraleStore = new InMemoryMoraleStore();
+                store.setMoraleStore(moraleStore);
                 warService = new WarService(kingdomService);
                 warService.setConfig(WarConfig.fromPluginConfig(getConfig()));
                 store.setWarService(warService);
@@ -118,6 +124,9 @@ public final class KingdomPlugin extends JavaPlugin {
                 LoyaltyService loyaltyService = new LoyaltyService(
                                 loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
                 this.loyaltyService = loyaltyService;
+                MoraleService moraleService = new MoraleService(
+                                moraleStore, MoraleConfig.fromPluginConfig(getConfig()));
+                this.moraleService = moraleService;
                 PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
                 MechanicalJusticeService mechanicalJusticeService = new MechanicalJusticeService(
                                 kingdomService,
@@ -349,6 +358,10 @@ public final class KingdomPlugin extends JavaPlugin {
 
         public LoyaltyService getLoyaltyService() {
                 return loyaltyService;
+        }
+
+        public MoraleService getMoraleService() {
+                return moraleService;
         }
 
         public StandingRosterService getStandingRosterService() {

@@ -82,6 +82,8 @@ economy:
 loyalty:
   political:
     enabled: true
+  military:
+    enabled: true
 
 police:
   mechanical-act-breach:

@@ -34,6 +34,7 @@ import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
+import dev.mrlemoos.kingdom.loyalty.MoraleStore;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -62,6 +63,7 @@ public final class YamlKingdomStore {
     private final JavaPlugin plugin;
     private final File dataFile;
     private LoyaltyStore loyaltyStore;
+    private MoraleStore moraleStore;
     private WarService warService;
     private StandingRosterStore standingRosterStore;
 
@@ -72,6 +74,10 @@ public final class YamlKingdomStore {
 
     public void setLoyaltyStore(LoyaltyStore loyaltyStore) {
         this.loyaltyStore = loyaltyStore;
+    }
+
+    public void setMoraleStore(MoraleStore moraleStore) {
+        this.moraleStore = moraleStore;
     }
 
     public void setWarService(WarService warService) {
@@ -144,6 +150,9 @@ public final class YamlKingdomStore {
         if (loyaltyStore != null) {
             loyaltyStore.replaceAll(readLoyalty(data.getConfigurationSection("loyalty")));
         }
+        if (moraleStore != null) {
+            moraleStore.replaceAll(readMorale(data.getConfigurationSection("morale")));
+        }
         if (warService != null) {
             warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
         }
@@ -177,6 +186,9 @@ public final class YamlKingdomStore {
 
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
+        }
+        if (moraleStore != null) {
+            writeMorale(data, "morale", moraleStore.allTiersView());
         }
         if (warService != null) {
             writeWars(data, "wars", warService.activeWarsView());
@@ -939,6 +951,38 @@ public final class YamlKingdomStore {
                 if (tier != LoyaltyTier.FAITHFUL) {
                     tiers.put(playerId, tier);
                 }
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed player or tier entries.
+            }
+        }
+        return tiers;
+    }
+
+    static void writeMorale(FileConfiguration config, String path, Map<UUID, MoraleTier> tiers) {
+        if (tiers == null || tiers.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, MoraleTier> entry : tiers.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            config.set(path + "." + entry.getKey(), entry.getValue().name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    static Map<UUID, MoraleTier> readMorale(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<UUID, MoraleTier> tiers = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID playerId = UUID.fromString(key);
+                String tierName = section.getString(key);
+                if (tierName == null || tierName.isBlank()) {
+                    continue;
+                }
+                tiers.put(playerId, MoraleTier.valueOf(tierName.toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException ignored) {
                 // Skip malformed player or tier entries.
             }
