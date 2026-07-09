@@ -123,6 +123,9 @@ war:
     enabled: true
     duration-mc-days: 1
     hardened-threshold-mc-days: 1
+  siege:
+    enabled: true
+    flip-threshold-ticks: 3
   squads:
     enabled: false
     max-members-per-squad: 6
