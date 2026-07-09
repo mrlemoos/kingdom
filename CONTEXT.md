@@ -351,3 +351,313 @@ _Avoid_: Auto-conviction, script trial, NPC prosecution
 **Sentence**:
 The outcome of a completed trial: prison, fine, warning, or acquittal. Closes the warrant → trial → sentence pipeline for that case.
 _Avoid_: Punishment roll, karma, penalty phase
+
+## War
+
+**Loyalty**:
+A subject's bond to a kingdom, tracked as two independent measures: **political loyalty** and **military morale**. A change to one does not automatically change the other; a **dual-track offence** applies each track's automatic rules separately.
+_Avoid_: Reputation, karma, favour, standing
+
+**Dual-track offence**:
+A single act that triggers both **morale breach** and **political offence** rules independently—for example **defection**. Automatic tier drops apply per track immediately where defined; **Traitor** applies only on treason **conviction**, not on battlefield report alone.
+_Avoid_: Double jeopardy ban, merged sentence, one strike rule
+
+**Political loyalty**:
+How faithfully a subject upholds civil obligations to the crown, expressed as a **loyalty tier**: Faithful, Doubtful, Disloyal, or Traitor. Lowered by **political offences**; governs access to office, crown trust, and non-combat penalties.
+_Avoid_: Morale, honour score, alignment
+
+**Loyalty tier**:
+The political loyalty ladder for fealty subjects. **Faithful** is default on kingdom join or **oath of service** for sworn outsiders; lower tiers follow **political offences** or court sentences. Tier recovers via **loyalty recovery** or **loyalty pardon**.
+_Avoid_: Reputation rank, karma level, trust score
+
+**Faithful**:
+Full civil trust. Eligible for office, parliamentary votes if seated, and crown appointments without extra scrutiny.
+_Avoid_: VIP citizen, trusted flag, green name
+
+**Doubtful**:
+Political standing after a minor **political offence** or recorded warning from court. Cannot receive new crown appointments until restored; seated office unchanged until resignation or election loss.
+_Avoid_: Yellow card, probation tag, soft ban
+
+**Disloyal**:
+Political standing after repeated offences or a fine sentence for treason-related crime. Barred from holding office and from voting in Commons; may still serve on levy if military morale permits.
+_Avoid_: Greylist, muted citizen, half-citizen
+
+**Traitor**:
+Political standing after conviction for **treason** or equivalent court sentence. Barred from office, levy, and crown trust; subject to warrant and arrest while inside **jurisdiction** despite prior rank. Cleared only by acquittal or **loyalty pardon**; distinct from **Rout**.
+_Avoid_: Auto-ban, perma-kick, enemy team
+
+**Loyalty recovery**:
+Restoring **loyalty tier** after a **political offence** without a pardon. One tier per configured number of in-game days without further offence, up to **Faithful**. **Traitor** cannot recover by time alone.
+_Avoid_: Play time reward, login streak, good boy points
+
+**Loyalty pardon**:
+The monarch restoring a subject's political loyalty at court. Returns tier to **Faithful**, or to **Doubtful** after **Traitor** if the crown chooses partial restoration. Required to clear **Traitor** without acquittal.
+_Avoid_: Unban command, forgive keystroke, amnesty button
+
+**Loyalty penalty**:
+The civil effects of **loyalty tier** beyond office bars. **Doubtful** subjects are flagged for constable scrutiny; **Disloyal** subjects become warrant-eligible on further **political offences**; **Traitor** subjects may be arrested on sight inside **jurisdiction** when a warrant is active or on fresh treason report. No noble **loyalty immunity**—automatic tier drops apply to all fealty subjects; monarch **warrant immunity** under police law is separate.
+_Avoid_: Chat mute, glow red, wanted stars UI
+
+**Political offence**:
+An act that lowers **loyalty tier** by weighted severity: **Act breach** → **Doubtful**; repeat or severe breach → **Disloyal**; **treason** on conviction → **Traitor**. May parallel **morale breach** when the same act spans both tracks.
+_Avoid_: Warning message, admin slap, chat rule break
+
+**Act breach**:
+Violating a **conduct provision** in any enacted Act—build bans, curfews, war limits, or similar behaviour rules embedded in fiscal, war, or supply Acts. PvP restrictions are not used under **open PvP**. Fiscal rate changes alone are not breaches; forbidden conduct is. A **political offence** when detected.
+_Avoid_: Tax underpayment, missing budget, low treasury
+
+**Conduct provision**:
+A behaviour rule embedded in a bill or enacted Act, separate from fiscal rate fields. Kinds include build ban, curfew, and war limit. Fiscal-only Acts may carry none. PvP restrictions are not used under **open PvP**.
+_Avoid_: Tax rate, budget line, mint cost, chat filter
+
+**Open PvP**:
+Current kingdom policy: player-versus-player damage is not cancelled by Acts, occupation rules, or war state. **War combat**, **friendly fire**, and **siege neutral** damage gating are deferred. **Battlefield treason** may still be detected when kingdoms are **at war** under **open PvP**. There is no **trial arena**.
+_Avoid_: PvP always off, safe zone plugin, faction combat tag
+
+**Military morale**:
+How willingly a subject fights for the kingdom in wartime, expressed as a **morale tier**: Steadfast, Shaken, Breaking, or Rout. Governs combat-era penalties and NPC squad reliability; separate from parliamentary or court standing.
+_Avoid_: Political loyalty, PvP skill, combat level
+
+**Morale tier**:
+The military morale ladder for fealty subjects on levy. **Steadfast** is default after oath or muster; **Shaken**, **Breaking**, and **Rout** follow as **morale breaches** accumulate. Tier recovers via **morale recovery** or **morale pardon**.
+_Avoid_: Buff level, combat tag, team colour
+
+**Steadfast**:
+Full willingness to fight. Normal muster compliance; the officer's **squads** follow orders reliably.
+_Avoid_: Ready buff, full health, eager flag
+
+**Shaken**:
+Morale after a minor **morale breach**—typically refusing muster once. Minor combat debuffs; the officer's **squads** occasionally hesitate.
+_Avoid_: Slowness potion, weak debuff
+
+**Breaking**:
+Morale after repeated breaches or leaving an active siege without release. Stronger debuffs; the officer's **squads** may scatter from command.
+_Avoid_: Fear effect, flee AI always
+
+**Rout**:
+Morale collapsed—the lowest **morale tier**. Subject is unfit for levy duty until restored; still absent from muster counts as **desertion**. The officer's **squads** break and flee; fighting for the enemy may trigger **treason** review.
+_Avoid_: Combat log ban, auto-kick, instant traitor
+
+**Fealty subject**:
+A player tracked for loyalty—either a kingdom member or a **sworn outsider**. Members gain **political loyalty** on join; **military morale** begins after **oath of service** or when they answer a **muster**—no separate oath required if they answer muster. Sworn outsiders gain both tracks via oath without membership.
+_Avoid_: Citizen, member, ally tag
+
+**Oath of service**:
+A ceremony pledging military obligation to a kingdom—at a court lectern, throne checkpoint, or muster point. Early voluntary bind for members; required entry for **sworn outsiders**. Answering a **muster** binds military morale for members without a prior oath.
+_Avoid_: Join command, team accept, contract sign GUI
+
+**Sworn outsider**:
+A non-member who pledges fealty to a kingdom for a bounded purpose—typically wartime service as a mercenary or allied fighter. Begins at **Faithful** on **oath of service** for political loyalty and **Steadfast** for military morale; never gains office or Commons vote regardless of tier.
+_Avoid_: Mercenary rank, temp citizen, guest fighter
+
+**Army**:
+A kingdom's military strength in two layers: a **standing force** always on roster and a **levy** raised per campaign when war is declared. Player officers command both; NPC **rank-and-file** fill enlisted slots under cap.
+_Avoid_: Militia tag, PvP team, mob horde
+
+**Standing force**:
+The permanent military core—typically knights and appointed officers—maintained on an explicit **standing roster** between wars. Small capped roster; not demobbed when peace returns. Rostered members are **auto-on-duty** at **Steadfast** on **war bill** enactment with **hardened service** rules. A knight title alone does not imply roster membership.
+_Avoid_: Garrison plugin, permanent army tag, royal guard
+
+**Standing roster**:
+The named list of kingdom **members** in the **standing force**, appointed and removed by the King or Queen. **Sworn outsiders** are never rostered; they serve through oath and levy only. Only rostered members receive **auto-on-duty** mobilisation; other members—including knights not rostered—follow levy **muster** rules. Roster size is capped in configuration.
+_Avoid_: Knight permission node, title auto-enlist, OP list
+
+**Auto-on-duty**:
+The automatic military mobilisation of the **standing force** when a **war bill** is enacted. Opens or refreshes the military morale track at **Steadfast** without a **muster** response. **Hardened service** applies from enactment until **demobilisation**.
+_Avoid_: Auto-teleport front, kit on join war, PvP flag all
+
+**Hardened service**:
+Morale rules for the **standing force** after **auto-on-duty**: same **morale tier** ladder as the levy, but stricter on **siege release**—brief departures with release are lawful; absence from an active siege without release for more than one in-game day counts as a **morale breach** to **Breaking**. **Fighting for the enemy** applies as for levy; levy **muster** rules do not.
+_Avoid_: VIP soldier, knight immunity, elite bypass
+
+**Levy**:
+Soldiers raised for one war from kingdom members and sworn outsiders who answer the muster. Demobbed when that war ends; military morale during levy matters for desertion.
+_Avoid_: Draft list, temp team, war roster
+
+**Muster**:
+The act of calling the levy to arms after war is declared. For members without prior **oath of service**, answering the muster opens the military morale track at **Steadfast**; refusing drops to **Shaken**. Sworn outsiders must already be bound by oath. A member who does not answer by the **muster deadline** suffers **ignored muster**.
+_Avoid_: Teleport summon, kit command, rally point
+
+**Muster deadline**:
+The end of the muster window named in the enacted **war bill**. Members who neither answer nor refuse the **muster** by this deadline suffer **ignored muster**.
+_Avoid_: War timer, grace period, AFK check
+
+**Ignored muster**:
+Failing to answer a **muster** by the **muster deadline**. Opens the military morale track at **Shaken** and lowers political loyalty to **Doubtful** for ignoring crown war summons.
+_Avoid_: AFK farmer, offline excuse, mute button
+
+**Civilian member**:
+A kingdom member with political loyalty but no active military morale track—neither mustered nor sworn by **oath of service**. May enter a **siege** freely; taking hostile action there auto-binds the military track at **Shaken** without prior **muster** compliance.
+_Avoid_: Non-combat tag, spectator mode, tourist visa
+
+**Siege**:
+The phase of war fought inside the defender's linked territory, where **chunk capture** is active. The attacker sieges; the defender **recapture**s only—invading the attacker's homeland requires a separate **war bill** tabled by the defender. Open-field **battle** occurs outside enemy linked territory.
+_Avoid_: Raid, PvP flag, war zone
+
+**Counter-war**:
+A new **war bill** tabled by a kingdom that was the defender in an earlier war, authorising **siege** in the former attacker's linked territory. Distinct from **recapture** during the original war.
+_Avoid_: Revenge raid, auto counterattack, mutual war flag
+
+**Siege release**:
+Permission for a fealty subject to leave an active **siege** without a **morale breach**. Granted by the subject's commanding officer in the field or by the crown or a knight at a muster point. Unreleased departures count as desertion.
+_Avoid_: Teleport home, leave war zone command, unsiege button
+
+**Battle**:
+Combat during war that is not a **siege**—fights in neutral ground, wilderness, or home territory before the front advances into enemy linked territory. **War combat** rules apply.
+_Avoid_: Skirmish plugin, duel, brawl
+
+**War combat**:
+*(Deferred under **open PvP**.)* The planned PvP permission model during an active 1v1 war: only **military participants** may damage enemy **military participants** in **siege** or **battle** zones, with **friendly fire** disabled and **siege neutral** bystanders protected. Not enforced until open PvP is lifted.
+_Avoid_: Faction PvP on, team damage, war flag all
+
+**Friendly fire**:
+*(Deferred under **open PvP**.)* Planned rule: same-kingdom damage between liege **military participants** during war is disabled; liege damage may count as **battlefield treason** (zone-agnostic once **at war**).
+_Avoid_: Team kill on, guild friendly fire, duel override
+
+**Siege neutral**:
+*(Deferred under **open PvP**.)* Planned rule: players not **military participants** for either belligerent are outside **war combat** and should not take war-sanctioned damage.
+_Avoid_: Safe zone, spectator mode, world spawn protection
+
+**Chunk capture**:
+Contested control of map chunks inside a **siege**. Progress when attacker **military participants** outnumber defender **military participants** in the chunk over a configured tick window. On flip, the chunk becomes **captured**—attacker **occupation** rules apply immediately. Enough **captured** chunks satisfy a **territory threshold** **war aim** or feed **annexation** at **decisive victory**.
+_Avoid_: Claim plugin, land grab, faction power
+
+**Captured chunk**:
+A chunk inside enemy linked territory that has flipped to attacker control during **siege**. **Occupation** rules apply immediately; the linked WorldGuard region boundary is unchanged until **region merge**. Defenders may **recapture** the chunk using the same **chunk capture** presence rules.
+_Avoid_: World edit paste, instant border, faction claim
+
+**Recapture**:
+A defender **chunk capture** that returns a **captured chunk** to defender **occupation** or home control during an active war. Uses the same presence rules as the initial flip; removes the chunk from the attacker's war tally.
+_Avoid_: Undo command, rollback, admin restore
+
+**Occupation**:
+The control state of a **captured chunk** during an active war. Attacker military participants gain configured build/PvP rights; defender civilians keep political rights but not military presence credit. Ends on **peace bill**, **decisive victory** **region merge**, or chunk recapture by defenders.
+_Avoid_: Raid mode, grief permit, temp trust
+
+**Region merge**:
+The WorldGuard operation that redraws linked territory after **decisive victory** with an **annexation** outcome—or when a **territory threshold** aim completes—folding **captured** chunks into the attacker's region. Deferred during war in favour of per-chunk **occupation**.
+_Avoid_: //expand, manual redraw, faction merge command
+
+**Military participant**:
+A fealty subject whose military morale track is active for a side in the current war—**standing roster** **auto-on-duty**, levy who answered **muster**, **sworn outsiders** under oath, or a member bound by **civilian member** hostile action in **siege**. Counts toward **chunk capture** presence only while inside the contested chunk.
+_Avoid_: Everyone online, all citizens, tab-list team
+
+**Desertion**:
+A military offence by a fealty subject on levy: refusing the **muster**, leaving an active **siege** without **siege release**, or **fighting for the enemy**. Each class is a **morale breach** with a weighted tier drop; defection and severe battlefield treason may trigger **treason** on the political track.
+_Avoid_: Combat log, queue dodge, going AWOL (casual)
+
+**Morale breach**:
+A military offence that lowers **morale tier** by weighted severity: refusing the **muster** → **Shaken**; leaving an active **siege** without **siege release** → **Breaking**; **fighting for the enemy** → **Rout** and treason review. Recovery is by honourable siege service or **morale pardon**.
+_Avoid_: Warning strike, admin note, chat slap
+
+**Fighting for the enemy**:
+Aiding the opposing kingdom in war in two forms: **battlefield treason**—dealing damage to liege soldiers while on levy anywhere the kingdoms are **at war**—and **defection**—accepting an enemy **oath of service** or muster. Both force **Rout**; **defection** always opens treason review; battlefield treason may open it.
+_Avoid_: Friendly fire toggle, team kill, accidental hit
+
+**Battlefield treason**:
+Damaging a liege **military participant** while the actor's kingdom is **at war** with the victim's kingdom and the actor remains on the liege's levy roster for that **active war**. No **siege** or **battle** zone is required—the offence may occur anywhere on the map. A form of **fighting for the enemy**; forces **Rout** and may trigger treason review. Not possible during peace or after **demobilisation**. Under **open PvP**, damage is not prevented, but the offence may still be recorded.
+_Avoid_: PvP accident, duel, training damage, siege-only treason
+
+**Defection**:
+Leaving the liege's levy during an **active war** to accept an enemy **oath of service** or muster. A form of **fighting for the enemy**; forces **Rout** and always opens treason review. Requires the actor's kingdom to be **at war** with the kingdom they join.
+_Avoid_: Kingdom switch, alt account, spy role
+
+**Morale recovery**:
+Restoring **morale tier** after a breach without ending the war. Honourable service in an active **siege** slowly raises tier one step per in-game day without further breach, up to **Steadfast**. **Rout** requires **morale pardon** before the subject may muster again.
+_Avoid_: Sleep to heal, eat food buff, passive regen
+
+**Morale pardon**:
+The crown or an appointed knight restoring a fealty subject's military morale at a muster point or court. Returns tier to **Steadfast**; required to clear **Rout** before the next levy duty.
+_Avoid_: Admin unban, debuff clear command, forgive button
+
+**Morale penalty**:
+The in-game effects of **morale tier** on a fealty subject. **Shaken** and **Breaking** apply scaling potion debuffs and limit **squad** command; **Rout** applies severe debuffs, blocks levy duty, and disables squad command until **morale pardon**.
+_Avoid_: Custom weakness mod, damage multiplier UI, hunger punishment
+
+**Treason**:
+A political offence against the crown—swearing fealty then aiding an enemy kingdom, defying enacted Acts, or desertion so severe it breaches oath. Handled through the police and court pipeline, not morale debuffs alone.
+_Avoid_: Ban reason, griefer tag, karma hit
+
+**Declaration of war**:
+A formal proposal by the monarch to make war on another kingdom. Hostilities do not begin until a **war bill** passes the Commons and receives **royal assent**; assent alone before Commons passage is insufficient.
+_Avoid_: PvP toggle, faction war command, admin war
+
+**War bill**:
+A parliamentary bill authorising one kingdom's war against one named defender kingdom. Tabled by the monarch; requires Commons division and **royal assent** like other Acts. Names the sole target, **war aim**, victory **outcome**, and **muster deadline** duration. On enactment, creates an **active war** and both kingdoms are **at war**; the **levy** may be called and **siege** may begin in the target's linked territory.
+_Avoid_: War vote command, raid permission, hostility flag
+
+**Active war**:
+The bilateral hostilities between exactly two kingdoms from enactment of a **war bill** until **peace bill** enactment or **decisive victory** **demobilisation**. Records attacker, defender, **war aim**, outcome, **muster deadline**, and war clock. At most one **active war** per kingdom pair at a time.
+_Avoid_: Raid timer, faction war id, PvP flag
+
+**At war**:
+A kingdom wartime state while it is a **belligerent** in an **active war**. Begins when a **war bill** naming that kingdom as attacker or defender receives **royal assent**; ends when that **active war** closes. While **at war**, **battlefield treason**, **muster**, **siege**, and levy rules apply.
+_Avoid_: PvP enabled tag, combat mode, war team
+
+**Belligerent**:
+Either kingdom party to an **active war**—the attacking realm that enacted the **war bill** and the named defender. Both are **at war** from enactment until the war ends.
+_Avoid_: Ally, coalition member, neutral observer
+
+**Rank-and-file**:
+Enlisted NPC soldiers under player officers, drawn from two pools: **pressed villagers** conscripted from territory population and **crown squads** bought from treasury. Both are capped per kingdom and demobbed when the war ends.
+_Avoid_: Mob army, minion pack, hired golem
+
+**Squad**:
+A capped group of **rank-and-file** NPCs assigned to one player officer on levy. Behaviour inherits the officer's **morale tier**: hesitate at Shaken, scatter at Breaking, **rout** at Rout.
+_Avoid_: Mob stack, pet army, wolf pack
+
+**Squad rout**:
+When an officer reaches **Rout**, assigned **squads** break. **Pressed villagers** flee toward home territory and re-enter the villager economy if they survive; **crown squads** scatter and are lost—they do not return after **demobilisation**.
+_Avoid_: Mob despawn all, villager delete, respawn same squad
+
+**Pressed villager**:
+A productive territory villager conscripted into the levy as rank-and-file. Removed from normal villager economy while pressed; returned on demobilisation if still alive.
+_Avoid_: Villager MP, soldier villager profession, NPC knight
+
+**Crown squad**:
+Treasury-funded spawned soldiers—vanilla mobs under kingdom command—raised to supplement pressed villagers. Counts against army cap; costs Corona from approved war spending.
+_Avoid_: Summoned horde, iron golem army, spawn egg troop
+
+**Peace bill**:
+A parliamentary bill ending an active war without **decisive victory**. Requires Commons division and royal assent like other Acts. On enactment, hostilities cease, all **captured** chunks **revert** to defender control, the **levy** is demobbed, and no **region merge** occurs. **Annexation** requires victory, not negotiated peace.
+_Avoid_: Truce command, PvP off, white flag
+
+**Revert**:
+Returning a **captured chunk** to defender home control on **peace bill** enactment. Clears attacker **occupation**; does not change WorldGuard region boundaries because no **region merge** occurred.
+_Avoid_: Rollback plugin, undo capture, admin heal
+
+**Decisive victory**:
+An automatic war end when a configured war aim is met—without a peace bill. Triggers demobilisation and applies conquest outcomes (border shifts, tribute, or annexation per enacted war aims).
+_Avoid_: Score cap, last team standing, admin ceasefire
+
+**Demobilisation**:
+The end of an **active war** by **peace bill** or **decisive victory**. Both **belligerents** cease to be **at war**. **Levy** soldiers are released: military morale track closes and tiers reset—**Rout** still needs **morale pardon** before the next muster. **Standing roster** members remain on duty roster; their morale tiers persist until **morale recovery** or **morale pardon**. Pressed villagers and crown squads are released per **squad rout** rules. **Battlefield treason** is no longer possible after demobilisation.
+_Avoid_: Kit remove, team untag, mob despawn command
+
+**War aim**:
+The victory condition named in a **war bill**: a **territory threshold** (percentage of enemy linked chunks **captured**) or **capital fall**. One aim per war; meeting it triggers **decisive victory**.
+_Avoid_: Win condition config, capture the flag, admin win
+
+**Capital fall**:
+A **war aim** requiring **captured** chunks in the defender's **capital** subregion. The **war bill** names whether **majority** or **total** capture of that subregion satisfies the aim.
+_Avoid_: Kill the king, throne break, monarch offline
+
+**Capital**:
+A kingdom's designated seat of government—a WorldGuard subregion the monarch sets within linked territory. Used for **capital fall** war aims; capture progress counts only chunks inside this subregion.
+_Avoid_: Spawn point, home set, throne plugin
+
+**Territory threshold**:
+A **war aim** requiring the attacker to **capture** a named percentage of the defender's linked territory chunks during **siege**. Named in the **war bill**; satisfaction triggers **decisive victory** and may authorise **region merge** under an **annexation** outcome.
+_Avoid_: Score limit, percent bar UI, faction power
+
+**Annexation**:
+A **decisive victory** outcome named in the war bill: captured enemy chunks are merged into the attacker's linked WorldGuard territory. Requires the war aim to be met first.
+_Avoid_: Land claim, region steal, faction absorb
+
+**War tribute**:
+A **decisive victory** outcome named in the **war bill**: the defeated kingdom pays a configured Corona sum to the victor's treasury. Available balance transfers immediately on victory; any shortfall becomes **war debt** until cleared.
+_Avoid_: Reparations fine, loot pool, war reparations command
+
+**War debt**:
+The unpaid remainder of an enacted **war tribute** after **decisive victory**. Owed by the defeated kingdom's treasury to the victor; persists across peace until paid or superseded by a later Act.
+_Avoid_: Loan plugin, interest tick, credit score

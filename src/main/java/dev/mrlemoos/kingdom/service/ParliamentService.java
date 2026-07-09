@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
@@ -431,7 +432,8 @@ public final class ParliamentService {
                 buildBookPages(enacted),
                 enacted.votesView(),
                 enacted.speakerCastingVote().orElse(null),
-                enacted.payload()));
+                enacted.payload(),
+                enacted.conductProvisions()));
     }
 
     public void clearAssentedBill(String kingdomId) {
@@ -461,7 +463,8 @@ public final class ParliamentService {
                     shelf.blockX(),
                     shelf.blockY(),
                     shelf.blockZ(),
-                    slot);
+                    slot,
+                    draft.conductProvisions());
             kingdom.getParliamentState().addAssentedAct(act);
         });
     }
@@ -567,6 +570,12 @@ public final class ParliamentService {
         pages.add(bill.title());
         pages.add("Type: " + bill.type().name().toLowerCase(Locale.ROOT).replace('_', ' '));
         pages.add(describePayload(bill.payload()));
+        if (!bill.conductProvisions().isEmpty()) {
+            pages.add("Conduct provisions:");
+            for (ConductProvision provision : bill.conductProvisions()) {
+                pages.add("- " + describeConduct(provision));
+            }
+        }
         pages.add("Division:");
         for (Map.Entry<UUID, VoteChoice> entry : bill.votesView().entrySet()) {
             pages.add(entry.getKey() + ": " + entry.getValue().name().toLowerCase(Locale.ROOT));
@@ -574,6 +583,14 @@ public final class ParliamentService {
         bill.speakerCastingVote()
                 .ifPresent(choice -> pages.add("Speaker casting vote: " + choice.name().toLowerCase(Locale.ROOT)));
         return pages;
+    }
+
+    private static String describeConduct(ConductProvision provision) {
+        return switch (provision.kind()) {
+            case BUILD_BAN -> "build ban";
+            case CURFEW -> "curfew";
+            case WAR_LIMIT -> "war limit";
+        };
     }
 
     private static String describePayload(BillPayload payload) {
@@ -626,5 +643,12 @@ public final class ParliamentService {
             List<String> bookPages,
             Map<UUID, VoteChoice> divisionVotes,
             VoteChoice speakerCastingVote,
-            BillPayload payload) {}
+            BillPayload payload,
+            List<ConductProvision> conductProvisions) {
+
+        public AssentedActDraft {
+            conductProvisions =
+                    conductProvisions == null ? List.of() : List.copyOf(conductProvisions);
+        }
+    }
 }

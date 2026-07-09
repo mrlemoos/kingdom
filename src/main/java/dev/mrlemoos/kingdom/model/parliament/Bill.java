@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.model.parliament;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,7 @@ public final class Bill {
     private final UUID proposerId;
     private final BillPayload payload;
     private final long tabledAtMs;
+    private final List<ConductProvision> conductProvisions;
     private final Map<UUID, VoteChoice> votes = new HashMap<>();
     private VoteChoice speakerCastingVote;
 
@@ -27,6 +29,19 @@ public final class Bill {
             UUID proposerId,
             BillPayload payload,
             long tabledAtMs) {
+        this(id, kingdomId, type, title, state, proposerId, payload, tabledAtMs, List.of());
+    }
+
+    public Bill(
+            String id,
+            String kingdomId,
+            BillType type,
+            String title,
+            BillState state,
+            UUID proposerId,
+            BillPayload payload,
+            long tabledAtMs,
+            List<ConductProvision> conductProvisions) {
         this.id = id;
         this.kingdomId = kingdomId;
         this.type = type;
@@ -35,6 +50,8 @@ public final class Bill {
         this.proposerId = proposerId;
         this.payload = payload;
         this.tabledAtMs = tabledAtMs;
+        this.conductProvisions =
+                conductProvisions == null ? List.of() : List.copyOf(conductProvisions);
     }
 
     public String id() {
@@ -71,6 +88,10 @@ public final class Bill {
 
     public long tabledAtMs() {
         return tabledAtMs;
+    }
+
+    public List<ConductProvision> conductProvisions() {
+        return conductProvisions;
     }
 
     public Map<UUID, VoteChoice> votesView() {

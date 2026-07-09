@@ -20,6 +20,8 @@ import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.ConductKind;
+import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
@@ -491,6 +493,7 @@ public final class YamlKingdomStore {
         config.set(path + ".proposer", bill.proposerId().toString());
         config.set(path + ".tabled-at", bill.tabledAtMs());
         writePayload(config, path + ".payload", bill.type(), bill.payload());
+        writeConductProvisions(config, path + ".conduct", bill.conductProvisions());
         for (Map.Entry<UUID, VoteChoice> vote : bill.votesView().entrySet()) {
             config.set(path + ".votes." + vote.getKey() + ".choice", vote.getValue().name().toLowerCase());
         }
@@ -520,7 +523,8 @@ public final class YamlKingdomStore {
             int dash = id.indexOf('-');
             kingdomId = dash > 0 ? id.substring(0, dash) : id;
         }
-        Bill bill = new Bill(id, kingdomId, type, title, state, proposer, payload, tabledAt);
+        List<ConductProvision> conduct = readConductProvisions(section.get("conduct"));
+        Bill bill = new Bill(id, kingdomId, type, title, state, proposer, payload, tabledAt, conduct);
         ConfigurationSection votes = section.getConfigurationSection("votes");
         if (votes != null) {
             Map<UUID, VoteChoice> loadedVotes = new HashMap<>();
@@ -608,6 +612,7 @@ public final class YamlKingdomStore {
             if (act.speakerCastingVote() != null) {
                 config.set(actPath + ".speaker-casting-vote", act.speakerCastingVote().name().toLowerCase());
             }
+            writeConductProvisions(config, actPath + ".conduct", act.conductProvisions());
         }
     }
 
@@ -647,9 +652,40 @@ public final class YamlKingdomStore {
                     entry.getInt("shelf.x"),
                     entry.getInt("shelf.y"),
                     entry.getInt("shelf.z"),
-                    entry.getInt("shelf.slot")));
+                    entry.getInt("shelf.slot"),
+                    readConductProvisions(entry.get("conduct"))));
         }
         return acts;
+    }
+
+    private static void writeConductProvisions(
+            FileConfiguration config, String path, List<ConductProvision> provisions) {
+        if (provisions == null || provisions.isEmpty()) {
+            return;
+        }
+        List<String> kinds = new ArrayList<>();
+        for (ConductProvision provision : provisions) {
+            kinds.add(provision.kind().name().toLowerCase(Locale.ROOT));
+        }
+        config.set(path, kinds);
+    }
+
+    private static List<ConductProvision> readConductProvisions(Object raw) {
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return List.of();
+        }
+        List<ConductProvision> provisions = new ArrayList<>();
+        for (Object entry : list) {
+            if (entry == null) {
+                continue;
+            }
+            String kindName = entry.toString().trim().toUpperCase(Locale.ROOT);
+            if (kindName.isEmpty()) {
+                continue;
+            }
+            provisions.add(new ConductProvision(ConductKind.valueOf(kindName)));
+        }
+        return List.copyOf(provisions);
     }
 
     private static void readPendingResignation(ConfigurationSection section, KingdomElectionState electionState) {

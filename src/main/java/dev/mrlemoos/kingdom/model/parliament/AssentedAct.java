@@ -16,10 +16,12 @@ public record AssentedAct(
         int shelfBlockX,
         int shelfBlockY,
         int shelfBlockZ,
-        int shelfSlot) {
+        int shelfSlot,
+        List<ConductProvision> conductProvisions) {
 
     public AssentedAct {
         bookPages = List.copyOf(bookPages);
         divisionVotes = Map.copyOf(divisionVotes);
+        conductProvisions = conductProvisions == null ? List.of() : List.copyOf(conductProvisions);
     }
 }
