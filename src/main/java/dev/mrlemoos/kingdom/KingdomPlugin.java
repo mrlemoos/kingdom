@@ -41,14 +41,16 @@ import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
-import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
-import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
-import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
-import dev.mrlemoos.kingdom.listener.ResignationLetterListener;
+import dev.mrlemoos.kingdom.police.MechanicalJusticeConfig;
+import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceService;
+import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
+import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
+import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
+import dev.mrlemoos.kingdom.listener.ResignationLetterListener;
 import dev.mrlemoos.kingdom.whitelist.BukkitServerWhitelistGateway;
 import dev.mrlemoos.kingdom.whitelist.WhitelistService;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
@@ -77,6 +79,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private KingdomService kingdomService;
         private YamlKingdomStore store;
         private LoyaltyService loyaltyService;
+        private MechanicalJusticeService mechanicalJusticeService;
         private NoblePrefixDisplay nobleDisplay;
         private EconomyService economyService;
         private YamlEconomyStore economyStore;
@@ -95,6 +98,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                 loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
                 this.loyaltyService = loyaltyService;
                 PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
+                MechanicalJusticeService mechanicalJusticeService = new MechanicalJusticeService(
+                                kingdomService,
+                                policeService,
+                                MechanicalJusticeConfig.fromPluginConfig(getConfig()));
+                this.mechanicalJusticeService = mechanicalJusticeService;
                 nobleDisplay = new NoblePrefixDisplay(kingdomService, policeService);
 
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
@@ -289,6 +297,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 if (economyStore != null && economyService != null) {
                         economyStore.saveFrom(economyService);
                 }
+        }
+
+        public MechanicalJusticeService getMechanicalJusticeService() {
+                return mechanicalJusticeService;
         }
 
         public LoyaltyService getLoyaltyService() {

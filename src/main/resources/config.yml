@@ -83,6 +83,10 @@ loyalty:
   political:
     enabled: true
 
+police:
+  mechanical-act-breach:
+    enabled: true
+
 election:
   general-interval-mc-days: 120
   duration-mc-days: 3
