@@ -82,8 +82,12 @@ economy:
 loyalty:
   political:
     enabled: true
+  recovery:
+    mc-days-per-tier: 3
   military:
     enabled: true
+    recovery:
+      mc-days-per-tier: 1
 
 police:
   mechanical-act-breach:
@@ -106,6 +110,8 @@ war:
     enabled: true
   roster:
     cap: 8
+  oath:
+    enabled: true
 
 election:
   general-interval-mc-days: 120

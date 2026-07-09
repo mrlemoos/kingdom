@@ -1,6 +1,9 @@
 package dev.mrlemoos.kingdom.loyalty;
 
+import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +17,14 @@ public final class MoraleService {
 
     private final MoraleStore store;
     private final MoraleConfig config;
+
+    /**
+     * In-memory recovery clocks, mirroring {@link LoyaltyService}'s: lazily established on first
+     * tick for a tier and restarted whenever the tracked tier no longer matches the current one —
+     * including a further morale breach recorded through {@code MoraleStoreTrack} while the clock
+     * was already running.
+     */
+    private final Map<UUID, RecoveryMark> recoveryMarks = new HashMap<>();
 
     public MoraleService(MoraleStore store, MoraleConfig config) {
         this.store = Objects.requireNonNull(store, "store");
@@ -66,6 +77,71 @@ public final class MoraleService {
                 + display(next) + ".");
     }
 
+    /**
+     * Morale recovery: honourable service raises tier one step per {@link
+     * MoraleConfig#recoveryMcDaysPerTier()} in-game days without further breach, up to Steadfast
+     * (Shaken → Steadfast, Breaking → Shaken). Rout never recovers by time alone — a {@link
+     * #pardon} is required before the subject may muster again. Fails if the track is closed —
+     * there is nothing to recover. The recovery clock starts lazily on the first tick call for a
+     * given tier and restarts whenever the tracked tier no longer matches the current tier.
+     */
+    public MoraleResult tickRecovery(UUID playerId, long currentMcDay) {
+        if (!config.militaryEnabled()) {
+            return MoraleResult.disabled("Military morale is disabled.");
+        }
+        Optional<MoraleTier> current = store.findTier(playerId);
+        if (current.isEmpty()) {
+            return MoraleResult.fail("Military morale track is not open.");
+        }
+        MoraleTier tier = current.get();
+        if (tier == MoraleTier.STEADFAST) {
+            recoveryMarks.remove(playerId);
+            return MoraleResult.ok(current, tier, "Military morale is already Steadfast.");
+        }
+        if (tier == MoraleTier.ROUT) {
+            recoveryMarks.remove(playerId);
+            return MoraleResult.fail("Rout cannot recover by time alone; a morale pardon is required.");
+        }
+
+        RecoveryMark mark = recoveryMarks.get(playerId);
+        if (mark == null || mark.tier() != tier) {
+            recoveryMarks.put(playerId, new RecoveryMark(tier, currentMcDay));
+            return MoraleResult.ok(current, tier, "Morale recovery clock started at " + display(tier) + ".");
+        }
+
+        long elapsed = currentMcDay - mark.mcDay();
+        if (elapsed < config.recoveryMcDaysPerTier()) {
+            return MoraleResult.ok(current, tier, "Military morale remains " + display(tier) + ".");
+        }
+
+        MoraleTier next = tier == MoraleTier.BREAKING ? MoraleTier.SHAKEN : MoraleTier.STEADFAST;
+        store.putTier(playerId, next);
+        if (next == MoraleTier.STEADFAST) {
+            recoveryMarks.remove(playerId);
+        } else {
+            recoveryMarks.put(playerId, new RecoveryMark(next, currentMcDay));
+        }
+        return MoraleResult.ok(current, next, "Military morale recovered to " + display(next) + ".");
+    }
+
+    /**
+     * Morale pardon: the crown (King or Queen) or an appointed knight restores military morale at
+     * a muster point or court. Returns tier to Steadfast — required to clear Rout before the
+     * subject's next levy duty.
+     */
+    public MoraleResult pardon(UUID playerId, NobleRank actor) {
+        if (!config.militaryEnabled()) {
+            return MoraleResult.disabled("Military morale is disabled.");
+        }
+        if (actor != NobleRank.KING && actor != NobleRank.QUEEN && actor != NobleRank.KNIGHT) {
+            return MoraleResult.fail("Only the Crown or a Knight may grant a morale pardon.");
+        }
+        Optional<MoraleTier> previous = store.findTier(playerId);
+        store.putTier(playerId, MoraleTier.STEADFAST);
+        recoveryMarks.remove(playerId);
+        return MoraleResult.ok(previous, MoraleTier.STEADFAST, "Morale pardon granted. Military morale restored to Steadfast.");
+    }
+
     public MoraleStore store() {
         return store;
     }
@@ -90,4 +166,6 @@ public final class MoraleService {
             case ROUT -> "Rout";
         };
     }
+
+    private record RecoveryMark(MoraleTier tier, long mcDay) {}
 }

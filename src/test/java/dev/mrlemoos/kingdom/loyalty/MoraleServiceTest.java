@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,5 +142,135 @@ class MoraleServiceTest {
 
         assertInstanceOf(MoraleResult.Disabled.class, result);
         assertTrue(disabled.tierOf(PLAYER).isEmpty());
+    }
+
+    @Test
+    void tickRecoveryFailsWhenTrackIsClosed() {
+        MoraleResult result = service.tickRecovery(PLAYER, 10L);
+
+        assertInstanceOf(MoraleResult.Failure.class, result);
+        assertTrue(service.tierOf(PLAYER).isEmpty());
+    }
+
+    @Test
+    void tickRecoveryIsANoOpWhileAlreadySteadfast() {
+        service.openTrack(PLAYER);
+
+        MoraleResult result = service.tickRecovery(PLAYER, 10L);
+
+        assertInstanceOf(MoraleResult.Success.class, result);
+        assertEquals(MoraleTier.STEADFAST, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void tickRecoveryStartsTheClockOnFirstCallWithoutPromoting() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+
+        service.tickRecovery(PLAYER, 10L);
+
+        assertEquals(MoraleTier.SHAKEN, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void tickRecoveryPromotesShakenToSteadfastAfterConfiguredDays() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.tickRecovery(PLAYER, 10L);
+        int daysPerTier = MoraleConfig.enabled().recoveryMcDaysPerTier();
+
+        MoraleResult result = service.tickRecovery(PLAYER, 10L + daysPerTier);
+
+        assertInstanceOf(MoraleResult.Success.class, result);
+        assertEquals(MoraleTier.STEADFAST, ((MoraleResult.Success) result).tier());
+        assertEquals(MoraleTier.STEADFAST, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void tickRecoveryPromotesBreakingToShakenThenSteadfast() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        assertEquals(MoraleTier.BREAKING, service.tierOf(PLAYER).orElseThrow());
+        int daysPerTier = MoraleConfig.enabled().recoveryMcDaysPerTier();
+        service.tickRecovery(PLAYER, 0L);
+
+        service.tickRecovery(PLAYER, daysPerTier);
+        assertEquals(MoraleTier.SHAKEN, service.tierOf(PLAYER).orElseThrow());
+
+        service.tickRecovery(PLAYER, 2L * daysPerTier);
+        assertEquals(MoraleTier.STEADFAST, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void routCannotTimeRecover() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        assertEquals(MoraleTier.ROUT, service.tierOf(PLAYER).orElseThrow());
+
+        MoraleResult result = service.tickRecovery(PLAYER, 1_000_000L);
+
+        assertInstanceOf(MoraleResult.Failure.class, result);
+        assertEquals(MoraleTier.ROUT, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void pardonByCrownRestoresRoutToSteadfast() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+
+        MoraleResult result = service.pardon(PLAYER, NobleRank.QUEEN);
+
+        assertInstanceOf(MoraleResult.Success.class, result);
+        assertEquals(MoraleTier.STEADFAST, ((MoraleResult.Success) result).tier());
+        assertEquals(MoraleTier.STEADFAST, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void pardonByKnightRestoresRoutToSteadfast() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+
+        MoraleResult result = service.pardon(PLAYER, NobleRank.KNIGHT);
+
+        assertInstanceOf(MoraleResult.Success.class, result);
+        assertEquals(MoraleTier.STEADFAST, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void pardonByUnauthorisedActorFails() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+        service.recordSiegeHostileAction(PLAYER, true);
+
+        MoraleResult result = service.pardon(PLAYER, NobleRank.MP);
+
+        assertInstanceOf(MoraleResult.Failure.class, result);
+        assertEquals(MoraleTier.ROUT, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    @Test
+    void disabledFlagMakesTickRecoveryANoOp() {
+        MoraleService disabled = new MoraleService(store, MoraleConfig.disabled());
+
+        MoraleResult result = disabled.tickRecovery(PLAYER, 10L);
+
+        assertInstanceOf(MoraleResult.Disabled.class, result);
+    }
+
+    @Test
+    void disabledFlagMakesPardonANoOp() {
+        MoraleService disabled = new MoraleService(store, MoraleConfig.disabled());
+
+        MoraleResult result = disabled.pardon(PLAYER, NobleRank.QUEEN);
+
+        assertInstanceOf(MoraleResult.Disabled.class, result);
     }
 }
