@@ -17,6 +17,10 @@ import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.war.WarAim;
+import dev.mrlemoos.kingdom.model.war.WarOutcome;
+import dev.mrlemoos.kingdom.war.WarResult;
+import dev.mrlemoos.kingdom.war.WarService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +35,7 @@ public final class ParliamentService {
     private final java.util.function.Supplier<Long> clockMs;
     private final AtomicLong billSequence = new AtomicLong(1);
     private ProfessionVoteBias professionVoteBias = ProfessionVoteBias.defaults();
+    private WarService warService;
 
     public ParliamentService(KingdomService kingdomService) {
         this(kingdomService, System::currentTimeMillis);
@@ -43,6 +48,10 @@ public final class ParliamentService {
 
     public void setProfessionVoteBias(ProfessionVoteBias professionVoteBias) {
         this.professionVoteBias = professionVoteBias != null ? professionVoteBias : ProfessionVoteBias.defaults();
+    }
+
+    public void setWarService(WarService warService) {
+        this.warService = warService;
     }
 
     public ParliamentResult setCommons(String kingdomId, ChamberSite site) {
@@ -275,6 +284,43 @@ public final class ParliamentService {
                 BillType.SPEND_STIPEND,
                 optionalTitle,
                 new BillPayload.SpendStipend(recipientId, amount, normalisedReason));
+    }
+
+    public ParliamentResult tableWar(
+            String kingdomId,
+            NobleRank rank,
+            UUID proposerId,
+            String targetKingdomId,
+            WarAim aim,
+            WarOutcome outcome,
+            int musterDeadlineMcDays,
+            String optionalTitle) {
+        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+            return ParliamentResult.fail("Only the King or Queen may table a war bill.");
+        }
+        ParliamentResult blocked = premierActionBlocked(kingdomId);
+        if (blocked != null) {
+            return blocked;
+        }
+        if (warService == null) {
+            return ParliamentResult.fail("War is disabled.");
+        }
+        if (aim == null || outcome == null) {
+            return ParliamentResult.fail("War aim and outcome are required.");
+        }
+        if (musterDeadlineMcDays <= 0) {
+            return ParliamentResult.fail("Muster deadline must be a positive number of days.");
+        }
+        WarResult validation = warService.validateWarBill(kingdomId, targetKingdomId);
+        if (validation instanceof WarResult.Failure failure) {
+            return ParliamentResult.fail(failure.message());
+        }
+        return tableBill(
+                kingdomId,
+                proposerId,
+                BillType.WAR,
+                optionalTitle,
+                new BillPayload.War(Kingdom.normaliseId(targetKingdomId), aim, outcome, musterDeadlineMcDays));
     }
 
     public ParliamentResult openDivision(String kingdomId, NobleRank rank) {
@@ -620,6 +666,13 @@ public final class ParliamentService {
                         stipend.recipientId(),
                         reason);
             }
+            case BillPayload.War war -> String.format(
+                    Locale.UK,
+                    "War on %s, aim %s, outcome %s, muster deadline %d day(s)",
+                    war.targetKingdomId(),
+                    war.aim().name().toLowerCase(Locale.ROOT).replace('_', ' '),
+                    war.outcome().name().toLowerCase(Locale.ROOT).replace('_', ' '),
+                    war.musterDeadlineMcDays());
         };
     }
 

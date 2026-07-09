@@ -8,8 +8,17 @@ import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.TitleStyle;
+import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
+import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.war.ActiveWar;
+import dev.mrlemoos.kingdom.model.war.WarAim;
+import dev.mrlemoos.kingdom.model.war.WarOutcome;
+import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
+import dev.mrlemoos.kingdom.war.WarConfig;
+import dev.mrlemoos.kingdom.war.WarResult;
+import dev.mrlemoos.kingdom.war.WarService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,11 +33,13 @@ class ParliamentServiceTest {
 
     private KingdomService kingdomService;
     private ParliamentService parliamentService;
+    private WarService warService;
 
     @BeforeEach
     void setUp() {
         kingdomService = new KingdomService();
         kingdomService.createKingdom("northmarch", "Northmarch");
+        kingdomService.createKingdom("southreach", "Southreach");
         kingdomService.joinKingdom(PREMIER, "northmarch");
         kingdomService.joinKingdom(SPEAKER, "northmarch");
         kingdomService.joinKingdom(MP_ONE, "northmarch");
@@ -40,6 +51,9 @@ class ParliamentServiceTest {
         kingdomService.assignTitleFromElection(MP_ONE, TitleStyle.MASCULINE);
         kingdomService.assignTitleFromElection(MP_TWO, TitleStyle.MASCULINE);
         parliamentService = new ParliamentService(kingdomService, () -> 1_700_000_000_000L);
+        warService = new WarService(kingdomService, () -> 1_700_000_000_000L);
+        warService.setConfig(WarConfig.on());
+        parliamentService.setWarService(warService);
     }
 
     @Test
@@ -174,6 +188,92 @@ class ParliamentServiceTest {
 
         assertInstanceOf(ParliamentResult.Success.class, tabled);
         assertTrue(parliamentService.currentBill("northmarch").isPresent());
+    }
+
+    @Test
+    void onlyMonarchMayTableWarBill() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.PREMIER, PREMIER, "southreach",
+                WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+    }
+
+    @Test
+    void cannotTableWarBillWhenWarDisabled() {
+        warService.setConfig(WarConfig.off());
+
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "southreach",
+                WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().toLowerCase().contains("disabled"));
+    }
+
+    @Test
+    void unknownTargetKingdomRejectedAtTabling() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "no_such_kingdom",
+                WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+    }
+
+    @Test
+    void cannotTableWarBillTargetingOwnKingdom() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "northmarch",
+                WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+    }
+
+    @Test
+    void cannotTableSecondWarBillWhileAttackerAlreadyAtWar() {
+        kingdomService.createKingdom("eastvale", "Eastvale");
+        warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "eastvale",
+                WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 5, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().toLowerCase().contains("already at war"));
+    }
+
+    @Test
+    void monarchTablesWarBillAndEnactmentCreatesActiveWar() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "southreach",
+                WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 4, "Declaration of War on Southreach");
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertEquals(BillType.WAR, parliamentService.currentBill("northmarch").orElseThrow().type());
+
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.openDivision("northmarch", NobleRank.SPEAKER));
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+        parliamentService.castSpeakerVote("northmarch", NobleRank.SPEAKER, VoteChoice.AYE);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.closeDivision("northmarch", NobleRank.SPEAKER));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.assent("northmarch", NobleRank.KING));
+
+        var draft = parliamentService.consumeAssentedBill("northmarch");
+        assertTrue(draft.isPresent());
+
+        WarResult enacted = ParliamentEnactment.enactWar(draft.get(), warService);
+        assertInstanceOf(WarResult.Success.class, enacted);
+
+        ActiveWar war = warService.activeWarFor("northmarch").orElseThrow();
+        assertEquals("northmarch", war.attackerKingdomId());
+        assertEquals("southreach", war.defenderKingdomId());
+        assertEquals(WarAim.CAPITAL_FALL, war.aim());
+        assertEquals(WarOutcome.WAR_TRIBUTE, war.outcome());
+        assertEquals(1_700_000_000_000L, war.startedAtMs());
+        assertEquals(1_700_000_000_000L + 4 * WarConfig.DEFAULT_MS_PER_MC_DAY, war.musterDeadlineAtMs());
+        assertTrue(warService.isAtWar("southreach"));
     }
 
     private void clearPlayerMpTitles() {

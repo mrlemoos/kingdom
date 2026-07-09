@@ -27,14 +27,19 @@ import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
+import dev.mrlemoos.kingdom.model.war.ActiveWar;
+import dev.mrlemoos.kingdom.model.war.WarAim;
+import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.WarService;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +59,7 @@ public final class YamlKingdomStore {
     private final JavaPlugin plugin;
     private final File dataFile;
     private LoyaltyStore loyaltyStore;
+    private WarService warService;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -62,6 +68,10 @@ public final class YamlKingdomStore {
 
     public void setLoyaltyStore(LoyaltyStore loyaltyStore) {
         this.loyaltyStore = loyaltyStore;
+    }
+
+    public void setWarService(WarService warService) {
+        this.warService = warService;
     }
 
     public void loadInto(KingdomService service) {
@@ -126,6 +136,9 @@ public final class YamlKingdomStore {
         if (loyaltyStore != null) {
             loyaltyStore.replaceAll(readLoyalty(data.getConfigurationSection("loyalty")));
         }
+        if (warService != null) {
+            warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
+        }
     }
 
     public void saveFrom(KingdomService service) {
@@ -152,6 +165,9 @@ public final class YamlKingdomStore {
 
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
+        }
+        if (warService != null) {
+            writeWars(data, "wars", warService.activeWarsView());
         }
 
         try {
@@ -577,6 +593,12 @@ public final class YamlKingdomStore {
                 config.set(path + ".amount", stipend.amount());
                 config.set(path + ".reason", stipend.reason());
             }
+            case BillPayload.War war -> {
+                config.set(path + ".target", war.targetKingdomId());
+                config.set(path + ".aim", war.aim().name().toLowerCase(Locale.ROOT));
+                config.set(path + ".outcome", war.outcome().name().toLowerCase(Locale.ROOT));
+                config.set(path + ".muster-deadline-mc-days", war.musterDeadlineMcDays());
+            }
         }
     }
 
@@ -603,6 +625,11 @@ public final class YamlKingdomStore {
                     UUID.fromString(section.getString("recipient")),
                     section.getDouble("amount"),
                     section.getString("reason"));
+            case WAR -> new BillPayload.War(
+                    section.getString("target"),
+                    WarAim.valueOf(section.getString("aim", "territory_threshold").toUpperCase(Locale.ROOT)),
+                    WarOutcome.valueOf(section.getString("outcome", "annexation").toUpperCase(Locale.ROOT)),
+                    section.getInt("muster-deadline-mc-days"));
         };
     }
 
@@ -822,6 +849,45 @@ public final class YamlKingdomStore {
             guardGolems.add(UUID.fromString(id));
         }
         police.replaceGuardGolems(guardGolems);
+    }
+
+    static void writeWars(FileConfiguration config, String path, Collection<ActiveWar> wars) {
+        for (ActiveWar war : wars) {
+            String warPath = path + "." + war.id();
+            config.set(warPath + ".attacker", war.attackerKingdomId());
+            config.set(warPath + ".defender", war.defenderKingdomId());
+            config.set(warPath + ".aim", war.aim().name().toLowerCase(Locale.ROOT));
+            config.set(warPath + ".outcome", war.outcome().name().toLowerCase(Locale.ROOT));
+            config.set(warPath + ".started-at", war.startedAtMs());
+            config.set(warPath + ".muster-deadline-at", war.musterDeadlineAtMs());
+        }
+    }
+
+    static List<ActiveWar> readWars(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+        List<ActiveWar> wars = new ArrayList<>();
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) {
+                continue;
+            }
+            String attacker = entry.getString("attacker");
+            String defender = entry.getString("defender");
+            if (attacker == null || defender == null) {
+                continue;
+            }
+            wars.add(new ActiveWar(
+                    key,
+                    attacker,
+                    defender,
+                    WarAim.valueOf(entry.getString("aim", "territory_threshold").toUpperCase(Locale.ROOT)),
+                    WarOutcome.valueOf(entry.getString("outcome", "annexation").toUpperCase(Locale.ROOT)),
+                    entry.getLong("started-at"),
+                    entry.getLong("muster-deadline-at")));
+        }
+        return wars;
     }
 
     static void writeLoyalty(FileConfiguration config, String path, Map<UUID, LoyaltyTier> tiers) {

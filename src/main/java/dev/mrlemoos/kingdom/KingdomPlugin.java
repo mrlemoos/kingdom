@@ -73,6 +73,8 @@ import dev.mrlemoos.kingdom.task.ElectionTask;
 import dev.mrlemoos.kingdom.task.TerritoryVillagerDespawnTask;
 import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
+import dev.mrlemoos.kingdom.war.WarConfig;
+import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 
 import org.bukkit.command.CommandSender;
@@ -90,6 +92,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private EconomyService economyService;
         private YamlEconomyStore economyStore;
         private EconomyCoordinator economyCoordinator;
+        private WarService warService;
 
         @Override
         public void onEnable() {
@@ -99,6 +102,9 @@ public final class KingdomPlugin extends JavaPlugin {
                 store = new YamlKingdomStore(this);
                 InMemoryLoyaltyStore loyaltyStore = new InMemoryLoyaltyStore();
                 store.setLoyaltyStore(loyaltyStore);
+                warService = new WarService(kingdomService);
+                warService.setConfig(WarConfig.fromPluginConfig(getConfig()));
+                store.setWarService(warService);
                 store.loadInto(kingdomService);
                 LoyaltyService loyaltyService = new LoyaltyService(
                                 loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
@@ -151,6 +157,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this, kingdomService, villagerScanner, territoryResolver);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
+                parliamentService.setWarService(warService);
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
                                 electionConfig);
