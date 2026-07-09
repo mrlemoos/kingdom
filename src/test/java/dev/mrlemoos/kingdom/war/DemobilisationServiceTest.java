@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.war;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
@@ -12,6 +13,10 @@ import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
+import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
+import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
+import dev.mrlemoos.kingdom.war.capture.RegionMergePlan;
 import dev.mrlemoos.kingdom.war.conscription.ConscriptionConfig;
 import dev.mrlemoos.kingdom.war.conscription.ConscriptionService;
 import dev.mrlemoos.kingdom.war.conscription.InMemoryConscriptionStore;
@@ -21,6 +26,7 @@ import dev.mrlemoos.kingdom.war.muster.MusterService;
 import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,8 +35,9 @@ import org.junit.jupiter.api.Test;
  * Peace bill demobilisation: hostilities cease, the levy's muster state is cleared, and mobilised
  * standing-roster members lose their wartime on-duty/hardened footing — but standing roster
  * membership itself persists, since the standing force is not demobbed off the roster, only stood
- * down from wartime duty. Captured-chunk reversion and any annexation/tribute side effect remain
- * no-ops here (deferred to Phase 6).
+ * down from wartime duty. Captured-chunk reversion (Slice 6.8) restores every captured chunk to
+ * defender control and never creates a {@link RegionMergePlan}; any annexation/tribute side effect
+ * remains a no-op here (that only follows decisive victory, not a negotiated peace).
  */
 class DemobilisationServiceTest {
 
@@ -131,8 +138,8 @@ class DemobilisationServiceTest {
 
     @Test
     void demobiliseSucceedsWithoutAnyCapturedChunkState() {
-        // No ChunkCaptureTally/RegionMergePlan was ever created for this war — captured-chunk
-        // reversion is a no-op stub until Phase 6, so demobilisation must not depend on it.
+        // No ChunkCaptureTally was ever created for this war, and no ChunkCaptureService is
+        // hooked — captured-chunk reversion must be a null-safe no-op in that case.
         WarResult result = demobilisationService.demobilise(war);
 
         assertInstanceOf(WarResult.Success.class, result);
@@ -188,5 +195,65 @@ class DemobilisationServiceTest {
 
         assertInstanceOf(WarResult.Success.class, result);
         assertFalse(warService.isAtWar("northmarch"));
+    }
+
+    @Test
+    void demobiliseRevertsCapturedChunksToDefenderControlWhenChunkCaptureServiceIsHooked() {
+        ChunkCaptureService chunkCaptureService = new ChunkCaptureService(new CaptureConfig(true, 1));
+        ChunkCoord chunk = new ChunkCoord("world", 1, 1);
+        chunkCaptureService.tick(war.id(), chunk, "northmarch", "southreach", 3, 0);
+        assertTrue(chunkCaptureService.controller(war.id(), chunk).isPresent());
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+
+        demobilisationService.demobilise(war);
+
+        assertTrue(chunkCaptureService.controller(war.id(), chunk).isEmpty());
+        assertTrue(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
+    }
+
+    @Test
+    void demobiliseCapturedChunkRevertIsIdempotentAcrossRepeatedDemobilisation() {
+        ChunkCaptureService chunkCaptureService = new ChunkCaptureService(new CaptureConfig(true, 1));
+        ChunkCoord chunk = new ChunkCoord("world", 1, 1);
+        chunkCaptureService.tick(war.id(), chunk, "northmarch", "southreach", 3, 0);
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+
+        demobilisationService.demobilise(war);
+        WarResult secondResult = demobilisationService.demobilise(war);
+
+        assertInstanceOf(WarResult.Success.class, secondResult);
+        assertTrue(chunkCaptureService.controller(war.id(), chunk).isEmpty());
+    }
+
+    @Test
+    void demobiliseWithoutChunkCaptureServiceHookedLeavesCapturedChunkStateUntouched() {
+        // Mirrors the standing-roster/crown-squad/conscription hooks: without the optional
+        // ChunkCaptureService hook, demobilisation must still succeed and leave capture state
+        // simply untouched rather than throwing.
+        DemobilisationService bareDemobilisationService = new DemobilisationService(warService);
+
+        WarResult result = bareDemobilisationService.demobilise(war);
+
+        assertInstanceOf(WarResult.Success.class, result);
+    }
+
+    @Test
+    void demobiliseOnPeacePathNeverProducesANonEmptyRegionMergePlanForTheWar() {
+        // Peace bill demobilisation must never leave behind capture state that a region-merge
+        // planner could act on: after revert, no captured chunks remain for the attacker, so
+        // RegionMergePlan.fromCapturedChunks (the only route to a merge) cannot be built.
+        ChunkCaptureService chunkCaptureService = new ChunkCaptureService(new CaptureConfig(true, 1));
+        ChunkCoord chunk = new ChunkCoord("world", 2, 2);
+        chunkCaptureService.tick(war.id(), chunk, "northmarch", "southreach", 3, 0);
+        assertFalse(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+
+        demobilisationService.demobilise(war);
+
+        Set<ChunkCoord> capturedAfterRevert = chunkCaptureService.capturedBy(war.id(), "northmarch");
+        assertTrue(capturedAfterRevert.isEmpty());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> RegionMergePlan.fromCapturedChunks("northmarch", "southreach", capturedAfterRevert));
     }
 }
