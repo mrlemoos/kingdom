@@ -301,7 +301,7 @@ A requirement that at least one numbered prison cell and one court lectern are c
 _Avoid_: Police unlock, setup check, readiness flag
 
 **Cell**:
-A numbered confinement point inside kingdom territory, set by the King, Queen, or an operator. Prison sentences assign the lowest free numbered slot up to the configured maximum (default four).
+A numbered confinement point inside kingdom territory, set by the King, Queen, or an operator. Kingdoms may configure any number of cells. Prison sentences assign the lowest free numbered configured slot.
 _Avoid_: Jail bed, spawn point, detention zone
 
 **Patrol golem**:
@@ -593,6 +593,10 @@ _Avoid_: Raid timer, faction war id, PvP flag
 **At war**:
 A kingdom wartime state while it is a **belligerent** in an **active war**. Begins when a **war bill** naming that kingdom as attacker or defender receives **royal assent**; ends when that **active war** closes. While **at war**, **battlefield treason**, **muster**, **siege**, and levy rules apply.
 _Avoid_: PvP enabled tag, combat mode, war team
+
+**At peace**:
+A kingdom state with no **active war** involving it. The default outside wartime; shown on kingdom info as peace rather than an enemy and **war aim**.
+_Avoid_: Neutral flag, PvP off tag, ceasefire mode
 
 **Belligerent**:
 Either kingdom party to an **active war**—the attacking realm that enacted the **war bill** and the named defender. Both are **at war** from enactment until the war ends.

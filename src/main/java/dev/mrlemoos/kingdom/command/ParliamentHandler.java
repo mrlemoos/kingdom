@@ -4,7 +4,6 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
-import dev.mrlemoos.kingdom.economy.service.EconomyResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
@@ -19,6 +18,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.parliament.AssentedEnactmentResult;
 import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
 import dev.mrlemoos.kingdom.parliament.RegistrarShelfWriter;
 import dev.mrlemoos.kingdom.service.ChamberPresence;
@@ -27,6 +27,8 @@ import dev.mrlemoos.kingdom.service.ParliamentResult;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.DemobilisationService;
+import dev.mrlemoos.kingdom.war.WarService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +55,8 @@ public final class ParliamentHandler {
     private final TreasuryLordService treasuryLordService;
     private final JavaPlugin plugin;
     private final VillagerPremierInauguralService villagerPremierInauguralService;
+    private final WarService warService;
+    private final DemobilisationService demobilisationService;
     private Consumer<Player> hubGuiOpener;
 
     public ParliamentHandler(
@@ -65,6 +69,32 @@ public final class ParliamentHandler {
             TreasuryLordService treasuryLordService,
             JavaPlugin plugin,
             VillagerPremierInauguralService villagerPremierInauguralService) {
+        this(
+                parliamentService,
+                kingdomService,
+                economyService,
+                kingdomStore,
+                economyStore,
+                territoryResolver,
+                treasuryLordService,
+                plugin,
+                villagerPremierInauguralService,
+                null,
+                null);
+    }
+
+    public ParliamentHandler(
+            ParliamentService parliamentService,
+            KingdomService kingdomService,
+            EconomyService economyService,
+            YamlKingdomStore kingdomStore,
+            YamlEconomyStore economyStore,
+            TerritoryResolver territoryResolver,
+            TreasuryLordService treasuryLordService,
+            JavaPlugin plugin,
+            VillagerPremierInauguralService villagerPremierInauguralService,
+            WarService warService,
+            DemobilisationService demobilisationService) {
         this.parliamentService = parliamentService;
         this.kingdomService = kingdomService;
         this.economyService = economyService;
@@ -74,6 +104,8 @@ public final class ParliamentHandler {
         this.treasuryLordService = treasuryLordService;
         this.plugin = plugin;
         this.villagerPremierInauguralService = villagerPremierInauguralService;
+        this.warService = warService;
+        this.demobilisationService = demobilisationService;
     }
 
     public void setHubGuiOpener(Consumer<Player> hubGuiOpener) {
@@ -218,8 +250,9 @@ public final class ParliamentHandler {
         }
 
         int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
-        EconomyResult enacted = ParliamentEnactment.enact(draft.get(), economyService, maxMints);
-        if (enacted instanceof EconomyResult.Failure failure) {
+        AssentedEnactmentResult enacted = ParliamentEnactment.enactAssented(
+                draft.get(), economyService, warService, demobilisationService, maxMints);
+        if (enacted instanceof AssentedEnactmentResult.Failure failure) {
             player.sendMessage(error("Royal assent recorded but enactment failed: " + failure.message()));
             kingdomStore.saveFrom(kingdomService);
             return false;
@@ -245,7 +278,8 @@ public final class ParliamentHandler {
         kingdomStore.saveFrom(kingdomService);
         villagerPremierInauguralService.tablePendingBudgetAfterAssent(kingdomId);
         kingdomStore.saveFrom(kingdomService);
-        player.sendMessage(success(((EconomyResult.Success) enacted).message() + " Act archived in the registrar."));
+        player.sendMessage(success(
+                ((AssentedEnactmentResult.Success) enacted).message() + " Act archived in the registrar."));
         broadcastParliament(kingdomId, c("&aRoyal assent granted: ")+ draft.get().title());
         return true;
     }

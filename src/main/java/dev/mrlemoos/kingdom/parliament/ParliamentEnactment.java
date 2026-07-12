@@ -31,6 +31,48 @@ public final class ParliamentEnactment {
     }
 
     /**
+     * Enactment path used after royal assent (parliament GUI / command). Routes fiscal and supply
+     * bills through the treasury, and war/peace bills through the war services.
+     */
+    public static AssentedEnactmentResult enactAssented(
+            AssentedActDraft draft,
+            EconomyService economyService,
+            WarService warService,
+            DemobilisationService demobilisationService,
+            int maxMints) {
+        return switch (draft.payload()) {
+            case BillPayload.War ignored -> {
+                if (warService == null) {
+                    yield AssentedEnactmentResult.fail("War service is not available.");
+                }
+                WarResult warResult = enactWar(draft, warService);
+                yield toAssentedResult(warResult);
+            }
+            case BillPayload.Peace ignored -> {
+                if (warService == null || demobilisationService == null) {
+                    yield AssentedEnactmentResult.fail("Peace demobilisation is not available.");
+                }
+                WarResult peaceResult = enactPeace(draft, warService, demobilisationService);
+                yield toAssentedResult(peaceResult);
+            }
+            default -> {
+                EconomyResult economyResult = enact(draft, economyService, maxMints);
+                yield switch (economyResult) {
+                    case EconomyResult.Success success -> AssentedEnactmentResult.ok(success.message());
+                    case EconomyResult.Failure failure -> AssentedEnactmentResult.fail(failure.message());
+                };
+            }
+        };
+    }
+
+    private static AssentedEnactmentResult toAssentedResult(WarResult result) {
+        return switch (result) {
+            case WarResult.Success success -> AssentedEnactmentResult.ok(success.message());
+            case WarResult.Failure failure -> AssentedEnactmentResult.fail(failure.message());
+        };
+    }
+
+    /**
      * War bills do not touch the treasury — enact them via the WarService instead of {@link #enact}.
      */
     public static WarResult enactWar(AssentedActDraft draft, WarService warService) {

@@ -200,13 +200,16 @@ public final class PoliceTrialService {
     private OptionalInt lowestUnoccupiedConfiguredCell(
             dev.mrlemoos.kingdom.model.police.KingdomPoliceState police) {
         Set<Integer> occupied = new HashSet<>(prisonCellByAccused.values());
-        int max = policeService.config().maxCells();
-        for (int slot = 1; slot <= max; slot++) {
-            if (police.cell(slot).isPresent() && !occupied.contains(slot)) {
-                return OptionalInt.of(slot);
+        OptionalInt lowest = OptionalInt.empty();
+        for (Integer slot : police.cellsView().keySet()) {
+            if (slot == null || occupied.contains(slot)) {
+                continue;
+            }
+            if (lowest.isEmpty() || slot.intValue() < lowest.getAsInt()) {
+                lowest = OptionalInt.of(slot.intValue());
             }
         }
-        return OptionalInt.empty();
+        return lowest;
     }
 
     private PoliceResult applyAcquittal(PoliceCase policeCase) {

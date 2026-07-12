@@ -120,8 +120,8 @@ public final class PoliceService {
         if (!PoliceAuthority.canConfigureSites(actorRank, operator)) {
             return PoliceResult.fail("Only the King, Queen, or an operator may configure prison cells.");
         }
-        if (slot < 1 || slot > config.maxCells()) {
-            return PoliceResult.fail("Cell slot must be between 1 and " + config.maxCells() + ".");
+        if (slot < 1) {
+            return PoliceResult.fail("Cell slot must be 1 or greater.");
         }
         if (location == null || location.worldName().isBlank()) {
             return PoliceResult.fail("A valid cell location is required.");
@@ -138,8 +138,8 @@ public final class PoliceService {
         if (!PoliceAuthority.canConfigureSites(actorRank, operator)) {
             return PoliceResult.fail("Only the King, Queen, or an operator may clear prison cells.");
         }
-        if (slot < 1 || slot > config.maxCells()) {
-            return PoliceResult.fail("Cell slot must be between 1 and " + config.maxCells() + ".");
+        if (slot < 1) {
+            return PoliceResult.fail("Cell slot must be 1 or greater.");
         }
         KingdomPoliceState police = kingdom.get().getPoliceState();
         if (police.cell(slot).isEmpty()) {
@@ -162,7 +162,7 @@ public final class PoliceService {
         if (kingdom.isEmpty()) {
             return OptionalInt.empty();
         }
-        return kingdom.get().getPoliceState().lowestFreeCellSlot(config.maxCells());
+        return kingdom.get().getPoliceState().lowestFreeCellSlot();
     }
 
     public PoliceResult setCourt(

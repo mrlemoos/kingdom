@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.economy.service.EconomyResult;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
@@ -16,6 +18,7 @@ import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
+import dev.mrlemoos.kingdom.parliament.AssentedEnactmentResult;
 import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
@@ -334,6 +337,77 @@ class ParliamentServiceTest {
         WarResult enacted = ParliamentEnactment.enactPeace(draft.get(), warService, demobilisationService);
 
         assertInstanceOf(WarResult.Success.class, enacted);
+        assertFalse(warService.isAtWar("northmarch"));
+        assertFalse(warService.isAtWar("southreach"));
+    }
+
+    @Test
+    void economyOnlyEnactFailsForWarBillAfterRoyalAssent() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "southreach",
+                WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 4, "Declaration of War on Southreach");
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.openDivision("northmarch", NobleRank.SPEAKER));
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+        parliamentService.castSpeakerVote("northmarch", NobleRank.SPEAKER, VoteChoice.AYE);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.closeDivision("northmarch", NobleRank.SPEAKER));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.assent("northmarch", NobleRank.KING));
+
+        var draft = parliamentService.draftForAssentedBill("northmarch").orElseThrow();
+        EconomyResult economyOnly = ParliamentEnactment.enact(draft, new EconomyService(100.0), 3);
+
+        assertInstanceOf(EconomyResult.Failure.class, economyOnly);
+        assertFalse(warService.isAtWar("northmarch"));
+    }
+
+    @Test
+    void guiAssentPathEnactsWarBillViaEnactAssented() {
+        ParliamentResult tabled = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "southreach",
+                WarAim.CAPITAL_FALL, WarOutcome.WAR_TRIBUTE, 4, "Declaration of War on Southreach");
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.openDivision("northmarch", NobleRank.SPEAKER));
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+        parliamentService.castSpeakerVote("northmarch", NobleRank.SPEAKER, VoteChoice.AYE);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.closeDivision("northmarch", NobleRank.SPEAKER));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.assent("northmarch", NobleRank.KING));
+
+        var draft = parliamentService.draftForAssentedBill("northmarch").orElseThrow();
+        AssentedEnactmentResult result = ParliamentEnactment.enactAssented(
+                draft, new EconomyService(100.0), warService, new DemobilisationService(warService), 3);
+
+        assertInstanceOf(AssentedEnactmentResult.Success.class, result);
+        assertTrue(warService.isAtWar("northmarch"));
+        assertTrue(warService.isAtWar("southreach"));
+    }
+
+    @Test
+    void guiAssentPathEnactsPeaceBillViaEnactAssented() {
+        warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.tablePeace("northmarch", NobleRank.KING, KING, "Treaty of Southreach"));
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.openDivision("northmarch", NobleRank.SPEAKER));
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+        parliamentService.castSpeakerVote("northmarch", NobleRank.SPEAKER, VoteChoice.AYE);
+        assertInstanceOf(ParliamentResult.Success.class,
+                parliamentService.closeDivision("northmarch", NobleRank.SPEAKER));
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.assent("northmarch", NobleRank.KING));
+
+        var draft = parliamentService.draftForAssentedBill("northmarch").orElseThrow();
+        AssentedEnactmentResult result = ParliamentEnactment.enactAssented(
+                draft, new EconomyService(100.0), warService, new DemobilisationService(warService), 3);
+
+        assertInstanceOf(AssentedEnactmentResult.Success.class, result);
         assertFalse(warService.isAtWar("northmarch"));
         assertFalse(warService.isAtWar("southreach"));
     }

@@ -397,7 +397,7 @@ public final class KingdomPoliceHandler {
 
         boolean ready = policeService.isPoliceReady(kingdomId);
         sender.sendMessage(info("Police readiness: " + (ready ? "ready" : "not ready")));
-        sender.sendMessage(c("&7Configured cells: ")+ c("&f" + police.configuredCellCount()) + c("&7 / ")+ config.maxCells());
+        sender.sendMessage(c("&7Configured cells: ")+ c("&f" + police.configuredCellCount()));
         sender.sendMessage(c("&7Court: ")+ c("&f" + (police.hasCourt() ? "configured" : "not configured")));
         sender.sendMessage(c("&7Constables: ")+ c("&f" + police.constablesView().size()));
         sender.sendMessage(c("&7Judges: ")+ c("&f" + police.judgesView().size()));

@@ -77,6 +77,7 @@ import dev.mrlemoos.kingdom.task.ElectionTask;
 import dev.mrlemoos.kingdom.task.TerritoryVillagerDespawnTask;
 import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
+import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.oath.InMemorySwornOutsiderStore;
@@ -226,7 +227,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                 territoryResolver,
                                 treasuryLordService,
                                 this,
-                                villagerPremierInauguralService);
+                                villagerPremierInauguralService,
+                                warService,
+                                new DemobilisationService(warService));
                 ResignCommand resignCommand = new ResignCommand(
                                 this,
                                 kingdomService,
@@ -241,7 +244,8 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,
-                                electionHandler, realmWealthRates, policeHandler, whitelistHandler);
+                                electionHandler, realmWealthRates, policeHandler, whitelistHandler,
+                                warService, loyaltyService);
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);

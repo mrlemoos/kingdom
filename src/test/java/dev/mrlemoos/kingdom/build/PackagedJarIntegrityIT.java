@@ -23,7 +23,9 @@ class PackagedJarIntegrityIT {
             "dev/mrlemoos/kingdom/mint/TreasuryLordManagementPolicy.class",
             "dev/mrlemoos/kingdom/mint/TreasuryWithdrawGui.class",
             "dev/mrlemoos/kingdom/economy/EconomyCoordinator$MintMatch.class",
+            "dev/mrlemoos/kingdom/economy/income/ActivityCategory.class",
             "dev/mrlemoos/kingdom/election/VillagerMpProfessionMatcher.class",
+            "dev/mrlemoos/kingdom/election/VillagerPlayerTradePolicy.class",
             "dev/mrlemoos/shaded/incendo/cloud/CommandManager.class");
 
     @Test

@@ -112,12 +112,23 @@ class PoliceServiceTest {
     }
 
     @Test
-    void rejectsCellSlotAboveMax() {
+    void allowsCellSlotBeyondFormerCap() {
         PrisonCellLocation location = new PrisonCellLocation("world", 10, 64, 20);
 
         PoliceResult result = policeService.setCell("northmarch", NobleRank.KING, false, 5, location);
 
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertEquals(location, policeService.cell("northmarch", 5).orElseThrow());
+    }
+
+    @Test
+    void rejectsNonPositiveCellSlot() {
+        PrisonCellLocation location = new PrisonCellLocation("world", 10, 64, 20);
+
+        PoliceResult result = policeService.setCell("northmarch", NobleRank.KING, false, 0, location);
+
         assertInstanceOf(PoliceResult.Failure.class, result);
+        assertTrue(policeService.cell("northmarch", 0).isEmpty());
     }
 
     @Test

@@ -5,13 +5,16 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
+import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.KingdomResult;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -36,9 +39,11 @@ public final class KingdomCommand {
     private final ElectionHandler electionHandler;
     private final KingdomPoliceHandler policeHandler;
     private final KingdomWhitelistHandler whitelistHandler;
+    private final WarService warService;
+    private final LoyaltyService loyaltyService;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
-        this(service, store, nobleDisplay, null, null, null, null, null, null, null);
+        this(service, store, nobleDisplay, null, null, null, null, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -46,7 +51,7 @@ public final class KingdomCommand {
             YamlKingdomStore store,
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, null, null, null, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, null, null, null, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -55,7 +60,7 @@ public final class KingdomCommand {
             NoblePrefixDisplay nobleDisplay,
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, null, null, null, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -65,7 +70,8 @@ public final class KingdomCommand {
             KingdomFiscalHandler fiscalHandler,
             EconomyService economyService,
             ParliamentHandler parliamentHandler) {
-        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null, null, null, null);
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, null, null, null, null,
+                null, null);
     }
 
     public KingdomCommand(
@@ -77,7 +83,7 @@ public final class KingdomCommand {
             ParliamentHandler parliamentHandler,
             ElectionHandler electionHandler) {
         this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler, null,
-                null, null);
+                null, null, null, null);
     }
 
     public KingdomCommand(
@@ -90,7 +96,7 @@ public final class KingdomCommand {
             ElectionHandler electionHandler,
             RealmWealthRates realmWealthRates) {
         this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
-                realmWealthRates, null, null);
+                realmWealthRates, null, null, null, null);
     }
 
     public KingdomCommand(
@@ -104,7 +110,7 @@ public final class KingdomCommand {
             RealmWealthRates realmWealthRates,
             KingdomPoliceHandler policeHandler) {
         this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
-                realmWealthRates, policeHandler, null);
+                realmWealthRates, policeHandler, null, null, null);
     }
 
     public KingdomCommand(
@@ -118,6 +124,23 @@ public final class KingdomCommand {
             RealmWealthRates realmWealthRates,
             KingdomPoliceHandler policeHandler,
             KingdomWhitelistHandler whitelistHandler) {
+        this(service, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler, electionHandler,
+                realmWealthRates, policeHandler, whitelistHandler, null, null);
+    }
+
+    public KingdomCommand(
+            KingdomService service,
+            YamlKingdomStore store,
+            NoblePrefixDisplay nobleDisplay,
+            KingdomFiscalHandler fiscalHandler,
+            EconomyService economyService,
+            ParliamentHandler parliamentHandler,
+            ElectionHandler electionHandler,
+            RealmWealthRates realmWealthRates,
+            KingdomPoliceHandler policeHandler,
+            KingdomWhitelistHandler whitelistHandler,
+            WarService warService,
+            LoyaltyService loyaltyService) {
         this.service = service;
         this.store = store;
         this.nobleDisplay = nobleDisplay;
@@ -128,6 +151,8 @@ public final class KingdomCommand {
         this.electionHandler = electionHandler;
         this.policeHandler = policeHandler;
         this.whitelistHandler = whitelistHandler;
+        this.warService = warService;
+        this.loyaltyService = loyaltyService;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -178,8 +203,8 @@ public final class KingdomCommand {
 
     private void handleList(CommandSender sender) {
         List<Kingdom> kingdoms = service.listKingdoms().stream()
-                .sorted(Comparator.comparingDouble(this::realmWealthFor).reversed()
-                        .thenComparing(Kingdom::getDisplayName))
+                .sorted(Comparator.comparingDouble((Kingdom kingdom) -> realmWealthFor(kingdom)).reversed()
+                        .thenComparing(kingdom -> kingdom.getDisplayName()))
                 .toList();
         if (kingdoms.isEmpty()) {
             sender.sendMessage(info("No kingdoms exist yet."));
@@ -263,12 +288,14 @@ public final class KingdomCommand {
                 && service.resolveWorldName(kingdom).equals(player.getWorld().getName())) {
             sender.sendMessage(c("&7You are in this kingdom's linked overworld."));
         }
+        sendWarAndPoliceSummary(sender, kingdom);
         List<PlayerMembership> members = service.getMembershipsView().values().stream()
                 .filter(m -> kingdom.getId().equals(m.getKingdomId()))
                 .sorted(Comparator.comparing((PlayerMembership m) -> m.hasNobleTitle() ? 0 : 1)
-                        .thenComparing(m -> Optional.ofNullable(m.getRank())
-                                .map(NobleRank::hierarchyOrder)
-                                .orElse(Integer.MAX_VALUE)))
+                        .thenComparing(m -> {
+                            NobleRank rank = m.getRank();
+                            return rank != null ? rank.hierarchyOrder() : Integer.MAX_VALUE;
+                        }))
                 .toList();
         for (PlayerMembership membership : members) {
             OfflinePlayer member = Bukkit.getOfflinePlayer(membership.getPlayerId());
@@ -279,6 +306,27 @@ public final class KingdomCommand {
                 sender.sendMessage(c("&7  ")+ name);
             }
         }
+    }
+
+    private void sendWarAndPoliceSummary(CommandSender sender, Kingdom kingdom) {
+        Optional<ActiveWar> war = warService != null
+                ? warService.activeWarFor(kingdom.getId())
+                : Optional.empty();
+        String warLine = KingdomInfoSummary.warLine(kingdom.getId(), war, this::kingdomDisplayName);
+        sender.sendMessage(c("&7" + warLine));
+
+        String policeLine = KingdomInfoSummary.policeLine(kingdom.getPoliceState(), this::offlinePlayerName);
+        sender.sendMessage(c("&7" + policeLine));
+    }
+
+    private String kingdomDisplayName(String kingdomId) {
+        Optional<Kingdom> kingdom = service.getKingdom(kingdomId);
+        return kingdom.isPresent() ? kingdom.get().getDisplayName() : kingdomId;
+    }
+
+    private String offlinePlayerName(UUID playerId) {
+        OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+        return player.getName();
     }
 
     private void sendPlayerInfo(CommandSender sender, OfflinePlayer target) {
@@ -295,6 +343,9 @@ public final class KingdomCommand {
         sender.sendMessage(info(name + ": " + kingdom.getDisplayName() + " — " + rank));
         service.territoryLabel(kingdom).ifPresent(label ->
                 sender.sendMessage(c("&7Territory: ")+ c("&f" + label)));
+        if (loyaltyService != null) {
+            sender.sendMessage(c("&7" + KingdomInfoSummary.loyaltyLine(loyaltyService.tierOf(target.getUniqueId()))));
+        }
     }
 
     private void handleCreate(CommandSender sender, String[] args) {

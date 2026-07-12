@@ -76,13 +76,12 @@ public final class KingdomPoliceState {
         cells.remove(slot);
     }
 
-    public OptionalInt lowestFreeCellSlot(int maxCells) {
-        for (int slot = 1; slot <= maxCells; slot++) {
-            if (!cells.containsKey(slot)) {
-                return OptionalInt.of(slot);
-            }
+    public OptionalInt lowestFreeCellSlot() {
+        int slot = 1;
+        while (cells.containsKey(slot)) {
+            slot++;
         }
-        return OptionalInt.empty();
+        return OptionalInt.of(slot);
     }
 
     public int configuredCellCount() {
