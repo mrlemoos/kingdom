@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.police;
 
 import dev.mrlemoos.kingdom.model.police.GolemOfficerKind;
+import dev.mrlemoos.kingdom.model.police.GolemOrder;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.HashSet;
 import java.util.Objects;
@@ -24,6 +25,8 @@ public final class PoliceGolemService {
     private final NamespacedKey golemTagKey;
     private final NamespacedKey kingdomTagKey;
     private final NamespacedKey kindTagKey;
+    private final NamespacedKey orderTagKey;
+    private final NamespacedKey followTagKey;
 
     public PoliceGolemService(JavaPlugin plugin, KingdomService kingdomService, PoliceService policeService) {
         JavaPlugin pluginRef = Objects.requireNonNull(plugin, "plugin");
@@ -32,6 +35,8 @@ public final class PoliceGolemService {
         this.golemTagKey = new NamespacedKey(pluginRef, "police_golem");
         this.kingdomTagKey = new NamespacedKey(pluginRef, "police_kingdom");
         this.kindTagKey = new NamespacedKey(pluginRef, "police_golem_kind");
+        this.orderTagKey = new NamespacedKey(pluginRef, "police_golem_order");
+        this.followTagKey = new NamespacedKey(pluginRef, "police_golem_follows");
     }
 
     public IronGolem spawnPatrol(String kingdomId, Location location) {
@@ -71,6 +76,53 @@ public final class PoliceGolemService {
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }
+    }
+
+    public GolemOrder orderForGolem(Entity entity) {
+        String order = entity.getPersistentDataContainer().get(orderTagKey, PersistentDataType.STRING);
+        if (order == null) {
+            return GolemOrder.PATROL;
+        }
+        try {
+            return GolemOrder.valueOf(order);
+        } catch (IllegalArgumentException ex) {
+            return GolemOrder.PATROL;
+        }
+    }
+
+    public void applyOrder(IronGolem golem, GolemOrder order, Player commander) {
+        golem.getPersistentDataContainer().set(orderTagKey, PersistentDataType.STRING, order.name());
+        if (order == GolemOrder.FOLLOW) {
+            golem.getPersistentDataContainer()
+                    .set(followTagKey, PersistentDataType.STRING, commander.getUniqueId().toString());
+        } else {
+            golem.getPersistentDataContainer().remove(followTagKey);
+        }
+        golem.setAI(order != GolemOrder.STAY);
+    }
+
+    /** Nudges every following golem towards its commander; call on a repeating task. */
+    public void tickFollowers() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            // ponytail: only golems within 48 blocks are steered; a golem left further behind stalls
+            // until the player returns. Widen or index golems by id if that becomes a problem.
+            for (Entity nearby : player.getNearbyEntities(48, 32, 48)) {
+                if (!(nearby instanceof IronGolem golem) || !isPoliceGolem(golem)) {
+                    continue;
+                }
+                if (orderForGolem(golem) != GolemOrder.FOLLOW || !isFollowing(golem, player)) {
+                    continue;
+                }
+                if (golem.getLocation().distanceSquared(player.getLocation()) > 9.0) {
+                    golem.getPathfinder().moveTo(player, 1.1);
+                }
+            }
+        }
+    }
+
+    private boolean isFollowing(IronGolem golem, Player player) {
+        String followerId = golem.getPersistentDataContainer().get(followTagKey, PersistentDataType.STRING);
+        return followerId != null && followerId.equals(player.getUniqueId().toString());
     }
 
     public Optional<IronGolem> findGolemForDespawn(Player player, String kingdomId) {

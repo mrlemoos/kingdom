@@ -336,6 +336,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new PoliceGolemListener(policeService, policeGolemService, kingdomService, store),
                                 this);
 
+                getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
+
                 getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
                 getServer().getScheduler().runTaskLater(this, policeHandler::pruneStaleEntities, 20L);
                 getServer().getScheduler().runTaskLater(this, policeHandler::respawnAllJudges, 20L);
