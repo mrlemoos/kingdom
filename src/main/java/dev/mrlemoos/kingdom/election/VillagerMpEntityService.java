@@ -7,7 +7,9 @@ import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -17,7 +19,10 @@ import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.entity.Pose;
 import org.bukkit.entity.Villager;
 import org.bukkit.persistence.PersistentDataType;
@@ -159,6 +164,7 @@ public final class VillagerMpEntityService {
         boolean inTerritory = isInAnyKingdomTerritory(villager);
         if (TerritoryVillagerDespawnPolicy.shouldApplyProtection(inTerritory, true)) {
             applyTerritoryDespawnProtection(villager);
+            assignHomeBedIfMissing(villager);
             return;
         }
         if (TerritoryVillagerDespawnPolicy.shouldRevertToVanilla(inTerritory, true)) {
@@ -404,6 +410,41 @@ public final class VillagerMpEntityService {
             worldNames.add(kingdomService.resolveWorldName(kingdom));
         }
         return worldNames;
+    }
+
+    private void assignHomeBedIfMissing(Villager villager) {
+        if (!VillagerHomeBedPolicy.shouldAssign(true, true, villager.getMemory(MemoryKey.HOME) != null)) {
+            return;
+        }
+        Location origin = villager.getLocation();
+        World world = origin.getWorld();
+        if (world == null) {
+            return;
+        }
+        VillagerHomeBedPolicy.nearestBed(origin, loadedBedsNear(world, origin))
+                .ifPresent(bed -> villager.setMemory(MemoryKey.HOME, bed));
+    }
+
+    // ponytail: scans loaded chunks only and ignores whether another villager already claimed the bed; vanilla POI
+    // stays the authority and will drop the memory if the bed is taken or unreachable.
+    private List<Location> loadedBedsNear(World world, Location origin) {
+        List<Location> beds = new ArrayList<>();
+        int chunkRadius = VillagerHomeBedPolicy.searchChunkRadius();
+        int centreChunkX = origin.getBlockX() >> 4;
+        int centreChunkZ = origin.getBlockZ() >> 4;
+        for (int chunkX = centreChunkX - chunkRadius; chunkX <= centreChunkX + chunkRadius; chunkX++) {
+            for (int chunkZ = centreChunkZ - chunkRadius; chunkZ <= centreChunkZ + chunkRadius; chunkZ++) {
+                if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                    continue;
+                }
+                for (BlockState state : world.getChunkAt(chunkX, chunkZ).getTileEntities()) {
+                    if (state.getBlockData() instanceof Bed bed && bed.getPart() == Bed.Part.HEAD) {
+                        beds.add(state.getLocation());
+                    }
+                }
+            }
+        }
+        return beds;
     }
 
     private void applyTerritoryDespawnProtection(Villager villager) {
