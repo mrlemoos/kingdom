@@ -168,6 +168,24 @@ public final class ParliamentHubView {
         return Set.copyOf(actions);
     }
 
+    /** Explains an empty hub so the GUI is never a silent wall of panes. */
+    public Optional<String> statusHint() {
+        if (!visibleActions().isEmpty()) {
+            return Optional.empty();
+        }
+        if (isMonarch(rank) && billState == BillState.AWAITING_ASSENT && !inLords) {
+            return Optional.of("Stand in the House of Lords to grant royal assent");
+        }
+        if (rank == NobleRank.PREMIER && electionActive) {
+            return Optional.of("Parliament is dissolved until the election closes");
+        }
+        if (billState == null) {
+            return Optional.of("No bill is before Parliament");
+        }
+        return Optional.of("No actions for your rank while the bill is "
+                + billState.name().toLowerCase(java.util.Locale.UK).replace('_', ' '));
+    }
+
     public boolean isEnabled(ParliamentHubAction action) {
         if (!visibleActions().contains(action)) {
             return false;

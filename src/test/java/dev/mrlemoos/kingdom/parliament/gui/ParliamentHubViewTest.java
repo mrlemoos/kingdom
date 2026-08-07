@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.parliament.gui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,6 +98,38 @@ class ParliamentHubViewTest {
         assertTrue(visible.contains(ParliamentHubAction.REJECT));
         assertTrue(view.isEnabled(ParliamentHubAction.ASSENT));
         assertTrue(view.isEnabled(ParliamentHubAction.REJECT));
+    }
+
+    @Test
+    void monarchOutsideLordsIsToldWhereToAssent() {
+        ParliamentHubView view = new ParliamentHubView(
+                NobleRank.KING,
+                BillState.AWAITING_ASSENT,
+                true,
+                false,
+                false,
+                false,
+                false,
+                Optional.of("Finance Act 2026"));
+
+        assertTrue(view.visibleActions().isEmpty());
+        assertEquals(
+                Optional.of("Stand in the House of Lords to grant royal assent"), view.statusHint());
+    }
+
+    @Test
+    void hintAbsentWhenActionsExist() {
+        ParliamentHubView view = new ParliamentHubView(
+                NobleRank.KING,
+                BillState.AWAITING_ASSENT,
+                false,
+                true,
+                false,
+                false,
+                false,
+                Optional.of("Finance Act 2026"));
+
+        assertEquals(Optional.empty(), view.statusHint());
     }
 
     @Test

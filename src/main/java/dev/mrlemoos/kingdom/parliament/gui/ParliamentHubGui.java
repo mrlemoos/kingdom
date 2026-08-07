@@ -15,6 +15,7 @@ public final class ParliamentHubGui implements InventoryHolder {
     public static final String TITLE = c("&2Parliament");
 
     static final int SLOT_BILL_INFO = 4;
+    static final int SLOT_STATUS_HINT = 22;
 
     static final int SLOT_TABLE_FISCAL = 19;
     static final int SLOT_TABLE_BUDGET = 20;
@@ -166,6 +167,12 @@ public final class ParliamentHubGui implements InventoryHolder {
                                 Material.WRITABLE_BOOK,
                                 c("&4Review resignation"),
                                 summary)));
+
+        view.statusHint()
+                .ifPresent(hint -> inventory.setItem(
+                        SLOT_STATUS_HINT,
+                        ItemBuilder.labelled(
+                                Material.BOOK, c("&eNothing to do here"), hint)));
 
         fillBackground(inventory);
     }
