@@ -94,6 +94,10 @@ public final class ParliamentService {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may prepare a mint location.");
         }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
         ParliamentResult blocked = premierActionBlocked(kingdomId);
         if (blocked != null) {
             return blocked;
@@ -195,6 +199,10 @@ public final class ParliamentService {
     }
 
     public ParliamentResult runRealmHandledDivision(String kingdomId, int premierVillagerSeatIndex) {
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
         if (!isRealmHandledDivisionEligible(kingdomId)) {
             return ParliamentResult.fail("Realm-handled divisions require a full villager parliament.");
         }
@@ -357,6 +365,10 @@ public final class ParliamentService {
         if (rank != NobleRank.SPEAKER) {
             return ParliamentResult.fail("Only the Speaker may open a division.");
         }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
         Optional<Bill> bill = currentBill(kingdomId);
         if (bill.isEmpty()) {
             return ParliamentResult.fail("No bill is before the House.");
@@ -372,6 +384,10 @@ public final class ParliamentService {
         if (rank != NobleRank.MP) {
             return ParliamentResult.fail("Only Members of Parliament may vote in a division.");
         }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
         if (choice == null) {
             return ParliamentResult.fail("Vote choice is required.");
         }
@@ -386,6 +402,10 @@ public final class ParliamentService {
     public ParliamentResult castSpeakerVote(String kingdomId, NobleRank rank, VoteChoice choice) {
         if (rank != NobleRank.SPEAKER) {
             return ParliamentResult.fail("Only the Speaker may cast a casting vote.");
+        }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
         }
         if (choice != VoteChoice.AYE && choice != VoteChoice.NAY) {
             return ParliamentResult.fail("Casting vote must be aye or nay.");
@@ -405,6 +425,10 @@ public final class ParliamentService {
     public ParliamentResult closeDivision(String kingdomId, NobleRank rank) {
         if (rank != NobleRank.SPEAKER) {
             return ParliamentResult.fail("Only the Speaker may close a division.");
+        }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
         }
         Optional<Bill> bill = currentBill(kingdomId);
         if (bill.isEmpty() || bill.get().state() != BillState.DIVISION_OPEN) {
@@ -443,6 +467,10 @@ public final class ParliamentService {
         if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
             return ParliamentResult.fail("Only the King or Queen may grant royal assent.");
         }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
         Optional<Bill> bill = currentBill(kingdomId);
         if (bill.isEmpty() || bill.get().state() != BillState.AWAITING_ASSENT) {
             return ParliamentResult.fail("No bill awaits royal assent.");
@@ -454,6 +482,10 @@ public final class ParliamentService {
     public ParliamentResult reject(String kingdomId, NobleRank rank) {
         if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
             return ParliamentResult.fail("Only the King or Queen may withhold assent.");
+        }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
         }
         Optional<Bill> bill = currentBill(kingdomId);
         if (bill.isEmpty() || bill.get().state() != BillState.AWAITING_ASSENT) {
@@ -549,6 +581,29 @@ public final class ParliamentService {
         kingdomService.getKingdom(kingdomId).ifPresent(k -> k.getParliamentState().clearPreparedMint());
     }
 
+    public boolean isSessionOpen(String kingdomId) {
+        return kingdomService.getKingdom(kingdomId)
+                .map(k -> k.getParliamentState().isSessionOpen())
+                .orElse(false);
+    }
+
+    /**
+     * Opens the session after the State Opening ceremony (or by royal commission when the Crown
+     * cannot attend). Business is refused until this succeeds.
+     */
+    public ParliamentResult openSession(String kingdomId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return ParliamentResult.fail("Unknown kingdom.");
+        }
+        ParliamentState state = kingdom.get().getParliamentState();
+        if (state.isSessionOpen()) {
+            return ParliamentResult.fail("Parliament is already in session.");
+        }
+        state.openSession();
+        return ParliamentResult.ok("Parliament is in session.");
+    }
+
     public boolean isPremierBlockedByElection(String kingdomId) {
         return kingdomService
                 .getKingdom(kingdomId)
@@ -559,6 +614,13 @@ public final class ParliamentService {
     private ParliamentResult premierActionBlocked(String kingdomId) {
         if (isPremierBlockedByElection(kingdomId)) {
             return ParliamentResult.fail("The Premier cannot act while an election is in progress.");
+        }
+        return null;
+    }
+
+    private ParliamentResult sessionClosed(String kingdomId) {
+        if (!isSessionOpen(kingdomId)) {
+            return ParliamentResult.fail("Parliament is not in session.");
         }
         return null;
     }
@@ -581,6 +643,10 @@ public final class ParliamentService {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             return ParliamentResult.fail("Unknown kingdom.");
+        }
+        ParliamentResult closed = sessionClosed(kingdomId);
+        if (closed != null) {
+            return closed;
         }
         ParliamentState state = kingdom.get().getParliamentState();
         if (state.currentBill().isPresent()) {

@@ -60,6 +60,10 @@ import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
 import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
 import dev.mrlemoos.kingdom.listener.ResignationLetterListener;
+import dev.mrlemoos.kingdom.listener.StateOpeningListener;
+import dev.mrlemoos.kingdom.parliament.SpeechFromThroneItem;
+import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
+import dev.mrlemoos.kingdom.parliament.StateOpeningService;
 import dev.mrlemoos.kingdom.whitelist.BukkitServerWhitelistGateway;
 import dev.mrlemoos.kingdom.whitelist.WhitelistService;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
@@ -201,6 +205,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                 villagerMpEntityService,
                                 nobleDisplay,
                                 villagerPremierInauguralService);
+                StateOpeningService stateOpeningService = new StateOpeningService(kingdomService, parliamentService);
+                SpeechFromThroneItem speechFromThroneItem = new SpeechFromThroneItem(this);
+                StateOpeningCeremony stateOpeningCeremony = new StateOpeningCeremony(
+                                this, kingdomService, stateOpeningService, store, speechFromThroneItem);
+                electionHandler.setStateOpeningCeremony(stateOpeningCeremony);
                 KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService,
                                 this);
@@ -315,6 +324,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 resignationLetterDelivery),
                                 this);
                 getServer().getPluginManager().registerEvents(
+                                new StateOpeningListener(speechFromThroneItem, stateOpeningCeremony), this);
+                getServer().getPluginManager().registerEvents(
                                 new MintPrepareListener(parliamentHandler, parliamentGuiListener),
                                 this);
                 getServer().getPluginManager().registerEvents(
@@ -342,6 +353,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 ElectionTask electionTask = new ElectionTask(
                                 this, electionService, electionHandler, kingdomService, store, electionConfig,
                                 villagerPremierInauguralService);
+                electionTask.setStateOpeningCeremony(stateOpeningCeremony);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
                 TerritoryVillagerDespawnTask territoryVillagerDespawnTask = new TerritoryVillagerDespawnTask(this,

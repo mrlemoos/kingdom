@@ -269,6 +269,10 @@ public final class YamlKingdomStore {
         sites.registrar().ifPresent(registrar -> writeRegistrar(config, path + ".registrar", registrar));
 
         ParliamentState state = kingdom.getParliamentState();
+        config.set(path + ".session-open", state.isSessionOpen());
+        config.set(
+                path + ".state-opening-pending-since-mc-day",
+                state.stateOpeningPendingSinceMcDay().orElse(-1L));
         state.preparedMint().ifPresent(mint -> {
             String mintPath = path + ".prepared-mint";
             config.set(mintPath + ".world", mint.worldName());
@@ -291,6 +295,13 @@ public final class YamlKingdomStore {
         readRegistrar(section.getConfigurationSection("registrar")).ifPresent(sites::setRegistrar);
 
         ParliamentState state = kingdom.getParliamentState();
+        state.setSessionOpen(section.getBoolean("session-open", true));
+        long pendingSince = section.getLong("state-opening-pending-since-mc-day", -1L);
+        if (pendingSince >= 0) {
+            state.awaitStateOpening(pendingSince);
+        } else {
+            state.clearStateOpeningPending();
+        }
         readMint(section.getConfigurationSection("prepared-mint")).ifPresent(state::setPreparedMint);
         readBill(section.getConfigurationSection("current-bill")).ifPresent(state::setCurrentBill);
         state.replaceAssentedActs(readActs(section.getConfigurationSection("acts")));

@@ -86,6 +86,8 @@ class VillagerPremierInauguralServiceTest {
         Map<String, Integer> professions = Map.of("farmer", 10, "librarian", 8);
         electionService.tryCloseElection("northmarch", professions);
         inauguralService.appointAfterGeneralElection("northmarch", professions);
+        // The State Opening has happened; without it Parliament stays prorogued and refuses business.
+        parliamentService.openSession("northmarch");
 
         var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
         electionState.setLastGeneralElectionMcDay(100L);

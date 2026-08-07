@@ -258,6 +258,26 @@ _Avoid_: Recovery compass, map marker, waypoint pearl
 A private audit message sent to online players with `minecraft.command.teleport` when another player with that permission teleports someone else. The actor is not notified; console actors appear as "Console". Destinations name players, kingdom checkpoints, or coordinates as appropriate.
 _Avoid_: Teleport broadcast, public teleport announce, server-wide tp alert
 
+**Session**:
+The working life of a Parliament, from State Opening to prorogation. Parliament conducts no business outside a session: no bill may be tabled, no division opened or voted on, and no royal assent granted or withheld. A kingdom that has never held a general election is in session by default.
+_Avoid_: Term, sitting, mandate
+
+**Prorogation**:
+The end of a session, triggered when a general election is called. The bill before Parliament dies on the order paper — it is discarded, not carried over — along with any prepared mint and pending inaugural fiscal or budget package. The new Parliament must re-table its business after the State Opening.
+_Avoid_: Dissolution, adjournment, recess
+
+**State Opening**:
+The ceremony in which the Crown opens a new session once a government has formed after a general election. The Crown summons the realm to the House of Lords, then declares Parliament open from within the chamber. Until it happens, Parliament remains prorogued.
+_Avoid_: Inauguration, swearing-in, coronation
+
+**Speech from the Throne**:
+The summons delivered to the King or Queen — or to the heir acting as regent when no monarch is seated — when a session awaits opening. Right-clicking it opens the State Opening interface: summon the realm, then declare Parliament open. Redelivered on login if missing, and removed once the session opens.
+_Avoid_: Royal decree, king's speech scroll, opening address book
+
+**Royal commission**:
+The fallback that opens a session without ceremony: used when the kingdom has no House of Lords set, or when neither monarch nor regent has opened Parliament within three in-game days of the government forming. Parliament opens by announcement alone — no summons, no teleport — so the realm's business is never frozen by an absent Crown.
+_Avoid_: Auto-open, timeout open, forced opening
+
 ## Police
 
 **Police department**:

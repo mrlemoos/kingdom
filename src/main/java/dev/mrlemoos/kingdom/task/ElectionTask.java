@@ -8,6 +8,7 @@ import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
 import dev.mrlemoos.kingdom.election.VillagerPremierInauguralService;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.Objects;
@@ -26,6 +27,7 @@ public final class ElectionTask implements Runnable {
     private final YamlKingdomStore store;
     private final ElectionConfig config;
     private final VillagerPremierInauguralService villagerPremierInauguralService;
+    private StateOpeningCeremony stateOpeningCeremony;
 
     public ElectionTask(
             JavaPlugin plugin,
@@ -44,6 +46,10 @@ public final class ElectionTask implements Runnable {
         this.villagerPremierInauguralService = villagerPremierInauguralService;
     }
 
+    public void setStateOpeningCeremony(StateOpeningCeremony stateOpeningCeremony) {
+        this.stateOpeningCeremony = stateOpeningCeremony;
+    }
+
     public void schedule(long intervalTicks) {
         long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
@@ -53,8 +59,31 @@ public final class ElectionTask implements Runnable {
     public void run() {
         electionHandler.closeDueElections();
         electionHandler.checkVacancies();
+        openOverdueParliaments();
         processDueInauguralFiscalPackages();
         scheduleGeneralElections();
+    }
+
+    /** Opens any session the Crown has failed to open in person within the commission delay. */
+    private void openOverdueParliaments() {
+        if (stateOpeningCeremony == null) {
+            return;
+        }
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+            if (world == null) {
+                continue;
+            }
+            long currentMcDay = world.getFullTime() / 24000L;
+            stateOpeningCeremony
+                    .stateOpeningService()
+                    .commissionIfOverdue(kingdom.getId(), currentMcDay)
+                    .ifPresent(announcement -> {
+                        store.saveFrom(kingdomService);
+                        stateOpeningCeremony.commissionOpened(kingdom.getId());
+                        Bukkit.broadcastMessage(c("&6" + announcement + " (" + kingdom.getDisplayName() + ")"));
+                    });
+        }
     }
 
     private void processDueInauguralFiscalPackages() {

@@ -13,6 +13,8 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.ElectionType;
+import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
+import dev.mrlemoos.kingdom.parliament.StateOpeningSummons;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ public final class ElectionHandler {
     private final VillagerMpEntityService villagerMpEntityService;
     private final NoblePrefixDisplay nobleDisplay;
     private final VillagerPremierInauguralService villagerPremierInauguralService;
+    private StateOpeningCeremony stateOpeningCeremony;
 
     public ElectionHandler(
             ElectionService electionService,
@@ -53,6 +56,10 @@ public final class ElectionHandler {
         this.villagerMpEntityService = villagerMpEntityService;
         this.nobleDisplay = nobleDisplay;
         this.villagerPremierInauguralService = villagerPremierInauguralService;
+    }
+
+    public void setStateOpeningCeremony(StateOpeningCeremony stateOpeningCeremony) {
+        this.stateOpeningCeremony = stateOpeningCeremony;
     }
 
     public boolean handle(CommandSender sender, String[] args) {
@@ -270,6 +277,7 @@ public final class ElectionHandler {
                     store.saveFrom(kingdomService);
                     villagerMpEntityService.syncKingdom(kingdomId);
                     Bukkit.broadcastMessage(c("&6" + success.message()));
+                    requestStateOpening(kingdom);
                 } else {
                     Bukkit.broadcastMessage(c("&eNo player MPs were elected in ")+ kingdom.getDisplayName()
                             + ", and no Premier villager could be appointed.");
@@ -286,6 +294,7 @@ public final class ElectionHandler {
                     }
                     Bukkit.broadcastMessage(c("&6A Premier has been elected in ")+ kingdom.getDisplayName() + ".");
                 }
+                requestStateOpening(kingdom);
                 return;
             }
             villagerMpEntityService.syncKingdom(kingdomId);
@@ -301,9 +310,33 @@ public final class ElectionHandler {
                 store.saveFrom(kingdomService);
                 villagerMpEntityService.syncKingdom(kingdomId);
                 Bukkit.broadcastMessage(c("&6" + success.message()));
+                requestStateOpening(kingdom);
             } else {
                 Bukkit.broadcastMessage(c("&eThe Premier election in ")+ kingdom.getDisplayName()
                         + " closed without electing a Premier.");
+            }
+        }
+    }
+
+    /**
+     * A government has formed, so the Crown is summoned to open the new session. Parliament stays
+     * prorogued until it does, or until the royal commission fires.
+     */
+    private void requestStateOpening(Kingdom kingdom) {
+        if (stateOpeningCeremony == null) {
+            return;
+        }
+        World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+        long currentMcDay = world != null ? world.getFullTime() / 24000L : 0L;
+        StateOpeningSummons summons =
+                stateOpeningCeremony.stateOpeningService().requestStateOpening(kingdom.getId(), currentMcDay);
+        store.saveFrom(kingdomService);
+        switch (summons) {
+            case AWAITING_CROWN -> stateOpeningCeremony.announceSummons(kingdom.getId());
+            case COMMISSIONED -> Bukkit.broadcastMessage(c("&6Parliament in ")
+                    + kingdom.getDisplayName()
+                    + " has been opened by royal commission — no House of Lords is set.");
+            case NOT_NEEDED -> {
             }
         }
     }

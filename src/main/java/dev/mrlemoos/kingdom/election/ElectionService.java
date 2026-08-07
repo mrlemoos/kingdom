@@ -55,6 +55,9 @@ public final class ElectionService {
         clearPremierTitle(kingdomId);
         electionState.clearPremierVillager();
         electionState.clearAllSeats();
+        electionState.setPendingInauguralFiscal(false);
+        electionState.setPendingInauguralBudget(false);
+        kingdom.get().getParliamentState().prorogue();
         electionState.election().openGeneral(clockMs.get() + config.durationMs());
         return ElectionResult
                 .ok("General election called. Nominations open for " + config.durationMcDays() + " in-game days.");
