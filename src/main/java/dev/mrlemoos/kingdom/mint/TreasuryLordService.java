@@ -203,11 +203,15 @@ public final class TreasuryLordService {
     }
 
     private static Location lordLocation(World world, MintLocation mint) {
-        return new Location(
+        Location location = new Location(
                 world,
                 TreasuryLordPlacement.lordBlockX(mint),
                 TreasuryLordPlacement.lordBlockY(mint),
                 TreasuryLordPlacement.lordBlockZ(mint));
+        // ponytail: force the mint chunk loaded so a restart scan sees the existing lord
+        // instead of spawning a duplicate and orphaning the old one.
+        world.getChunkAt(location);
+        return location;
     }
 
     private boolean isValidLord(Villager villager, String kingdomId) {
