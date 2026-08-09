@@ -7,3 +7,6 @@ test-server/
 .settings/
 .DS_Store
 .cursor/hooks/state
+deploy/server/
+deploy/plugins/
+deploy/plugins-26.1.2/
