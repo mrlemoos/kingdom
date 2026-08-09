@@ -78,6 +78,18 @@ public final class ParliamentService {
         return ParliamentResult.ok("Speaker's Chair set.");
     }
 
+    public ParliamentResult setBar(String kingdomId, ChamberSite site) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return ParliamentResult.fail("Unknown kingdom.");
+        }
+        if (site == null) {
+            return ParliamentResult.fail("Bar of the House site is required.");
+        }
+        kingdom.get().getParliamentSites().setBar(site);
+        return ParliamentResult.ok("Bar of the House set.");
+    }
+
     public ParliamentResult setRegistrar(String kingdomId, RegistrarSite site) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {

@@ -139,6 +139,10 @@ war:
     max-squads-per-kingdom: 8
 
 parliament:
+  state-opening:
+    # Ticks the Speaker leaves between naming one returned member and the next.
+    line-delay-ticks: 30
+
   villager-speaker:
     # In-game days a villager Speaker holds a division open for seated player MPs.
     division-window-days: 1

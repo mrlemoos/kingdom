@@ -211,7 +211,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 villagerPremierInauguralService);
                 StateOpeningService stateOpeningService = new StateOpeningService(kingdomService, parliamentService);
                 SpeechFromThroneItem speechFromThroneItem = new SpeechFromThroneItem(this);
-                CommonsReturnAnnouncer commonsReturnAnnouncer = new CommonsReturnAnnouncer(kingdomService);
+                CommonsReturnAnnouncer commonsReturnAnnouncer = new CommonsReturnAnnouncer(this, kingdomService);
+                commonsReturnAnnouncer.setLineDelayTicks(getConfig().getLong(
+                                "parliament.state-opening.line-delay-ticks",
+                                CommonsReturnAnnouncer.DEFAULT_LINE_DELAY_TICKS));
                 StateOpeningCeremony stateOpeningCeremony = new StateOpeningCeremony(
                                 this, kingdomService, stateOpeningService, store, speechFromThroneItem,
                                 commonsReturnAnnouncer);

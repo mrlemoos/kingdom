@@ -169,7 +169,7 @@ public final class ParliamentHandler {
             return true;
         }
         if (args.length < 2) {
-            sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|speaker-chair|registrar|mp-seat <1-8>"));
+            sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|speaker-chair|bar|registrar|mp-seat <1-8>"));
             return true;
         }
 
@@ -210,6 +210,12 @@ public final class ParliamentHandler {
                                 location.getZ()));
                 yield finish(sender, result);
             }
+            case "bar" -> {
+                ParliamentResult result = parliamentService.setBar(
+                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
+                                location.getZ()));
+                yield finish(sender, result);
+            }
             case "lords" -> {
                 ParliamentResult result = parliamentService.setLords(
                         kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
@@ -232,7 +238,7 @@ public final class ParliamentHandler {
                 yield finish(sender, result);
             }
             default -> {
-                sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|speaker-chair|registrar|mp-seat <1-8>"));
+                sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|speaker-chair|bar|registrar|mp-seat <1-8>"));
                 yield true;
             }
         };
@@ -507,7 +513,7 @@ public final class ParliamentHandler {
 
     public String help() {
         return info("Parliament:")
-                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|registrar")+ c("&7 — set chamber sites (monarch)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
+                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")+ c("&7 — set chamber sites (monarch)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
     }
 
     public String success(String message) {

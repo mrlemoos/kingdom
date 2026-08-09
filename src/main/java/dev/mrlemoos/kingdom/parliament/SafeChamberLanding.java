@@ -42,6 +42,36 @@ public final class SafeChamberLanding {
                 && !world.isPassable(x, y - 1, z);
     }
 
+    /** Members per rank before a new rank forms behind it. */
+    private static final int RANK_WIDTH = 7;
+
+    /**
+     * Offsets placing a summoned realm in ranks in front of the Crown — never around them and never
+     * within arm's reach — given the yaw the Crown is facing and how far back the front rank stands.
+     */
+    public static List<int[]> frontOffsets(int count, float yaw, int standOff) {
+        List<int[]> offsets = new ArrayList<>(Math.max(count, 0));
+        double radians = Math.toRadians(yaw);
+        double forwardX = -Math.sin(radians);
+        double forwardZ = Math.cos(radians);
+        // The Crown's right hand, so ranks spread across their view rather than along it.
+        double rightX = -forwardZ;
+        double rightZ = forwardX;
+
+        for (int i = 0; i < count; i++) {
+            int rank = i / RANK_WIDTH;
+            int placeInRank = i % RANK_WIDTH;
+            // 0, 1, -1, 2, -2 … so each rank builds outwards from the centre line.
+            int lateral = (placeInRank + 1) / 2 * (placeInRank % 2 == 0 ? 1 : -1);
+            double distance = standOff + rank;
+            offsets.add(new int[] {
+                (int) Math.round(forwardX * distance + rightX * lateral),
+                (int) Math.round(forwardZ * distance + rightZ * lateral)
+            });
+        }
+        return offsets;
+    }
+
     /**
      * Offsets spiralling out from the chamber centre, so a summoned realm spreads across the floor
      * instead of stacking in one block.

@@ -267,6 +267,7 @@ public final class YamlKingdomStore {
         sites.commons().ifPresent(commons -> writeChamber(config, path + ".commons", commons));
         sites.lords().ifPresent(lords -> writeChamber(config, path + ".lords", lords));
         sites.speakerChair().ifPresent(chair -> writeChamber(config, path + ".speaker-chair", chair));
+        sites.bar().ifPresent(bar -> writeChamber(config, path + ".bar", bar));
         sites.registrar().ifPresent(registrar -> writeRegistrar(config, path + ".registrar", registrar));
 
         ParliamentState state = kingdom.getParliamentState();
@@ -297,6 +298,7 @@ public final class YamlKingdomStore {
         readChamber(section.getConfigurationSection("commons")).ifPresent(sites::setCommons);
         readChamber(section.getConfigurationSection("lords")).ifPresent(sites::setLords);
         readChamber(section.getConfigurationSection("speaker-chair")).ifPresent(sites::setSpeakerChair);
+        readChamber(section.getConfigurationSection("bar")).ifPresent(sites::setBar);
         readRegistrar(section.getConfigurationSection("registrar")).ifPresent(sites::setRegistrar);
 
         ParliamentState state = kingdom.getParliamentState();

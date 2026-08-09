@@ -279,12 +279,16 @@ The end of a session, triggered when a general election is called. The bill befo
 _Avoid_: Dissolution, adjournment, recess
 
 **State Opening**:
-The ceremony in which the Crown opens a new session once a government has formed after a general election. The Crown summons the realm to the House of Lords — members of the kingdom together with Parliament's villager members, the Speaker and the seated profession MPs among them — then declares Parliament open from within the chamber. The Speaker follows with the return of the Commons, and everyone is returned whence they came. Until it happens, Parliament remains prorogued.
+The ceremony in which the Crown opens a new session once a government has formed after a general election. The Crown summons the realm to the House of Lords — members of the kingdom together with Parliament's villager members, the Speaker and the seated profession MPs among them — then declares Parliament open from within the chamber. The realm forms up in ranks before the throne, facing it, rather than crowding around the Crown. The Speaker then crosses to the Bar of the House and reads the return of the Commons a member at a time, each sentence hanging above them as it is spoken; the House rises and everyone is returned whence they came once the reading ends. Until it happens, Parliament remains prorogued.
 _Avoid_: Inauguration, swearing-in, coronation
 
 **Speech from the Throne**:
 The summons delivered to the King or Queen — or to the heir acting as regent when no monarch is seated — when a session awaits opening. Right-clicking it opens the State Opening interface: summon the realm, then declare Parliament open. Redelivered on login if missing, and removed once the session opens.
 _Avoid_: Royal decree, king's speech scroll, opening address book
+
+**Bar of the House**:
+Where the Speaker stands to address the Crown with the return of the Commons, set by the monarch with `/kingdom parliament set bar`. The Speaker crosses to it when the reading begins and resumes their place when it ends. Where none is set, the Speaker reads from wherever they stand.
+_Avoid_: Podium, lectern, stage
 
 **Return of the Commons**:
 The Speaker's roll-call of who was elected to each bench and by what margin, read to the realm's members at every State Opening — including one opened by royal commission. Player MPs are ranked by their votes and profession MPs by the size of their constituency, but the two are never ranked against one another: a vote and a villager are not the same unit. A by-election is followed by the return of that single seat.

@@ -38,7 +38,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class StateOpeningCeremony {
 
-    private static final long RETURN_DELAY_TICKS = 20L;
+    private static final long RETURN_DELAY_TICKS = 40L;
+
+    /** Blocks between the throne and the front rank of the summoned realm. */
+    private static final int AUDIENCE_STAND_OFF = 5;
 
     private final JavaPlugin plugin;
     private final KingdomService kingdomService;
@@ -135,15 +138,23 @@ public final class StateOpeningCeremony {
             return;
         }
 
-        List<Player> summoned = onlineMembers(kingdomId);
-        List<Entity> villagers = parliamentaryVillagers(kingdomId);
-        List<int[]> offsets = SafeChamberLanding.ringOffsets(summoned.size() + villagers.size());
+        // The Crown takes the throne first; the realm then forms up before them, at a respectful
+        // distance and facing the throne rather than encircling it.
         Map<UUID, Location> origins = new HashMap<>();
+        origins.put(crown.getUniqueId(), crown.getLocation().clone());
+        Location throne = landingFor(world, lords.get(), new int[] {0, 0}, crown.getLocation());
+        crown.teleport(throne);
+
+        List<Player> summoned = new ArrayList<>(onlineMembers(kingdomId));
+        summoned.removeIf(member -> member.getUniqueId().equals(crown.getUniqueId()));
+        List<Entity> villagers = parliamentaryVillagers(kingdomId);
+        List<int[]> offsets = SafeChamberLanding.frontOffsets(
+                summoned.size() + villagers.size(), throne.getYaw(), AUDIENCE_STAND_OFF);
 
         for (int i = 0; i < summoned.size(); i++) {
             Player member = summoned.get(i);
             origins.put(member.getUniqueId(), member.getLocation().clone());
-            member.teleport(landingFor(world, lords.get(), offsets.get(i), member.getLocation()));
+            member.teleport(facing(landingFor(world, throne, offsets.get(i)), throne));
             member.playSound(member.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 1.0f, 1.0f);
             member.sendTitle(c("&6State Opening"), c("&eThe Crown summons Parliament"), 10, 60, 20);
         }
@@ -155,8 +166,7 @@ public final class StateOpeningCeremony {
         for (int i = 0; i < villagers.size(); i++) {
             Entity villager = villagers.get(i);
             villagerOrigins.put(villager.getUniqueId(), villager.getLocation().clone());
-            villager.teleport(landingFor(
-                    world, lords.get(), offsets.get(summoned.size() + i), villager.getLocation()));
+            villager.teleport(facing(landingFor(world, throne, offsets.get(summoned.size() + i)), throne));
         }
         summonedVillagerOrigins.put(kingdomId, villagerOrigins);
 
@@ -184,12 +194,11 @@ public final class StateOpeningCeremony {
         store.saveFrom(kingdomService);
         removeSpeeches(crown, kingdomId);
         speakFromThrone(kingdomId);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> returnSummoned(kingdomId), RETURN_DELAY_TICKS);
     }
 
     /** Cleans up after the session was opened by royal commission rather than in person. */
     public void commissionOpened(String kingdomId) {
-        commonsReturnAnnouncer.announceRollCall(kingdomId);
+        commonsReturnAnnouncer.announceRollCall(kingdomId, () -> {});
         returnSummoned(kingdomId);
         for (Player online : onlineMembers(kingdomId)) {
             removeSpeeches(online, kingdomId);
@@ -204,7 +213,9 @@ public final class StateOpeningCeremony {
         for (Player member : onlineMembers(kingdomId)) {
             member.playSound(member.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
-        commonsReturnAnnouncer.announceRollCall(kingdomId);
+        commonsReturnAnnouncer.announceRollCall(
+                kingdomId,
+                () -> Bukkit.getScheduler().runTaskLater(plugin, () -> returnSummoned(kingdomId), RETURN_DELAY_TICKS));
     }
 
     private String describePremier(Kingdom kingdom) {
@@ -320,10 +331,34 @@ public final class StateOpeningCeremony {
         return villagers;
     }
 
+    private Location landingFor(World world, Location anchor, int[] offset) {
+        return landingAt(
+                world,
+                (int) Math.floor(anchor.getX()) + offset[0],
+                (int) Math.floor(anchor.getY()),
+                (int) Math.floor(anchor.getZ()) + offset[1],
+                anchor);
+    }
+
     private Location landingFor(World world, ChamberSite lords, int[] offset, Location fallbackFacing) {
-        int x = (int) Math.floor(lords.x()) + offset[0];
-        int z = (int) Math.floor(lords.z()) + offset[1];
-        int startY = (int) Math.floor(lords.y());
+        return landingAt(
+                world,
+                (int) Math.floor(lords.x()) + offset[0],
+                (int) Math.floor(lords.y()),
+                (int) Math.floor(lords.z()) + offset[1],
+                fallbackFacing);
+    }
+
+    /** Turns a landing to look at the throne, so the House faces the Crown it was summoned by. */
+    private static Location facing(Location landing, Location throne) {
+        double dx = throne.getX() - landing.getX();
+        double dz = throne.getZ() - landing.getZ();
+        landing.setYaw((float) (Math.toDegrees(Math.atan2(-dx, dz))));
+        landing.setPitch(0f);
+        return landing;
+    }
+
+    private Location landingAt(World world, int x, int startY, int z, Location fallbackFacing) {
         OptionalInt feetY = SafeChamberLanding.findFeetY(
                 (bx, by, bz) -> world.getBlockAt(bx, by, bz).isPassable(),
                 x,

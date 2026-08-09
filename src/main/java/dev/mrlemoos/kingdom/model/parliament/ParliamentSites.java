@@ -7,6 +7,7 @@ public final class ParliamentSites {
     private ChamberSite commons;
     private ChamberSite lords;
     private ChamberSite speakerChair;
+    private ChamberSite bar;
     private RegistrarSite registrar;
 
     public Optional<ChamberSite> commons() {
@@ -20,6 +21,18 @@ public final class ParliamentSites {
 
     public void setSpeakerChair(ChamberSite site) {
         this.speakerChair = site;
+    }
+
+    /**
+     * The Bar of the House: where the Speaker stands to address the Crown with the return of the
+     * Commons. Falls back to a spot before the Crown when none has been set.
+     */
+    public Optional<ChamberSite> bar() {
+        return Optional.ofNullable(bar);
+    }
+
+    public void setBar(ChamberSite site) {
+        this.bar = site;
     }
 
     public Optional<ChamberSite> lords() {
