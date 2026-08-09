@@ -336,8 +336,8 @@ public final class ElectionService {
         electionState.clearPremierVillager();
         electionState.clearAllSeats();
 
-        assignPlayerSeats(electionState, playerWinners, 1);
-        assignVillagerSeats(electionState, professions, playerWinners.size() + 1);
+        assignPlayerSeats(electionState, playerWinners, 1, voteTally(election));
+        assignVillagerSeats(electionState, professions, playerWinners.size() + 1, professionCounts);
 
         election.close();
         return ElectionCloseOutcome.completed(playerWinners, professions);
@@ -369,6 +369,7 @@ public final class ElectionService {
         MpSeat seat = electionState.seat(seatIndex).orElseThrow();
         seat.clear();
         seat.assignPlayer(winner);
+        seat.setReturnCount(voteTally(election).get(winner));
         election.close();
         return ElectionCloseOutcome.completed(List.of(winner), List.of());
     }
@@ -389,6 +390,7 @@ public final class ElectionService {
         MpSeat seat = electionState.seat(seatIndex).orElseThrow();
         seat.clear();
         seat.assignVillager(profession, null);
+        seat.setReturnCount(constituencySize(profession, professionCounts));
         election.close();
         return ElectionCloseOutcome.completed(List.of(), List.of(profession));
     }
@@ -426,6 +428,29 @@ public final class ElectionService {
         return electionState.seatsView().values().stream()
                 .anyMatch(seat -> seat.kind() == MpSeatKind.PLAYER
                         && seat.playerId().filter(playerId::equals).isPresent());
+    }
+
+    /** Votes cast per candidate, captured before the count closes and the ballot is cleared. */
+    private static Map<UUID, Integer> voteTally(ElectionState election) {
+        Map<UUID, Integer> voteCounts = new HashMap<>();
+        for (UUID candidate : election.nominationsView()) {
+            voteCounts.put(candidate, 0);
+        }
+        for (UUID candidate : election.votesView().values()) {
+            voteCounts.merge(candidate, 1, Integer::sum);
+        }
+        return voteCounts;
+    }
+
+    /**
+     * How many villagers returned a profession MP. A Citizen backfills an empty bench rather than
+     * being returned by a constituency, so it records nothing.
+     */
+    private static Integer constituencySize(String profession, Map<String, Integer> professionCounts) {
+        if (ProfessionConstituencyResolver.CITIZEN_PROFESSION.equals(profession)) {
+            return null;
+        }
+        return professionCounts.get(profession);
     }
 
     private PlayerWinnerResolution resolvePlayerWinners(ElectionState election, int maxWinners, String kingdomId) {
@@ -499,23 +524,30 @@ public final class ElectionService {
         return PlayerWinnerResolution.resolved(winners);
     }
 
-    private void assignPlayerSeats(KingdomElectionState electionState, List<UUID> winners, int startIndex) {
+    private void assignPlayerSeats(
+            KingdomElectionState electionState, List<UUID> winners, int startIndex, Map<UUID, Integer> voteCounts) {
         int index = startIndex;
         for (UUID winner : winners) {
             kingdomService.assignTitleFromElection(winner, TitleStyle.MASCULINE);
             MpSeat seat = electionState.seat(index).orElseThrow();
             seat.clear();
             seat.assignPlayer(winner);
+            seat.setReturnCount(voteCounts.get(winner));
             index++;
         }
     }
 
-    private void assignVillagerSeats(KingdomElectionState electionState, List<String> professions, int startIndex) {
+    private void assignVillagerSeats(
+            KingdomElectionState electionState,
+            List<String> professions,
+            int startIndex,
+            Map<String, Integer> professionCounts) {
         int index = startIndex;
         for (String profession : professions) {
             MpSeat seat = electionState.seat(index).orElseThrow();
             seat.clear();
             seat.assignVillager(profession, null);
+            seat.setReturnCount(constituencySize(profession, professionCounts));
             index++;
         }
     }

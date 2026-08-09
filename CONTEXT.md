@@ -279,12 +279,24 @@ The end of a session, triggered when a general election is called. The bill befo
 _Avoid_: Dissolution, adjournment, recess
 
 **State Opening**:
-The ceremony in which the Crown opens a new session once a government has formed after a general election. The Crown summons the realm to the House of Lords, then declares Parliament open from within the chamber. Until it happens, Parliament remains prorogued.
+The ceremony in which the Crown opens a new session once a government has formed after a general election. The Crown summons the realm to the House of Lords — members of the kingdom together with Parliament's villager members, the Speaker and the seated profession MPs among them — then declares Parliament open from within the chamber. The Speaker follows with the return of the Commons, and everyone is returned whence they came. Until it happens, Parliament remains prorogued.
 _Avoid_: Inauguration, swearing-in, coronation
 
 **Speech from the Throne**:
 The summons delivered to the King or Queen — or to the heir acting as regent when no monarch is seated — when a session awaits opening. Right-clicking it opens the State Opening interface: summon the realm, then declare Parliament open. Redelivered on login if missing, and removed once the session opens.
 _Avoid_: Royal decree, king's speech scroll, opening address book
+
+**Return of the Commons**:
+The Speaker's roll-call of who was elected to each bench and by what margin, read to the realm's members at every State Opening — including one opened by royal commission. Player MPs are ranked by their votes and profession MPs by the size of their constituency, but the two are never ranked against one another: a vote and a villager are not the same unit. A by-election is followed by the return of that single seat.
+_Avoid_: Election results, vote report, results announcement
+
+**Constituency size**:
+The number of territory villagers of a profession at the general election that returned its MP. It is the profession MP's counterpart to a player MP's vote tally, and is what the Speaker reads out for a villager bench.
+_Avoid_: Villager votes, profession votes
+
+**Unopposed return**:
+A seat returned without any count behind it: a Citizen backfilling an empty bench, or a seat filled before returns were recorded. The Speaker names the member but reads no number, since nobody contested the seat.
+_Avoid_: Zero votes, uncontested vote
 
 **Royal commission**:
 The fallback that opens a session without ceremony: used when the kingdom has no House of Lords set, or when neither monarch nor regent has opened Parliament within three in-game days of the government forming. Parliament opens by announcement alone — no summons, no teleport — so the realm's business is never frozen by an absent Crown.

@@ -62,6 +62,7 @@ import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
 import dev.mrlemoos.kingdom.listener.ResignationLetterListener;
 import dev.mrlemoos.kingdom.listener.StateOpeningListener;
 import dev.mrlemoos.kingdom.parliament.SpeechFromThroneItem;
+import dev.mrlemoos.kingdom.parliament.CommonsReturnAnnouncer;
 import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
 import dev.mrlemoos.kingdom.parliament.StateOpeningService;
 import dev.mrlemoos.kingdom.whitelist.BukkitServerWhitelistGateway;
@@ -210,9 +211,12 @@ public final class KingdomPlugin extends JavaPlugin {
                                 villagerPremierInauguralService);
                 StateOpeningService stateOpeningService = new StateOpeningService(kingdomService, parliamentService);
                 SpeechFromThroneItem speechFromThroneItem = new SpeechFromThroneItem(this);
+                CommonsReturnAnnouncer commonsReturnAnnouncer = new CommonsReturnAnnouncer(kingdomService);
                 StateOpeningCeremony stateOpeningCeremony = new StateOpeningCeremony(
-                                this, kingdomService, stateOpeningService, store, speechFromThroneItem);
+                                this, kingdomService, stateOpeningService, store, speechFromThroneItem,
+                                commonsReturnAnnouncer);
                 electionHandler.setStateOpeningCeremony(stateOpeningCeremony);
+                electionHandler.setCommonsReturnAnnouncer(commonsReturnAnnouncer);
                 KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(
                                 economyService, kingdomService, economyStore, territoryResolver, treasuryLordService,
                                 this);

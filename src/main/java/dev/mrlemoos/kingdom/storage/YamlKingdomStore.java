@@ -347,6 +347,11 @@ public final class YamlKingdomStore {
             seat.playerId().ifPresent(id -> config.set(seatPath + ".holder", id.toString()));
             seat.profession().ifPresent(prof -> config.set(seatPath + ".profession", prof));
             seat.entityId().ifPresent(id -> config.set(seatPath + ".entity", id.toString()));
+            if (seat.returnCount().isPresent()) {
+                config.set(seatPath + ".returned", seat.returnCount().getAsInt());
+            } else {
+                config.set(seatPath + ".returned", null);
+            }
             seat.originLocation().ifPresent(origin -> {
                 config.set(seatPath + ".origin.world", origin.worldName());
                 config.set(seatPath + ".origin.x", origin.x());
@@ -433,6 +438,9 @@ public final class YamlKingdomStore {
                                 (float) originSection.getDouble("yaw"),
                                 (float) originSection.getDouble("pitch")));
                     }
+                }
+                if (seatSection.contains("returned")) {
+                    seat.setReturnCount(seatSection.getInt("returned"));
                 }
                 loadedSeats.put(index, seat);
             }

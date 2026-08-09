@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.ElectionType;
+import dev.mrlemoos.kingdom.parliament.CommonsReturnAnnouncer;
 import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
 import dev.mrlemoos.kingdom.parliament.StateOpeningSummons;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -40,6 +41,7 @@ public final class ElectionHandler {
     private final NoblePrefixDisplay nobleDisplay;
     private final VillagerPremierInauguralService villagerPremierInauguralService;
     private StateOpeningCeremony stateOpeningCeremony;
+    private CommonsReturnAnnouncer commonsReturnAnnouncer;
 
     public ElectionHandler(
             ElectionService electionService,
@@ -60,6 +62,10 @@ public final class ElectionHandler {
 
     public void setStateOpeningCeremony(StateOpeningCeremony stateOpeningCeremony) {
         this.stateOpeningCeremony = stateOpeningCeremony;
+    }
+
+    public void setCommonsReturnAnnouncer(CommonsReturnAnnouncer commonsReturnAnnouncer) {
+        this.commonsReturnAnnouncer = commonsReturnAnnouncer;
     }
 
     public boolean handle(CommandSender sender, String[] args) {
@@ -245,6 +251,7 @@ public final class ElectionHandler {
         boolean general = electionType == ElectionType.GENERAL;
         boolean premier = electionType == ElectionType.PREMIER;
         boolean villagerByElection = electionType == ElectionType.BY_ELECTION_VILLAGER;
+        Integer byElectionSeat = election.byElectionSeatIndex().orElse(null);
         Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
         if (general) {
             villagerMpEntityService.releaseKingdomVillagerMps(kingdomId);
@@ -301,6 +308,9 @@ public final class ElectionHandler {
             store.saveFrom(kingdomService);
             refreshMpDisplays(kingdomId);
             Bukkit.broadcastMessage(c("&6The election in ")+ kingdom.getDisplayName() + " has closed.");
+            if (commonsReturnAnnouncer != null && byElectionSeat != null) {
+                commonsReturnAnnouncer.announceSeatReturn(kingdomId, byElectionSeat);
+            }
             return;
         }
         if (premier) {

@@ -5,7 +5,9 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
+import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.election.ProfessionConstituencyResolver;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
@@ -25,6 +27,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,19 +45,23 @@ public final class StateOpeningCeremony {
     private final StateOpeningService stateOpeningService;
     private final YamlKingdomStore store;
     private final SpeechFromThroneItem speechItem;
+    private final CommonsReturnAnnouncer commonsReturnAnnouncer;
     private final Map<String, Map<UUID, Location>> summonedOrigins = new ConcurrentHashMap<>();
+    private final Map<String, Map<UUID, Location>> summonedVillagerOrigins = new ConcurrentHashMap<>();
 
     public StateOpeningCeremony(
             JavaPlugin plugin,
             KingdomService kingdomService,
             StateOpeningService stateOpeningService,
             YamlKingdomStore store,
-            SpeechFromThroneItem speechItem) {
+            SpeechFromThroneItem speechItem,
+            CommonsReturnAnnouncer commonsReturnAnnouncer) {
         this.plugin = plugin;
         this.kingdomService = kingdomService;
         this.stateOpeningService = stateOpeningService;
         this.store = store;
         this.speechItem = speechItem;
+        this.commonsReturnAnnouncer = commonsReturnAnnouncer;
     }
 
     public StateOpeningService stateOpeningService() {
@@ -129,7 +136,8 @@ public final class StateOpeningCeremony {
         }
 
         List<Player> summoned = onlineMembers(kingdomId);
-        List<int[]> offsets = SafeChamberLanding.ringOffsets(summoned.size());
+        List<Entity> villagers = parliamentaryVillagers(kingdomId);
+        List<int[]> offsets = SafeChamberLanding.ringOffsets(summoned.size() + villagers.size());
         Map<UUID, Location> origins = new HashMap<>();
 
         for (int i = 0; i < summoned.size(); i++) {
@@ -140,6 +148,17 @@ public final class StateOpeningCeremony {
             member.sendTitle(c("&6State Opening"), c("&eThe Crown summons Parliament"), 10, 60, 20);
         }
         summonedOrigins.put(kingdomId, origins);
+
+        // Parliament's villager members attend in person: the Speaker, the profession MPs, and the
+        // Premier villager among them.
+        Map<UUID, Location> villagerOrigins = new HashMap<>();
+        for (int i = 0; i < villagers.size(); i++) {
+            Entity villager = villagers.get(i);
+            villagerOrigins.put(villager.getUniqueId(), villager.getLocation().clone());
+            villager.teleport(landingFor(
+                    world, lords.get(), offsets.get(summoned.size() + i), villager.getLocation()));
+        }
+        summonedVillagerOrigins.put(kingdomId, villagerOrigins);
 
         kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> Bukkit.broadcastMessage(
                 c("&6The Crown summons the realm of " + kingdom.getDisplayName() + " to the House of Lords.")));
@@ -170,6 +189,7 @@ public final class StateOpeningCeremony {
 
     /** Cleans up after the session was opened by royal commission rather than in person. */
     public void commissionOpened(String kingdomId) {
+        commonsReturnAnnouncer.announceRollCall(kingdomId);
         returnSummoned(kingdomId);
         for (Player online : onlineMembers(kingdomId)) {
             removeSpeeches(online, kingdomId);
@@ -184,6 +204,7 @@ public final class StateOpeningCeremony {
         for (Player member : onlineMembers(kingdomId)) {
             member.playSound(member.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
+        commonsReturnAnnouncer.announceRollCall(kingdomId);
     }
 
     private String describePremier(Kingdom kingdom) {
@@ -221,15 +242,82 @@ public final class StateOpeningCeremony {
 
     private void returnSummoned(String kingdomId) {
         Map<UUID, Location> origins = summonedOrigins.remove(kingdomId);
+        if (origins != null) {
+            origins.forEach((playerId, origin) -> {
+                Player player = Bukkit.getPlayer(playerId);
+                if (player != null && origin.getWorld() != null) {
+                    player.teleport(origin);
+                }
+            });
+        }
+        returnSummonedVillagers(kingdomId);
+    }
+
+    /** Villager members go back to the benches they were called from, or their seat if it is known. */
+    private void returnSummonedVillagers(String kingdomId) {
+        Map<UUID, Location> origins = summonedVillagerOrigins.remove(kingdomId);
         if (origins == null) {
             return;
         }
-        origins.forEach((playerId, origin) -> {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player != null && origin.getWorld() != null) {
-                player.teleport(origin);
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        origins.forEach((entityId, origin) -> {
+            Entity villager = Bukkit.getEntity(entityId);
+            if (villager == null) {
+                return;
+            }
+            Location destination = kingdom.flatMap(k -> seatLocationOf(k, entityId)).orElse(origin);
+            if (destination.getWorld() != null) {
+                villager.teleport(destination);
             }
         });
+    }
+
+    private Optional<Location> seatLocationOf(Kingdom kingdom, UUID entityId) {
+        OptionalInt seatIndex = kingdom.getElectionState().seatIndexForVillagerEntity(entityId);
+        if (seatIndex.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<MpSeatLocation> seat = kingdom.getElectionState().seatLocation(seatIndex.getAsInt());
+        if (seat.isEmpty()) {
+            return Optional.empty();
+        }
+        MpSeatLocation location = seat.get();
+        World world = Bukkit.getWorld(location.worldName());
+        if (world == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new Location(
+                world, location.x(), location.y(), location.z(), location.yaw(), location.pitch()));
+    }
+
+    /** The Speaker and every seated villager MP, where their entities are loaded. */
+    private List<Entity> parliamentaryVillagers(String kingdomId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return List.of();
+        }
+        List<Entity> villagers = new ArrayList<>();
+        Optional<UUID> speakerId = kingdom.get().getParliamentState().speakerVillagerEntityId();
+        if (speakerId.isPresent()) {
+            Entity speaker = Bukkit.getEntity(speakerId.get());
+            if (speaker != null) {
+                villagers.add(speaker);
+            }
+        }
+        for (MpSeat seat : kingdom.get().getElectionState().seatsView().values()) {
+            if (seat.kind() != MpSeatKind.VILLAGER) {
+                continue;
+            }
+            Optional<UUID> entityId = seat.entityId();
+            if (entityId.isEmpty()) {
+                continue;
+            }
+            Entity mp = Bukkit.getEntity(entityId.get());
+            if (mp != null) {
+                villagers.add(mp);
+            }
+        }
+        return villagers;
     }
 
     private Location landingFor(World world, ChamberSite lords, int[] offset, Location fallbackFacing) {

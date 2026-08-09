@@ -9,6 +9,8 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
+import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
+import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Map;
@@ -308,6 +310,52 @@ class ElectionServiceTest {
         assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
         assertTrue(kingdomService.getKingdom("northmarch").orElseThrow().getElectionState()
                 .premierVillagerSeatIndex().isEmpty());
+    }
+
+    @Test
+    void closingAGeneralElectionRecordsEachSeatsReturn() {
+        startGeneralAndNominateAllCitizens();
+        castVote(VOTER, CITIZEN_ONE);
+        castVote(DUKE, CITIZEN_ONE);
+        castVote(CITIZEN_FIVE, CITIZEN_TWO);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 10, "librarian", 8));
+
+        KingdomElectionState state = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        MpSeat winner = seatOf(state, CITIZEN_ONE);
+        MpSeat runnerUp = seatOf(state, CITIZEN_TWO);
+        assertEquals(2, winner.returnCount().orElseThrow());
+        assertEquals(1, runnerUp.returnCount().orElseThrow());
+
+        MpSeat farmer = professionSeat(state, "farmer");
+        assertEquals(10, farmer.returnCount().orElseThrow());
+    }
+
+    @Test
+    void citizenBackfillSeatsRecordNoReturnCount() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 10));
+
+        KingdomElectionState state = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        assertEquals(10, professionSeat(state, "farmer").returnCount().orElseThrow());
+        assertTrue(professionSeat(state, "none").returnCount().isEmpty());
+    }
+
+    private static MpSeat seatOf(KingdomElectionState state, UUID playerId) {
+        return state.seatsView().values().stream()
+                .filter(seat -> seat.playerId().filter(playerId::equals).isPresent())
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static MpSeat professionSeat(KingdomElectionState state, String profession) {
+        return state.seatsView().values().stream()
+                .filter(seat -> seat.profession().filter(profession::equals).isPresent())
+                .findFirst()
+                .orElseThrow();
     }
 
     private void startGeneralAndNominateAllCitizens() {

@@ -1,13 +1,16 @@
 package dev.mrlemoos.kingdom.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.TeleportPlace;
+import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -70,5 +73,28 @@ class YamlKingdomStoreTest {
         assertEquals(10, loaded.getParliamentSites().commons().orElseThrow().x(), 1e-9);
         assertEquals(30, loaded.getParliamentSites().lords().orElseThrow().x(), 1e-9);
         assertEquals(5, loaded.getParliamentSites().registrar().orElseThrow().blockX());
+    }
+
+    @Test
+    void roundTripPreservesSeatReturns() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        MpSeat player = kingdom.getElectionState().seat(1).orElseThrow();
+        player.assignPlayer(UUID.fromString("00000000-0000-0000-0000-0000000000c1"));
+        player.setReturnCount(12);
+        MpSeat villager = kingdom.getElectionState().seat(2).orElseThrow();
+        villager.assignVillager("farmer", null);
+        villager.setReturnCount(6);
+        MpSeat backfill = kingdom.getElectionState().seat(3).orElseThrow();
+        backfill.assignVillager("none", null);
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlKingdomStore.writeParliament(config, "kingdoms.northmarch.parliament", kingdom);
+
+        Kingdom loaded = new Kingdom("northmarch", "Northmarch");
+        YamlKingdomStore.readParliament(config.getConfigurationSection("kingdoms.northmarch.parliament"), loaded);
+
+        assertEquals(12, loaded.getElectionState().seat(1).orElseThrow().returnCount().orElseThrow());
+        assertEquals(6, loaded.getElectionState().seat(2).orElseThrow().returnCount().orElseThrow());
+        assertTrue(loaded.getElectionState().seat(3).orElseThrow().returnCount().isEmpty());
     }
 }

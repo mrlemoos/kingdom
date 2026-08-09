@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.model.election;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 
 public final class MpSeat {
@@ -12,6 +13,7 @@ public final class MpSeat {
     private String profession;
     private UUID entityId;
     private MpSeatLocation originLocation;
+    private Integer returnCount;
 
     public MpSeat(int index) {
         if (index < 1 || index > 8) {
@@ -44,6 +46,19 @@ public final class MpSeat {
         return Optional.ofNullable(originLocation);
     }
 
+    /**
+     * How this seat was returned at the last election: votes for a player MP, the profession's
+     * scan count for a villager MP. Empty where nobody contested the seat — a Citizen backfill, or
+     * a seat filled before returns were recorded.
+     */
+    public OptionalInt returnCount() {
+        return returnCount == null ? OptionalInt.empty() : OptionalInt.of(returnCount);
+    }
+
+    public void setReturnCount(Integer returnCount) {
+        this.returnCount = returnCount;
+    }
+
     public boolean isOccupied() {
         return kind != null;
     }
@@ -53,6 +68,7 @@ public final class MpSeat {
         this.playerId = Objects.requireNonNull(holder, "holder");
         this.profession = null;
         this.entityId = null;
+        this.returnCount = null;
     }
 
     public void assignVillager(String professionName, UUID entityId) {
@@ -61,6 +77,7 @@ public final class MpSeat {
         this.entityId = entityId;
         this.playerId = null;
         this.originLocation = null;
+        this.returnCount = null;
     }
 
     public void clear() {
@@ -69,6 +86,7 @@ public final class MpSeat {
         this.profession = null;
         this.entityId = null;
         this.originLocation = null;
+        this.returnCount = null;
     }
 
     public void setEntityId(UUID entityId) {

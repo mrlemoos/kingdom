@@ -148,6 +148,9 @@ public final class KingdomElectionState {
                         source.entityId().orElse(null));
                 source.originLocation().ifPresent(target::setOriginLocation);
             }
+            if (source.returnCount().isPresent()) {
+                target.setReturnCount(source.returnCount().getAsInt());
+            }
         }
     }
 
