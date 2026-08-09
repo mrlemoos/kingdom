@@ -55,6 +55,10 @@ public final class ResignCommand {
         }
 
         String kingdomId = membership.get().getKingdomId();
+        if (isTargetingVillagerSpeaker(player)) {
+            player.sendMessage(error("The Speaker of the House is not an elected office."));
+            return true;
+        }
         OptionalInt villagerSeat = resolveTargetedVillagerSeat(player, kingdomId);
         if (villagerSeat.isPresent() && !canOfferVillagerResignation(membership.get())) {
             player.sendMessage(error("Only a seated MP, the Premier, or the Speaker may offer a villager resignation."));
@@ -151,6 +155,13 @@ public final class ResignCommand {
 
     private void notifyCrown(String kingdomId) {
         letterDelivery.deliverPendingLetter(kingdomId);
+    }
+
+    private boolean isTargetingVillagerSpeaker(Player player) {
+        Optional<org.bukkit.entity.Entity> target = TreasuryLordTargetScan.targetedEntity(player, 6.0);
+        return target.isPresent()
+                && target.get() instanceof Villager villager
+                && villagerMpEntityService.isVillagerSpeaker(villager);
     }
 
     private OptionalInt resolveTargetedVillagerSeat(Player player, String kingdomId) {

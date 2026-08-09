@@ -74,6 +74,12 @@ public final class NoblePrefixDisplay {
         return NobleRank.PREMIER.chatColor() + "[" + title + "] " + c("&f" + suffixLabel);
     }
 
+    /** Speaker villager nametag: the prefix alone—an impartial Chair carries no profession label. */
+    public static String speakerVillagerNametag() {
+        String title = NobleRank.SPEAKER.displayTitle(TitleStyle.MASCULINE);
+        return NobleRank.SPEAKER.chatColor() + "[" + title + "]";
+    }
+
     private String fullColouredPrefix(UUID playerId) {
         String sworn = "";
         if (policeService != null) {

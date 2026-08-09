@@ -13,6 +13,20 @@ public final class ParliamentState {
     private final List<AssentedAct> assentedActs = new ArrayList<>();
     private boolean sessionOpen = true;
     private long stateOpeningPendingSinceMcDay = -1L;
+    private java.util.UUID speakerVillagerEntityId;
+
+    /** The villager presiding over the Commons while no player holds the Speakership. */
+    public Optional<java.util.UUID> speakerVillagerEntityId() {
+        return Optional.ofNullable(speakerVillagerEntityId);
+    }
+
+    public void setSpeakerVillagerEntityId(java.util.UUID entityId) {
+        this.speakerVillagerEntityId = entityId;
+    }
+
+    public void clearSpeakerVillager() {
+        this.speakerVillagerEntityId = null;
+    }
 
     public Optional<Bill> currentBill() {
         return Optional.ofNullable(currentBill);

@@ -32,11 +32,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class ParliamentService {
 
+    public static final int DEFAULT_DIVISION_WINDOW_MC_DAYS = 1;
+
     private final KingdomService kingdomService;
     private final java.util.function.Supplier<Long> clockMs;
     private final AtomicLong billSequence = new AtomicLong(1);
     private ProfessionVoteBias professionVoteBias = ProfessionVoteBias.defaults();
     private WarService warService;
+    private int divisionWindowMcDays = DEFAULT_DIVISION_WINDOW_MC_DAYS;
 
     public ParliamentService(KingdomService kingdomService) {
         this(kingdomService, System::currentTimeMillis);
@@ -61,6 +64,18 @@ public final class ParliamentService {
 
     public ParliamentResult setLords(String kingdomId, ChamberSite site) {
         return setChamber(kingdomId, site, ChamberTarget.LORDS);
+    }
+
+    public ParliamentResult setSpeakerChair(String kingdomId, ChamberSite site) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return ParliamentResult.fail("Unknown kingdom.");
+        }
+        if (site == null) {
+            return ParliamentResult.fail("Speaker's Chair site is required.");
+        }
+        kingdom.get().getParliamentSites().setSpeakerChair(site);
+        return ParliamentResult.ok("Speaker's Chair set.");
     }
 
     public ParliamentResult setRegistrar(String kingdomId, RegistrarSite site) {
@@ -192,47 +207,72 @@ public final class ParliamentService {
                 new BillPayload.Budget(amount));
     }
 
-    public boolean isRealmHandledDivisionEligible(String kingdomId) {
-        return kingdomService.getKingdom(kingdomId)
-                .map(k -> !hasSeatedPlayerMps(k.getElectionState()))
-                .orElse(false);
+    public void setDivisionWindowMcDays(int divisionWindowMcDays) {
+        this.divisionWindowMcDays = Math.max(divisionWindowMcDays, 0);
     }
 
-    public ParliamentResult runRealmHandledDivision(String kingdomId, int premierVillagerSeatIndex) {
-        ParliamentResult sessionGate = sessionClosed(kingdomId);
-        if (sessionGate != null) {
-            return sessionGate;
+    /** True when no player holds the Speakership, so a villager Speaker takes the Chair. */
+    public boolean needsVillagerSpeaker(String kingdomId) {
+        return kingdomService.getKingdom(kingdomId).isPresent()
+                && !kingdomService.hasPlayerWithRank(kingdomId, NobleRank.SPEAKER);
+    }
+
+    /**
+     * Moves Commons business along under a villager Speaker: opens the division on the bill before the
+     * House, then closes it once the division window has run—or at once when no player MP is seated to
+     * vote. Empty when nothing was due.
+     */
+    public Optional<ParliamentResult> conductVillagerSpeakerDivision(String kingdomId, long currentMcDay) {
+        if (!needsVillagerSpeaker(kingdomId) || !isSessionOpen(kingdomId)) {
+            return Optional.empty();
         }
-        if (!isRealmHandledDivisionEligible(kingdomId)) {
-            return ParliamentResult.fail("Realm-handled divisions require a full villager parliament.");
+        Optional<Bill> current = currentBill(kingdomId);
+        if (current.isEmpty()) {
+            return Optional.empty();
         }
-        if (!isPremierVillagerSeat(kingdomId, premierVillagerSeatIndex)) {
-            return ParliamentResult.fail("That seat is not the Premier villager.");
-        }
-        Optional<Bill> bill = currentBill(kingdomId);
-        if (bill.isEmpty()) {
-            return ParliamentResult.fail("No bill is before the House.");
-        }
-        if (bill.get().state() != BillState.TABLED) {
-            return ParliamentResult.fail("A division is not ready to open.");
+        Bill bill = current.get();
+        boolean playerMpsSeated = kingdomService.getKingdom(kingdomId)
+                .map(k -> hasSeatedPlayerMps(k.getElectionState()))
+                .orElse(false);
+
+        if (bill.state() == BillState.TABLED) {
+            bill.setState(BillState.DIVISION_OPEN);
+            bill.setDivisionClosesOnMcDay(currentMcDay + divisionWindowMcDays);
+            if (stillSitting(bill, playerMpsSeated, currentMcDay)) {
+                return Optional.of(ParliamentResult.ok("The Speaker has opened a division on " + bill.title() + "."));
+            }
+            return Optional.of(closeVillagerSpeakerDivision(kingdomId, bill));
         }
 
-        bill.get().setState(BillState.DIVISION_OPEN);
-        castVillagerMpVotes(kingdomId, bill.get());
+        if (bill.state() != BillState.DIVISION_OPEN || stillSitting(bill, playerMpsSeated, currentMcDay)) {
+            return Optional.empty();
+        }
+        return Optional.of(closeVillagerSpeakerDivision(kingdomId, bill));
+    }
 
-        VoteTally tally = VoteTally.from(bill.get().votesView());
+    /** A division stays open only while player MPs have time left to vote in it. */
+    private static boolean stillSitting(Bill bill, boolean playerMpsSeated, long currentMcDay) {
+        return playerMpsSeated && currentMcDay < bill.divisionClosesOnMcDay().orElse(currentMcDay);
+    }
+
+    private ParliamentResult closeVillagerSpeakerDivision(String kingdomId, Bill bill) {
+        castVillagerMpVotes(kingdomId, bill);
+
+        VoteTally tally = VoteTally.from(bill.votesView());
         int aye = tally.aye();
         int nay = tally.nay();
         if (aye == nay) {
-            aye++;
+            // Denison's rule: an unelected Chair leaves the standing position undisturbed.
+            bill.setSpeakerCastingVote(VoteChoice.NAY);
+            nay++;
         }
 
         if (aye > nay) {
-            bill.get().setState(BillState.AWAITING_ASSENT);
+            bill.setState(BillState.AWAITING_ASSENT);
             return ParliamentResult.ok("Bill passed the Commons and awaits royal assent.");
         }
 
-        bill.get().setState(BillState.FAILED);
+        bill.setState(BillState.FAILED);
         clearBill(kingdomId);
         return ParliamentResult.ok("Bill failed the division.");
     }

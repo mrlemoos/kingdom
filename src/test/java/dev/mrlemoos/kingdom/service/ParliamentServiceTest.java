@@ -161,24 +161,85 @@ class ParliamentServiceTest {
     }
 
     @Test
-    void realmHandledDivisionEligibleWhenNoPlayerMps() {
-        clearPlayerMpTitles();
-        fillVillagerParliament();
+    void villagerSpeakerPresidesWhenNoPlayerHoldsTheSpeakership() {
+        assertFalse(parliamentService.needsVillagerSpeaker("northmarch"));
 
-        assertTrue(parliamentService.isRealmHandledDivisionEligible("northmarch"));
+        kingdomService.clearTitle(SPEAKER);
+
+        assertTrue(parliamentService.needsVillagerSpeaker("northmarch"));
     }
 
     @Test
-    void realmHandledDivisionPassesTiedBillWithPremierCastingVote() {
+    void villagerSpeakerClosesDivisionAtOnceWhenNoPlayerMpsAreSeated() {
         clearPlayerMpTitles();
+        kingdomService.clearTitle(SPEAKER);
         fillVillagerParliament();
         kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().setPremierVillagerSeatIndex(1);
 
         assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudgetForVillagerPremier(
                 "northmarch", 1, 40, null));
-        assertInstanceOf(ParliamentResult.Success.class, parliamentService.runRealmHandledDivision("northmarch", 1));
+        assertInstanceOf(
+                ParliamentResult.Success.class,
+                parliamentService.conductVillagerSpeakerDivision("northmarch", 100).orElseThrow());
 
         assertEquals(BillState.AWAITING_ASSENT, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerSpeakerHoldsDivisionOpenUntilTheWindowEndsWhenPlayerMpsAreSeated() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudget(
+                "northmarch", NobleRank.PREMIER, PREMIER, 40, null));
+
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 100);
+        assertEquals(BillState.DIVISION_OPEN, parliamentService.currentBill("northmarch").orElseThrow().state());
+
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.AYE);
+
+        assertTrue(parliamentService.conductVillagerSpeakerDivision("northmarch", 100).isEmpty());
+        assertEquals(BillState.DIVISION_OPEN, parliamentService.currentBill("northmarch").orElseThrow().state());
+
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 101);
+        assertEquals(BillState.AWAITING_ASSENT, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerSpeakerCastsNayOnATiedDivisionSoTheBillFails() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 40, null);
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 100);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_ONE, VoteChoice.AYE);
+        parliamentService.castVote("northmarch", NobleRank.MP, MP_TWO, VoteChoice.NAY);
+
+        ParliamentResult closed = parliamentService.conductVillagerSpeakerDivision("northmarch", 101).orElseThrow();
+
+        assertInstanceOf(ParliamentResult.Success.class, closed);
+        assertTrue(((ParliamentResult.Success) closed).message().toLowerCase().contains("failed"));
+        assertTrue(parliamentService.currentBill("northmarch").isEmpty());
+    }
+
+    @Test
+    void villagerSpeakerDoesNotActWhileAPlayerHoldsTheSpeakership() {
+        seatPlayerMps();
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 40, null);
+
+        assertTrue(parliamentService.conductVillagerSpeakerDivision("northmarch", 100).isEmpty());
+        assertEquals(BillState.TABLED, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerSpeakerDoesNotActWhileParliamentIsProrogued() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 40, null);
+        kingdomService.getKingdom("northmarch").orElseThrow().getParliamentState().setSessionOpen(false);
+
+        assertTrue(parliamentService.conductVillagerSpeakerDivision("northmarch", 100).isEmpty());
     }
 
     @Test
@@ -415,6 +476,12 @@ class ParliamentServiceTest {
     private void clearPlayerMpTitles() {
         kingdomService.clearTitle(MP_ONE);
         kingdomService.clearTitle(MP_TWO);
+    }
+
+    private void seatPlayerMps() {
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        electionState.seat(1).orElseThrow().assignPlayer(MP_ONE);
+        electionState.seat(2).orElseThrow().assignPlayer(MP_TWO);
     }
 
     private void fillVillagerParliament() {

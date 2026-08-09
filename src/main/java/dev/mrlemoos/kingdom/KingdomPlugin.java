@@ -193,6 +193,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this, kingdomService, villagerScanner, territoryResolver);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
+                parliamentService.setDivisionWindowMcDays(getConfig().getInt(
+                                "parliament.villager-speaker.division-window-days",
+                                ParliamentService.DEFAULT_DIVISION_WINDOW_MC_DAYS));
                 parliamentService.setWarService(warService);
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
@@ -354,7 +357,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 ElectionTask electionTask = new ElectionTask(
                                 this, electionService, electionHandler, kingdomService, store, electionConfig,
-                                villagerPremierInauguralService);
+                                villagerPremierInauguralService, parliamentService, villagerMpEntityService);
                 electionTask.setStateOpeningCeremony(stateOpeningCeremony);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 

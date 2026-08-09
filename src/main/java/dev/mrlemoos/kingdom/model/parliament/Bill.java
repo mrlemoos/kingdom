@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 public final class Bill {
@@ -19,6 +20,7 @@ public final class Bill {
     private final List<ConductProvision> conductProvisions;
     private final Map<UUID, VoteChoice> votes = new HashMap<>();
     private VoteChoice speakerCastingVote;
+    private long divisionClosesOnMcDay = -1L;
 
     public Bill(
             String id,
@@ -100,6 +102,15 @@ public final class Bill {
 
     public void recordVote(UUID voterId, VoteChoice choice) {
         votes.put(voterId, choice);
+    }
+
+    /** In-game day the villager Speaker closes the division on; absent under a player Speaker. */
+    public OptionalLong divisionClosesOnMcDay() {
+        return divisionClosesOnMcDay < 0 ? OptionalLong.empty() : OptionalLong.of(divisionClosesOnMcDay);
+    }
+
+    public void setDivisionClosesOnMcDay(long mcDay) {
+        this.divisionClosesOnMcDay = Math.max(mcDay, 0L);
     }
 
     public Optional<VoteChoice> speakerCastingVote() {

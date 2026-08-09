@@ -138,6 +138,11 @@ war:
     max-squads-per-officer: 1
     max-squads-per-kingdom: 8
 
+parliament:
+  villager-speaker:
+    # In-game days a villager Speaker holds a division open for seated player MPs.
+    division-window-days: 1
+
 election:
   general-interval-mc-days: 120
   duration-mc-days: 3

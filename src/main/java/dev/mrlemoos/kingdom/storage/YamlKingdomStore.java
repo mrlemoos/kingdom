@@ -266,6 +266,7 @@ public final class YamlKingdomStore {
         var sites = kingdom.getParliamentSites();
         sites.commons().ifPresent(commons -> writeChamber(config, path + ".commons", commons));
         sites.lords().ifPresent(lords -> writeChamber(config, path + ".lords", lords));
+        sites.speakerChair().ifPresent(chair -> writeChamber(config, path + ".speaker-chair", chair));
         sites.registrar().ifPresent(registrar -> writeRegistrar(config, path + ".registrar", registrar));
 
         ParliamentState state = kingdom.getParliamentState();
@@ -273,6 +274,9 @@ public final class YamlKingdomStore {
         config.set(
                 path + ".state-opening-pending-since-mc-day",
                 state.stateOpeningPendingSinceMcDay().orElse(-1L));
+        config.set(
+                path + ".speaker-villager",
+                state.speakerVillagerEntityId().map(UUID::toString).orElse(null));
         state.preparedMint().ifPresent(mint -> {
             String mintPath = path + ".prepared-mint";
             config.set(mintPath + ".world", mint.worldName());
@@ -292,6 +296,7 @@ public final class YamlKingdomStore {
         var sites = kingdom.getParliamentSites();
         readChamber(section.getConfigurationSection("commons")).ifPresent(sites::setCommons);
         readChamber(section.getConfigurationSection("lords")).ifPresent(sites::setLords);
+        readChamber(section.getConfigurationSection("speaker-chair")).ifPresent(sites::setSpeakerChair);
         readRegistrar(section.getConfigurationSection("registrar")).ifPresent(sites::setRegistrar);
 
         ParliamentState state = kingdom.getParliamentState();
@@ -302,6 +307,8 @@ public final class YamlKingdomStore {
         } else {
             state.clearStateOpeningPending();
         }
+        String speakerVillager = section.getString("speaker-villager");
+        state.setSpeakerVillagerEntityId(speakerVillager != null ? UUID.fromString(speakerVillager) : null);
         readMint(section.getConfigurationSection("prepared-mint")).ifPresent(state::setPreparedMint);
         readBill(section.getConfigurationSection("current-bill")).ifPresent(state::setCurrentBill);
         state.replaceAssentedActs(readActs(section.getConfigurationSection("acts")));
@@ -568,6 +575,7 @@ public final class YamlKingdomStore {
         }
         bill.speakerCastingVote()
                 .ifPresent(choice -> config.set(path + ".speaker-casting-vote", choice.name().toLowerCase()));
+        bill.divisionClosesOnMcDay().ifPresent(day -> config.set(path + ".division-closes-on-mc-day", day));
     }
 
     private static Optional<Bill> readBill(ConfigurationSection section) {
@@ -606,6 +614,10 @@ public final class YamlKingdomStore {
         String casting = section.getString("speaker-casting-vote");
         if (casting != null) {
             bill.setSpeakerCastingVote(VoteChoice.valueOf(casting.toUpperCase()));
+        }
+        long closesOn = section.getLong("division-closes-on-mc-day", -1L);
+        if (closesOn >= 0) {
+            bill.setDivisionClosesOnMcDay(closesOn);
         }
         return Optional.of(bill);
     }

@@ -6,6 +6,9 @@ import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
+import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -59,6 +62,7 @@ public final class VillagerMpEntityService {
         kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
             releaseOrphanedMpVillagers(kingdomId);
             reconcileStrandedMpVillagers(kingdom);
+            syncSpeaker(kingdom);
             syncSeats(kingdom);
             refreshTerritoryVillagerNametags(kingdom);
             reconcileKingdomWorldTerritoryVillagerDespawn(kingdom);
@@ -212,6 +216,88 @@ public final class VillagerMpEntityService {
             }
             applyStandardNametag(villager);
         }
+    }
+
+    /** Seats or dismisses this kingdom's villager Speaker without sweeping every territory villager. */
+    public void syncSpeaker(String kingdomId) {
+        kingdomService.getKingdom(kingdomId).ifPresent(this::syncSpeaker);
+    }
+
+    /** True while this villager presides over the Commons as its Speaker. */
+    public boolean isVillagerSpeaker(Villager villager) {
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            if (kingdom.getParliamentState()
+                    .speakerVillagerEntityId()
+                    .filter(villager.getUniqueId()::equals)
+                    .isPresent()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Seats a villager Speaker whenever no player holds the Speakership and Parliament is in session,
+     * and dismisses it otherwise. Spawned fresh: the Chair claims no territory villager.
+     */
+    private void syncSpeaker(Kingdom kingdom) {
+        ParliamentState state = kingdom.getParliamentState();
+        boolean wanted = state.isSessionOpen()
+                && !kingdomService.hasPlayerWithRank(kingdom.getId(), NobleRank.SPEAKER);
+
+        if (!wanted) {
+            state.speakerVillagerEntityId().flatMap(this::findEntity).ifPresent(Entity::remove);
+            state.clearSpeakerVillager();
+            return;
+        }
+
+        Optional<Location> chair = speakerChairSite(kingdom).flatMap(VillagerMpEntityService::toBukkitLocation);
+        if (chair.isEmpty()) {
+            return;
+        }
+        Location location = chair.get();
+        World world = location.getWorld();
+        if (world == null) {
+            return;
+        }
+        if (state.speakerVillagerEntityId().isPresent()) {
+            location.getChunk();
+            Optional<Entity> seated = state.speakerVillagerEntityId().flatMap(this::findEntity);
+            if (seated.isPresent()) {
+                if (seated.get() instanceof Villager villager) {
+                    configureSpeakerBehaviour(villager, kingdom.getId());
+                }
+                return;
+            }
+        }
+
+        Villager speaker = world.spawn(location, Villager.class, spawned -> {
+            spawned.setProfession(Villager.Profession.NONE);
+            configureSpeakerBehaviour(spawned, kingdom.getId());
+        });
+        state.setSpeakerVillagerEntityId(speaker.getUniqueId());
+    }
+
+    private void configureSpeakerBehaviour(Villager villager, String kingdomId) {
+        ensureSeatedStance(villager);
+        villager.setAI(false);
+        villager.setInvulnerable(VillagerMpCombatPolicy.shouldLockFromCombat(true));
+        villager.setPersistent(VillagerMpDespawnPolicy.persistentWhileSeated());
+        villager.setRemoveWhenFarAway(VillagerMpDespawnPolicy.removeWhenFarAwayWhileSeated());
+        villager.setSilent(true);
+        villager.setCustomNameVisible(true);
+        villager.setCustomName(NoblePrefixDisplay.speakerVillagerNametag());
+        villager.getPersistentDataContainer().set(mpKingdomTagKey, PersistentDataType.STRING, kingdomId);
+    }
+
+    private static Optional<ChamberSite> speakerChairSite(Kingdom kingdom) {
+        Optional<ChamberSite> chair = kingdom.getParliamentSites().speakerChair();
+        return chair.isPresent() ? chair : kingdom.getParliamentSites().commons();
+    }
+
+    private static Optional<Location> toBukkitLocation(ChamberSite site) {
+        World world = Bukkit.getWorld(site.worldName());
+        return world == null ? Optional.empty() : Optional.of(new Location(world, site.x(), site.y(), site.z()));
     }
 
     private void syncSeats(Kingdom kingdom) {
@@ -615,6 +701,7 @@ public final class VillagerMpEntityService {
 
     private Set<UUID> seatedVillagerEntityIds(Kingdom kingdom) {
         Set<UUID> reserved = new HashSet<>();
+        kingdom.getParliamentState().speakerVillagerEntityId().ifPresent(reserved::add);
         for (MpSeat seat : kingdom.getElectionState().seatsView().values()) {
             if (seat.kind() == MpSeatKind.VILLAGER) {
                 seat.entityId().ifPresent(reserved::add);

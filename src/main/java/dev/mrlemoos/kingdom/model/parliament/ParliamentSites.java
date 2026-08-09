@@ -6,10 +6,20 @@ public final class ParliamentSites {
 
     private ChamberSite commons;
     private ChamberSite lords;
+    private ChamberSite speakerChair;
     private RegistrarSite registrar;
 
     public Optional<ChamberSite> commons() {
         return Optional.ofNullable(commons);
+    }
+
+    /** Where the Speaker presides; the Commons point is used when no chair has been set. */
+    public Optional<ChamberSite> speakerChair() {
+        return Optional.ofNullable(speakerChair);
+    }
+
+    public void setSpeakerChair(ChamberSite site) {
+        this.speakerChair = site;
     }
 
     public Optional<ChamberSite> lords() {

@@ -120,6 +120,15 @@ public class KingdomService {
                 .anyMatch(seat -> seat.kind() == dev.mrlemoos.kingdom.model.election.MpSeatKind.PLAYER && seat.isOccupied());
     }
 
+    /** True when a member of that kingdom holds the rank; used to tell a player Speaker from a villager one. */
+    public boolean hasPlayerWithRank(String kingdomId, NobleRank rank) {
+        if (kingdomId == null || rank == null) {
+            return false;
+        }
+        return memberships.values().stream()
+                .anyMatch(m -> kingdomId.equals(m.getKingdomId()) && m.getRank() == rank);
+    }
+
     public KingdomResult clearTitle(UUID playerId) {
         PlayerMembership membership = memberships.get(playerId);
         if (membership == null) {

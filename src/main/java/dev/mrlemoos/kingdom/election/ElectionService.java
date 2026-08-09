@@ -322,7 +322,7 @@ public final class ElectionService {
             KingdomElectionState electionState,
             ElectionState election,
             Map<String, Integer> professionCounts) {
-        PlayerWinnerResolution resolution = resolvePlayerWinners(election, config.maxPlayerSeats());
+        PlayerWinnerResolution resolution = resolvePlayerWinners(election, config.maxPlayerSeats(), kingdom.getId());
         if (resolution.needsSpeakerTieVote()) {
             return ElectionCloseOutcome.awaitingSpeakerTie();
         }
@@ -346,7 +346,7 @@ public final class ElectionService {
     private ElectionCloseOutcome closePlayerByElection(
             Kingdom kingdom, KingdomElectionState electionState, ElectionState election) {
         int seatIndex = election.byElectionSeatIndex().orElseThrow();
-        PlayerWinnerResolution resolution = resolvePlayerWinners(election, 1);
+        PlayerWinnerResolution resolution = resolvePlayerWinners(election, 1, kingdom.getId());
         if (resolution.needsSpeakerTieVote()) {
             return ElectionCloseOutcome.awaitingSpeakerTie();
         }
@@ -395,7 +395,7 @@ public final class ElectionService {
 
     private ElectionCloseOutcome closePremierElection(
             Kingdom kingdom, KingdomElectionState electionState, ElectionState election) {
-        PlayerWinnerResolution resolution = resolvePlayerWinners(election, 1);
+        PlayerWinnerResolution resolution = resolvePlayerWinners(election, 1, kingdom.getId());
         if (resolution.needsSpeakerTieVote()) {
             return ElectionCloseOutcome.awaitingSpeakerTie();
         }
@@ -428,7 +428,7 @@ public final class ElectionService {
                         && seat.playerId().filter(playerId::equals).isPresent());
     }
 
-    private PlayerWinnerResolution resolvePlayerWinners(ElectionState election, int maxWinners) {
+    private PlayerWinnerResolution resolvePlayerWinners(ElectionState election, int maxWinners, String kingdomId) {
         List<UUID> nominations = election.nominationsView();
         if (nominations.isEmpty()) {
             return PlayerWinnerResolution.resolved(List.of());
@@ -464,6 +464,14 @@ public final class ElectionService {
 
         int remainingSlots = target - sureWinners.size();
         if (tiedAtBoundary.size() <= remainingSlots) {
+            List<UUID> winners = new ArrayList<>(sureWinners);
+            winners.addAll(tiedAtBoundary.subList(0, remainingSlots));
+            return PlayerWinnerResolution.resolved(winners);
+        }
+
+        if (!kingdomService.hasPlayerWithRank(kingdomId, NobleRank.SPEAKER)) {
+            // No player holds the Chair, so the realm settles the tie by earliest nomination: the
+            // boundary list is already ordered that way.
             List<UUID> winners = new ArrayList<>(sureWinners);
             winners.addAll(tiedAtBoundary.subList(0, remainingSlots));
             return PlayerWinnerResolution.resolved(winners);

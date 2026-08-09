@@ -148,6 +148,34 @@ class ElectionServiceTest {
     }
 
     @Test
+    void tieForLastSeatFallsToEarliestNominationWhenNoPlayerSpeakerIsSeated() {
+        kingdomService.clearTitle(SPEAKER);
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        electionService.nominate("northmarch", CITIZEN_TWO);
+        electionService.nominate("northmarch", CITIZEN_THREE);
+        electionService.nominate("northmarch", CITIZEN_FOUR);
+        electionService.nominate("northmarch", CITIZEN_FIVE);
+
+        castVote(VOTER, CITIZEN_ONE);
+        castVote(DUKE, CITIZEN_ONE);
+        castVote(SPEAKER, CITIZEN_TWO);
+        castVote(CITIZEN_ONE, CITIZEN_TWO);
+        castVote(CITIZEN_TWO, CITIZEN_THREE);
+        castVote(CITIZEN_THREE, CITIZEN_FOUR);
+        castVote(CITIZEN_FOUR, CITIZEN_FIVE);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        ElectionService.ElectionCloseOutcome outcome =
+                electionService.tryCloseElection("northmarch", Map.of("farmer", 1));
+
+        assertTrue(outcome.complete());
+        assertFalse(outcome.needsSpeakerTieVote());
+        assertTrue(outcome.playerWinners().contains(CITIZEN_FOUR));
+        assertFalse(outcome.playerWinners().contains(CITIZEN_FIVE));
+    }
+
+    @Test
     void noPlayerCandidatesFillEightSeatsIncludingCitizenBackfill() {
         assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
         now += ElectionConfig.defaults().durationMs() + 1;

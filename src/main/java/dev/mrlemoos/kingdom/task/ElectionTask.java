@@ -8,8 +8,11 @@ import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
 import dev.mrlemoos.kingdom.election.VillagerPremierInauguralService;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.service.ParliamentResult;
+import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.Objects;
 import org.bukkit.Bukkit;
@@ -27,6 +30,8 @@ public final class ElectionTask implements Runnable {
     private final YamlKingdomStore store;
     private final ElectionConfig config;
     private final VillagerPremierInauguralService villagerPremierInauguralService;
+    private final ParliamentService parliamentService;
+    private final VillagerMpEntityService villagerMpEntityService;
     private StateOpeningCeremony stateOpeningCeremony;
 
     public ElectionTask(
@@ -36,7 +41,9 @@ public final class ElectionTask implements Runnable {
             KingdomService kingdomService,
             YamlKingdomStore store,
             ElectionConfig config,
-            VillagerPremierInauguralService villagerPremierInauguralService) {
+            VillagerPremierInauguralService villagerPremierInauguralService,
+            ParliamentService parliamentService,
+            VillagerMpEntityService villagerMpEntityService) {
         this.plugin = Objects.requireNonNull(plugin);
         this.electionService = electionService;
         this.electionHandler = electionHandler;
@@ -44,6 +51,8 @@ public final class ElectionTask implements Runnable {
         this.store = store;
         this.config = config;
         this.villagerPremierInauguralService = villagerPremierInauguralService;
+        this.parliamentService = parliamentService;
+        this.villagerMpEntityService = villagerMpEntityService;
     }
 
     public void setStateOpeningCeremony(StateOpeningCeremony stateOpeningCeremony) {
@@ -61,6 +70,7 @@ public final class ElectionTask implements Runnable {
         electionHandler.checkVacancies();
         openOverdueParliaments();
         processDueInauguralFiscalPackages();
+        conductVillagerSpeakerDivisions();
         scheduleGeneralElections();
     }
 
@@ -102,6 +112,38 @@ public final class ElectionTask implements Runnable {
                     Bukkit.broadcastMessage(c("&6The inaugural fiscal package has been tabled in ")+ kingdom.getDisplayName() + ".");
                 }
             });
+        }
+    }
+
+    /** Seats or dismisses each villager Speaker, then lets it move the business of the House along. */
+    private void conductVillagerSpeakerDivisions() {
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            boolean seated = kingdom.getParliamentState().speakerVillagerEntityId().isPresent();
+            boolean needed = parliamentService.needsVillagerSpeaker(kingdom.getId());
+            if (!needed && !seated) {
+                continue;
+            }
+            villagerMpEntityService.syncSpeaker(kingdom.getId());
+            if (!needed) {
+                continue;
+            }
+            World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+            if (world == null) {
+                continue;
+            }
+            long currentMcDay = world.getFullTime() / 24000L;
+            parliamentService
+                    .conductVillagerSpeakerDivision(kingdom.getId(), currentMcDay)
+                    .ifPresent(result -> {
+                        store.saveFrom(kingdomService);
+                        if (result instanceof ParliamentResult.Success success) {
+                            if (success.message().contains("failed")) {
+                                villagerPremierInauguralService.clearPendingBudgetOnBillFailure(kingdom.getId());
+                            }
+                            Bukkit.broadcastMessage(
+                                    c("&6" + success.message() + " (" + kingdom.getDisplayName() + ")"));
+                        }
+                    });
         }
     }
 

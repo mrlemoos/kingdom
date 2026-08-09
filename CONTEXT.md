@@ -121,11 +121,11 @@ The noble who proposes a kingdom's fiscal rates: tax (base, per-rank modifiers, 
 _Avoid_: Chancellor, treasurer, finance minister
 
 **Premier election**:
-A contest among seated player MPs to fill the Premier seat after a general election closes. MPs nominate and vote; the Speaker breaks ties for Premier as for MP seats.
+A contest among seated player MPs to fill the Premier seat after a general election closes. MPs nominate and vote; ties for Premier are broken as for MP seats—see **election casting vote**.
 _Avoid_: Leadership vote, prime-minister ballot, executive election
 
 **Premier villager**:
-When a general election seats no player MPs—the full villager parliament—the Premier role passes to a villager drawn from seated profession MPs only; **[MP] Citizen** backfill seats are not eligible. The villager from the profession with the highest count in the election scan is chosen; seat order breaks ties. The seated Premier villager displays a **[Premier]** nametag prefix in place of **[MP]** on that villager only, using the same prefix colour as a player Premier, followed by the profession label (e.g. **[Premier] Farmer**). On appointment after such a full villager general election, the realm automatically tables an **inaugural fiscal package** on the Premier villager's behalf. All bills follow the usual Westminster path: tabled in the Commons, realm-handled division (villager MP votes; no player Speaker), then royal assent in the Lords. Realm-handling covers Commons procedure only; once a bill passes division, the monarch must still grant or withhold assent manually in the Lords—there is no automatic or timed assent shortcut.
+When a general election seats no player MPs—the full villager parliament—the Premier role passes to a villager drawn from seated profession MPs only; **[MP] Citizen** backfill seats are not eligible. The villager from the profession with the highest count in the election scan is chosen; seat order breaks ties. The seated Premier villager displays a **[Premier]** nametag prefix in place of **[MP]** on that villager only, using the same prefix colour as a player Premier, followed by the profession label (e.g. **[Premier] Farmer**). On appointment after such a full villager general election, the realm automatically tables an **inaugural fiscal package** on the Premier villager's behalf. All bills follow the usual Westminster path: tabled in the Commons, divided under the Speaker, then royal assent in the Lords. The Premier villager holds no casting vote—the Chair does. Once a bill passes division, the monarch must still grant or withhold assent manually in the Lords; there is no automatic or timed assent shortcut.
 _Avoid_: Villager chancellor, NPC premier, profession premier
 
 **Inaugural fiscal package**:
@@ -137,7 +137,7 @@ The first bill in an inaugural fiscal package. Proposes fiscal rates adjusted fr
 _Avoid_: Policy bill, rate shuffle, default fiscal
 
 **Full villager parliament**:
-A Commons where every seated MP is a villager and no player MPs hold seats. The Premier role passes to a Premier villager; fiscal bills are submitted on their behalf and proceed through realm-handled Commons divisions without a player Speaker. Bills that pass Commons still require the King or Queen to grant royal assent manually in the Lords; the realm does not assent on the monarch's behalf.
+A Commons where every seated MP is a villager and no player MPs hold seats. The Premier role passes to a Premier villager and fiscal bills are submitted on their behalf; divisions run as in any other House, presided over by the Speaker, and close at once because no player MP is waiting to vote. Bills that pass Commons still require the King or Queen to grant royal assent manually in the Lords; the realm does not assent on the monarch's behalf.
 _Avoid_: NPC parliament, all-villager chamber, automated legislature
 
 **Tax proposal**:
@@ -163,12 +163,24 @@ _Avoid_: Transaction fee, service charge, commission
 ## Parliament
 
 **Parliament**:
-The kingdom legislature. Fiscal rates, treasury budget caps, and treasury spending pass as Acts through the House of Commons and receive royal assent in the House of Lords. When Commons is fully villager-seated, divisions are realm-handled without a player Speaker.
+The kingdom legislature. Fiscal rates, treasury budget caps, and treasury spending pass as Acts through the House of Commons and receive royal assent in the House of Lords.
 _Avoid_: Congress, senate, government
 
 **House of Commons**:
-The elected chamber where the Premier tables bills and Members of Parliament vote. Debate and divisions take place within the chamber bounds set by the monarch.
+The elected chamber where the Premier tables bills and Members of Parliament vote. Debate and divisions take place within the chamber bounds set by the monarch, presided over by the Speaker.
 _Avoid_: Lower house (in player-facing text), assembly
+
+**Speaker**:
+The presiding officer of the House of Commons. Opens and closes divisions, and casts the casting vote when the House is tied. Not a Member of Parliament: the Speaker holds no seat, votes in no ordinary division, and sits apart from the House in the Speaker's Chair. One Speaker per kingdom. Held by a player of Speaker rank when the monarch has assigned one; otherwise by a **villager Speaker**.
+_Avoid_: Chairman, moderator, house leader
+
+**Speaker's Chair**:
+The place in the Commons where the Speaker presides, set by the monarch. It is not one of the eight MP seats—seating a Speaker never costs the House a vote. Where no chair has been set, the villager Speaker stands at the Commons chamber point.
+_Avoid_: Speaker seat, ninth seat, throne
+
+**Villager Speaker**:
+The villager who presides over the Commons whenever no player holds the Speakership. Seated in the Speaker's Chair at the close of a general election, dismissed when a player is assigned Speaker and returning if that player leaves office, and dismissed on prorogation. Spawned unaligned: it has no profession, no profession vote bias, and never claims a territory villager, so no villager is drawn out of the economy to preside. Its nametag reads **[Speaker]** alone, with no profession label—that absence is the sign of an impartial Chair. Damageable like any villager and protected from despawning like a seated MP; if killed, the realm seats a replacement at the chair. It is not an elected office and cannot resign.
+_Avoid_: NPC Speaker, speaker bot, acting Speaker
 
 **House of Lords**:
 The chamber where the King or Queen grants or withholds royal assent on bills passed by the Commons. Assent and rejection both require the monarch to be present in the Lords.
@@ -179,23 +191,23 @@ A bill that has passed the Commons and received royal assent. Enacts fiscal rate
 _Avoid_: Law, statute, decree
 
 **Bill**:
-A formal proposal before Parliament: fiscal rates, treasury budget, or treasury spend (including mint placement). Only one bill may be in progress per kingdom at a time. Under a full villager parliament, fiscal bills may be submitted on the Premier villager's behalf; they still table in the Commons and pass through realm-handled division, but royal assent in the Lords is unchanged—the monarch must be present and grant or withhold assent manually. No bill becomes an Act without that step, and there is no automatic or timed assent for villager-submitted bills.
+A formal proposal before Parliament: fiscal rates, treasury budget, or treasury spend (including mint placement). Only one bill may be in progress per kingdom at a time. Under a full villager parliament, fiscal bills may be submitted on the Premier villager's behalf; they still table in the Commons and pass through division, but royal assent in the Lords is unchanged—the monarch must be present and grant or withhold assent manually. No bill becomes an Act without that step, and there is no automatic or timed assent for villager-submitted bills.
 _Avoid_: Proposal, motion, decree
 
 **Division**:
-A Commons vote on the bill before the House. The Speaker opens and closes the division; MPs vote aye, nay, or abstain while the division is open. When the Commons is fully villager-seated, the realm conducts division without a player Speaker—see **realm-handled division**. If aye and nay tie in a realm-handled division, the Premier villager breaks the tie in favour of passage via the government casting vote—see **casting vote**.
-_Avoid_: Poll, ballot, referendum
+A Commons vote on the bill before the House. The Speaker opens and closes the division; MPs vote aye, nay, or abstain while the division is open. A player Speaker opens and closes at will. A villager Speaker opens the division as soon as a bill is tabled and closes it at the end of the **division window**—or at once when no player MPs are seated, there being nobody to wait for. Either way, a division that ties is settled by the **casting vote**. Presiding over the Commons never reaches the Lords: a bill that passes division still awaits royal assent granted manually by the monarch.
+_Avoid_: Poll, ballot, referendum, auto-pass
 
-**Realm-handled division**:
-When Commons is fully villager-seated and no player MPs hold seats, division procedure is conducted by the realm without a player Speaker. Bills tabled on the Premier villager's behalf proceed through Commons: the division opens, villager MP votes apply, and the division closes once the vote is complete. If aye and nay tie, the Premier villager casts the government casting vote in favour of passage—the same tie-breaking role the Speaker holds when a player Speaker is present. Realm-handling does not extend to the Lords; a bill that passes division still awaits manual royal assent from the monarch.
-_Avoid_: Auto-pass, script vote, NPC Speaker
+**Division window**:
+The time a villager Speaker holds a division open for seated player MPs to vote, counted in in-game days. Ends the division whether or not every MP has voted.
+_Avoid_: Voting period, timer, debate clock
 
 **Casting vote**:
-The tie-breaking vote when aye and nay are equal in a Commons division. When a player Speaker is present, the Speaker casts it—required before a tied division can pass or fail. In a realm-handled division with no player Speaker, the Premier villager casts the government casting vote in favour of passage.
-_Avoid_: Tie-breaker, deciding vote
+The tie-breaking vote when aye and nay are equal in a Commons division, cast by whoever holds the Chair. A player Speaker chooses aye or nay, and must cast before a tied division can pass or fail. A villager Speaker casts nay by convention: an unelected Chair leaves the standing position undisturbed rather than carrying a bill on an evenly divided House, so a tied division fails.
+_Avoid_: Tie-breaker, deciding vote, government casting vote
 
 **Royal assent**:
-The monarch's approval of a bill passed by the Commons, given in the House of Lords. Withholding assent rejects the bill without enacting it. Assent and rejection both require the King or Queen to be present in the Lords and to act manually; this applies equally to bills from a full villager parliament, including those tabled on the Premier villager's behalf after realm-handled division. There is no automatic assent, timed assent, or realm-handled assent shortcut—only the monarch may grant or withhold assent.
+The monarch's approval of a bill passed by the Commons, given in the House of Lords. Withholding assent rejects the bill without enacting it. Assent and rejection both require the King or Queen to be present in the Lords and to act manually; this applies equally to bills from a full villager parliament, including those tabled on the Premier villager's behalf and divided under a villager Speaker. There is no automatic assent, timed assent, or shortcut of any kind—only the monarch may grant or withhold assent.
 _Avoid_: Signature, ratification, approval
 
 **Registrar**:
@@ -235,7 +247,7 @@ Ordinary villagers (not seated MPs, not Treasury Lords) standing inside a kingdo
 _Avoid_: Persistent villagers, anti-despawn tag, villager anchor
 
 **Election casting vote**:
-The Speaker's tie-breaking choice when two or more citizen candidates tie for the last available player MP seat in an election. Required before that election can close.
+The tie-breaking choice when two or more citizen candidates tie for the last available player MP seat, or for the Premier seat. Required before that election can close. A player Speaker chooses, and the count waits on them. With no player Speaker seated, the realm decides in the Speaker's name by earliest nomination and the count never waits—a villager Speaker cannot cast it, being seated only once the election has closed.
 _Avoid_: Tie-breaker, deciding ballot, runoff vote
 
 **Resignation offer**:

@@ -125,13 +125,8 @@ public final class VillagerPremierInauguralService {
             return ElectionResult.fail(failure.message());
         }
 
-        ParliamentResult division = parliamentService.runRealmHandledDivision(kingdomId, seatIndex);
-        if (division instanceof ParliamentResult.Failure failure) {
-            return ElectionResult.fail(failure.message());
-        }
-
         electionState.setPendingInauguralBudget(true);
-        return ElectionResult.ok("Inaugural fiscal bill tabled and sent to the Lords for royal assent.");
+        return ElectionResult.ok("Inaugural fiscal bill tabled. The Speaker will divide the House.");
     }
 
     public void tablePendingBudgetAfterAssent(String kingdomId) {
@@ -149,11 +144,8 @@ public final class VillagerPremierInauguralService {
             double budgetCap = VillagerPremierBudgetCap.fromTreasury(economyService.getTreasuryBalance(kingdomId));
             int seatIndex = premierSeat.getAsInt();
 
-            ParliamentResult tabled = parliamentService.tableBudgetForVillagerPremier(
+            parliamentService.tableBudgetForVillagerPremier(
                     kingdomId, seatIndex, budgetCap, "Inaugural Budget Act");
-            if (tabled instanceof ParliamentResult.Success) {
-                parliamentService.runRealmHandledDivision(kingdomId, seatIndex);
-            }
             electionState.setPendingInauguralBudget(false);
         });
     }
