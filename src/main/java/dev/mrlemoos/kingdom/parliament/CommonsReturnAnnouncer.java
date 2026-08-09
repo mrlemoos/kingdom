@@ -59,7 +59,7 @@ public final class CommonsReturnAnnouncer {
      * The Speaker takes the Bar and reads the roll-call of the House, a member at a time. The
      * callback runs once the last line has been read and the Speaker has resumed their place.
      */
-    public void announceRollCall(String kingdomId, Runnable whenFinished) {
+    public void announceRollCall(String kingdomId, Location addressPoint, Runnable whenFinished) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             whenFinished.run();
@@ -69,7 +69,7 @@ public final class CommonsReturnAnnouncer {
                 kingdom.get().getElectionState(), TOTAL_SEATS, CommonsReturnAnnouncer::playerName);
         Entity speaker = speakerEntity(kingdom.get());
         Location resumeAt = speaker == null ? null : speaker.getLocation().clone();
-        takeTheBar(kingdom.get(), speaker);
+        takeTheBar(kingdom.get(), speaker, addressPoint);
         read(kingdomId, lines, () -> {
             if (speaker != null && resumeAt != null && speaker.isValid()) {
                 speaker.teleport(resumeAt);
@@ -166,19 +166,21 @@ public final class CommonsReturnAnnouncer {
     }
 
     /** The Speaker crosses to the Bar of the House to address the Crown. */
-    private void takeTheBar(Kingdom kingdom, Entity speaker) {
+    private void takeTheBar(Kingdom kingdom, Entity speaker, Location addressPoint) {
         if (speaker == null) {
             return;
         }
         Optional<ChamberSite> bar = kingdom.getParliamentSites().bar();
-        if (bar.isEmpty()) {
-            return;
+        if (bar.isPresent()) {
+            World world = Bukkit.getWorld(bar.get().worldName());
+            if (world != null) {
+                speaker.teleport(new Location(world, bar.get().x() + 0.5, bar.get().y(), bar.get().z() + 0.5));
+                return;
+            }
         }
-        World world = Bukkit.getWorld(bar.get().worldName());
-        if (world == null) {
-            return;
+        if (addressPoint != null) {
+            speaker.teleport(addressPoint);
         }
-        speaker.teleport(new Location(world, bar.get().x(), bar.get().y(), bar.get().z()));
     }
 
     /** The villager Speaker gives voice to the roll; where a player holds the Chair, they do. */

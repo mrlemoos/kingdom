@@ -217,7 +217,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 CommonsReturnAnnouncer.DEFAULT_LINE_DELAY_TICKS));
                 StateOpeningCeremony stateOpeningCeremony = new StateOpeningCeremony(
                                 this, kingdomService, stateOpeningService, store, speechFromThroneItem,
-                                commonsReturnAnnouncer);
+                                commonsReturnAnnouncer, villagerMpEntityService);
                 electionHandler.setStateOpeningCeremony(stateOpeningCeremony);
                 electionHandler.setCommonsReturnAnnouncer(commonsReturnAnnouncer);
                 KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(

@@ -10,6 +10,7 @@ import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.election.ProfessionConstituencyResolver;
+import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
 import dev.mrlemoos.kingdom.service.ChamberPresence;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -43,12 +44,16 @@ public final class StateOpeningCeremony {
     /** Blocks between the throne and the front rank of the summoned realm. */
     private static final int AUDIENCE_STAND_OFF = 5;
 
+    /** Blocks between the throne and the Speaker addressing it, where no Bar has been set. */
+    private static final int SPEAKER_STAND_OFF = 3;
+
     private final JavaPlugin plugin;
     private final KingdomService kingdomService;
     private final StateOpeningService stateOpeningService;
     private final YamlKingdomStore store;
     private final SpeechFromThroneItem speechItem;
     private final CommonsReturnAnnouncer commonsReturnAnnouncer;
+    private final VillagerMpEntityService villagerMpEntityService;
     private final Map<String, Map<UUID, Location>> summonedOrigins = new ConcurrentHashMap<>();
     private final Map<String, Map<UUID, Location>> summonedVillagerOrigins = new ConcurrentHashMap<>();
 
@@ -58,13 +63,15 @@ public final class StateOpeningCeremony {
             StateOpeningService stateOpeningService,
             YamlKingdomStore store,
             SpeechFromThroneItem speechItem,
-            CommonsReturnAnnouncer commonsReturnAnnouncer) {
+            CommonsReturnAnnouncer commonsReturnAnnouncer,
+            VillagerMpEntityService villagerMpEntityService) {
         this.plugin = plugin;
         this.kingdomService = kingdomService;
         this.stateOpeningService = stateOpeningService;
         this.store = store;
         this.speechItem = speechItem;
         this.commonsReturnAnnouncer = commonsReturnAnnouncer;
+        this.villagerMpEntityService = villagerMpEntityService;
     }
 
     public StateOpeningService stateOpeningService() {
@@ -193,19 +200,23 @@ public final class StateOpeningCeremony {
 
         store.saveFrom(kingdomService);
         removeSpeeches(crown, kingdomId);
-        speakFromThrone(kingdomId);
+        // Prorogation dismissed the Speaker, so the House has had none to preside since the election
+        // was called. The session is open as of this moment: seat one before it is asked to report.
+        villagerMpEntityService.syncSpeaker(kingdomId);
+        speakFromThrone(kingdomId, crown.getLocation());
     }
 
     /** Cleans up after the session was opened by royal commission rather than in person. */
     public void commissionOpened(String kingdomId) {
-        commonsReturnAnnouncer.announceRollCall(kingdomId, () -> {});
+        villagerMpEntityService.syncSpeaker(kingdomId);
+        commonsReturnAnnouncer.announceRollCall(kingdomId, null, () -> {});
         returnSummoned(kingdomId);
         for (Player online : onlineMembers(kingdomId)) {
             removeSpeeches(online, kingdomId);
         }
     }
 
-    private void speakFromThrone(String kingdomId) {
+    private void speakFromThrone(String kingdomId, Location throne) {
         Kingdom kingdom = kingdomService.getKingdom(kingdomId).orElseThrow();
         Bukkit.broadcastMessage(c("&6The Parliament of " + kingdom.getDisplayName() + " is open."));
         Bukkit.broadcastMessage(c("&eMy government is formed: " + describePremier(kingdom) + "."));
@@ -215,6 +226,7 @@ public final class StateOpeningCeremony {
         }
         commonsReturnAnnouncer.announceRollCall(
                 kingdomId,
+                addressPoint(throne),
                 () -> Bukkit.getScheduler().runTaskLater(plugin, () -> returnSummoned(kingdomId), RETURN_DELAY_TICKS));
     }
 
@@ -347,6 +359,19 @@ public final class StateOpeningCeremony {
                 (int) Math.floor(lords.y()),
                 (int) Math.floor(lords.z()) + offset[1],
                 fallbackFacing);
+    }
+
+    /**
+     * Where the Speaker stands to address the Crown when no Bar of the House has been set: a couple
+     * of paces before the throne, facing it.
+     */
+    private Location addressPoint(Location throne) {
+        World world = throne.getWorld();
+        if (world == null) {
+            return null;
+        }
+        List<int[]> offsets = SafeChamberLanding.frontOffsets(1, throne.getYaw(), SPEAKER_STAND_OFF);
+        return facing(landingFor(world, throne, offsets.get(0)), throne);
     }
 
     /** Turns a landing to look at the throne, so the House faces the Crown it was summoned by. */
