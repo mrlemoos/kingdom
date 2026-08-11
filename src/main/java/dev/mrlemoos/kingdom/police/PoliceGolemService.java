@@ -20,6 +20,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PoliceGolemService {
 
+    private static final double DETAIN_RANGE = 3.5;
+
     private final KingdomService kingdomService;
     private final PoliceService policeService;
     private final NamespacedKey golemTagKey;
@@ -27,6 +29,11 @@ public final class PoliceGolemService {
     private final NamespacedKey kindTagKey;
     private final NamespacedKey orderTagKey;
     private final NamespacedKey followTagKey;
+    private MechanicalJusticeService justiceService;
+    private JurisdictionPort jurisdictionPort;
+    private TrialJuryRuntime trialJuryRuntime;
+    private PoliceTrialService trialService;
+    private YamlKingdomStoreBridge storeBridge;
 
     public PoliceGolemService(JavaPlugin plugin, KingdomService kingdomService, PoliceService policeService) {
         JavaPlugin pluginRef = Objects.requireNonNull(plugin, "plugin");
@@ -37,6 +44,25 @@ public final class PoliceGolemService {
         this.kindTagKey = new NamespacedKey(pluginRef, "police_golem_kind");
         this.orderTagKey = new NamespacedKey(pluginRef, "police_golem_order");
         this.followTagKey = new NamespacedKey(pluginRef, "police_golem_follows");
+    }
+
+    /** Optional persistence hook after a successful patrol detain. */
+    @FunctionalInterface
+    public interface YamlKingdomStoreBridge {
+        void save();
+    }
+
+    public void setPatrolDetainDeps(
+            MechanicalJusticeService justiceService,
+            JurisdictionPort jurisdictionPort,
+            TrialJuryRuntime trialJuryRuntime,
+            PoliceTrialService trialService,
+            YamlKingdomStoreBridge storeBridge) {
+        this.justiceService = justiceService;
+        this.jurisdictionPort = jurisdictionPort;
+        this.trialJuryRuntime = trialJuryRuntime;
+        this.trialService = trialService;
+        this.storeBridge = storeBridge;
     }
 
     public IronGolem spawnPatrol(String kingdomId, Location location) {
@@ -104,6 +130,9 @@ public final class PoliceGolemService {
     /** Nudges every following golem towards its commander; call on a repeating task. */
     public void tickFollowers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player == null) {
+                continue;
+            }
             // ponytail: only golems within 48 blocks are steered; a golem left further behind stalls
             // until the player returns. Widen or index golems by id if that becomes a problem.
             for (Entity nearby : player.getNearbyEntities(48, 32, 48)) {
@@ -116,6 +145,61 @@ public final class PoliceGolemService {
                 if (golem.getLocation().distanceSquared(player.getLocation()) > 9.0) {
                     golem.getPathfinder().moveTo(player, 1.1);
                 }
+            }
+        }
+    }
+
+    /**
+     * Patrol golems detain players with an active warrant inside jurisdiction, then the same
+     * hearing route as constable arrest.
+     */
+    public void tickPatrolDetains() {
+        if (justiceService == null
+                || jurisdictionPort == null
+                || trialJuryRuntime == null
+                || trialService == null) {
+            return;
+        }
+        for (var kingdom : kingdomService.listKingdoms()) {
+            String kingdomId = kingdom.getId();
+            if (!policeService.isPoliceReady(kingdomId)) {
+                continue;
+            }
+            for (UUID golemId : kingdom.getPoliceState().patrolGolemsView()) {
+                Optional<IronGolem> golem = findGolemById(golemId).filter(g -> isValidGolem(g, kingdomId));
+                if (golem.isEmpty()) {
+                    continue;
+                }
+                tryDetainNear(golem.get(), kingdomId);
+            }
+        }
+    }
+
+    private void tryDetainNear(IronGolem golem, String kingdomId) {
+        for (Entity nearby : golem.getNearbyEntities(DETAIN_RANGE, DETAIN_RANGE, DETAIN_RANGE)) {
+            if (!(nearby instanceof Player suspect) || !suspect.isOnline()) {
+                continue;
+            }
+            UUID suspectId = suspect.getUniqueId();
+            boolean inJurisdiction = jurisdictionPort
+                    .kingdomAt(suspectId)
+                    .filter(kingdomId::equals)
+                    .isPresent();
+            if (!PatrolDetainPolicy.mayDetain(
+                    true,
+                    justiceService.hasActiveWarrant(kingdomId, suspectId),
+                    inJurisdiction,
+                    trialService.findOpenCase(kingdomId, suspectId).isPresent())) {
+                continue;
+            }
+            PoliceResult result = trialJuryRuntime.detainByPatrolAndResolve(kingdomId, suspectId);
+            if (result instanceof PoliceResult.Success) {
+                suspect.sendMessage(dev.mrlemoos.kingdom.helpers.ColourEncoder.c(
+                        "&cDetained by a patrol golem. Pending trial opened."));
+                if (storeBridge != null) {
+                    storeBridge.save();
+                }
+                return; // one detain per golem per tick
             }
         }
     }

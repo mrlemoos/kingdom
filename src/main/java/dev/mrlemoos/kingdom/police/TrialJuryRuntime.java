@@ -83,6 +83,19 @@ public final class TrialJuryRuntime {
         return outcome;
     }
 
+    /**
+     * Patrol-golem detain then the same hearing route as constable arrest (jury / realm-handled /
+     * await Judge).
+     */
+    public PoliceResult detainByPatrolAndResolve(String kingdomId, UUID suspectId) {
+        PoliceResult detained = trialService.arrestByPatrolGolem(kingdomId, suspectId);
+        if (detained instanceof PoliceResult.Failure) {
+            return detained;
+        }
+        resolveAfterArrest(kingdomId, suspectId);
+        return detained;
+    }
+
     public void openBallotFor(Player juror) {
         Optional<TrialJurySession> session = juryService.findSessionForJuror(juror.getUniqueId());
         if (session.isEmpty()) {

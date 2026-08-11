@@ -295,6 +295,15 @@ public final class KingdomPlugin extends JavaPlugin {
                                 trialJuryService, policeTrialService, kingdomService, trialJuryConfig);
                 policeHandler.setTrialJuryRuntime(policeTrialService, trialJuryRuntime);
                 policeTrialService.setTrialJuryService(trialJuryService);
+                policeGolemService.setPatrolDetainDeps(
+                                mechanicalJusticeService,
+                                jurisdictionPort,
+                                trialJuryRuntime,
+                                policeTrialService,
+                                () -> {
+                                    store.saveFrom(kingdomService);
+                                    economyStore.saveFrom(economyService);
+                                });
                 WhitelistService whitelistService = new WhitelistService(new BukkitServerWhitelistGateway());
                 KingdomWhitelistHandler whitelistHandler = new KingdomWhitelistHandler(
                                 whitelistService,
@@ -415,6 +424,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
 
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
+                getServer().getScheduler().runTaskTimer(this, policeGolemService::tickPatrolDetains, 60L, 20L);
                 getServer().getScheduler().runTaskTimer(
                                 this,
                                 () -> policeTrialService.releaseDueSentences(System.currentTimeMillis()),

@@ -40,7 +40,7 @@ on the WorldGuard capture spike.
 | Idea | Sketch | Rides on |
 |---|---|---|
 | **Wanted nametag** | Active warrant + inside jurisdiction → red `[WANTED]` replaces other prefixes. | Warrant issue, nametag pipeline |
-| **Trial jury** | Auto-seat on arrest when no Judge; secret ballot GUI anywhere; `/kingdom police jury` reopen; timeout→realm-handled. | Court GUI, judge trial |
+| **Trial jury** | Auto-seat on arrest **or patrol detain** when no Judge; secret ballot GUI anywhere; `/kingdom police jury` reopen; timeout→realm-handled. Accused free until sentenced. | Court GUI, judge trial, patrol golems |
 | ~~**Exile**~~ | ~~Whitelist removal.~~ **Rejected** — no sentence touches the server whitelist. Harden **prison sentence**: cell TP + spawn, all-TP ban (incl. ceremonies), Parliament bar while sentenced, elected offices vacated at once, appointed nobles/sworn suspended then restored; **villager warrants** for territory villagers (Speaker immune). | Cells, resignation/by-election, teleport/ceremony gates, villager MP release |
 
 ## Spectacle — cheap, no domain risk

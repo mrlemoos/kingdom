@@ -273,6 +273,43 @@ class TrialJuryServiceTest {
         assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isPresent());
     }
 
+    @Test
+    void patrolDetainThenResolveHearingSeatsJuryLikeConstableArrest() {
+        openApproveWarrantOnly();
+        PoliceResult detained = trialService.arrestByPatrolGolem("northmarch", SUSPECT);
+        assertInstanceOf(PoliceResult.Success.class, detained, () -> detained.message());
+
+        HearingOutcome outcome = juryService.resolveHearing(
+                "northmarch",
+                SUSPECT,
+                Set.of(KING, SUSPECT, CONSTABLE, MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+
+        assertEquals(HearingResolution.JURY_SEATED, outcome.resolution());
+        assertTrue(outcome.session().isPresent());
+        assertEquals(3, outcome.session().get().jurorIds().size());
+    }
+
+    @Test
+    void patrolDetainThenResolveHearingAwaitsJudgeWhenJudgeOnline() {
+        openApproveWarrantOnly();
+        assertInstanceOf(
+                PoliceResult.Success.class, trialService.arrestByPatrolGolem("northmarch", SUSPECT));
+
+        HearingOutcome outcome = juryService.resolveHearing(
+                "northmarch", SUSPECT, Set.of(JUDGE, MEMBER_A, MEMBER_B, MEMBER_C));
+
+        assertEquals(HearingResolution.AWAITING_JUDGE, outcome.resolution());
+        assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isPresent());
+    }
+
+    private void openApproveWarrantOnly() {
+        ActBreach breach = new ActBreach("northmarch", "northmarch-build", ConductKind.BUILD_BAN);
+        justice.openFromActBreach(breach, SUSPECT);
+        Warrant pending = justice.findPendingForSuspect("northmarch", SUSPECT).orElseThrow();
+        justice.approveWarrant("northmarch", KING, pending.id());
+    }
+
     private void openApproveAndArrest() {
         ActBreach breach = new ActBreach("northmarch", "northmarch-build", ConductKind.BUILD_BAN);
         justice.openFromActBreach(breach, SUSPECT);
