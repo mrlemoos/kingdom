@@ -93,6 +93,9 @@ loyalty:
 police:
   mechanical-act-breach:
     enabled: true
+  trial-jury:
+    # Real-time seconds for jurors to cast all votes before a realm-handled fallback.
+    window-seconds: 300
 
 enforcement:
   build:

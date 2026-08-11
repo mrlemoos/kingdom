@@ -397,7 +397,7 @@ A villager NPC seated at the court lectern as the court anchor. When no player j
 _Avoid_: NPC justice, court clerk, automated judge
 
 **Warrant**:
-A constable's formal application to pursue a named suspect. Inactive until the Crown approves it; until then patrol golems and constables may not act on it.
+A constable's formal application to pursue a named suspect—player or territory villager. Inactive until the Crown approves it; until then patrol golems and constables may not act on it. The villager Speaker cannot be named.
 _Avoid_: Bounty, hit list, detention order
 
 **Royal warrant approval**:
@@ -406,7 +406,11 @@ _Avoid_: Instant warrant, auto-approve, chat approval
 
 **Active warrant**:
 An approved warrant that authorises constables and patrol golems to arrest the named suspect inside kingdom territory.
-_Avoid_: Open case, manhunt tag, wanted flag
+_Avoid_: Open case, manhunt tag
+
+**Wanted nametag**:
+A red `[WANTED]` nametag prefix shown on a player while they have an active warrant and are physically inside that kingdom's linked territory (jurisdiction). It replaces noble and sworn-role prefixes for that display; those return when the mark clears or the player leaves the territory. Hidden outside that territory; restored on re-entry. Cleared when the warrant is served, cancelled, or rejected. Not applied to villagers.
+_Avoid_: Wanted flag, wanted stars, glow red, manhunt tag, server-wide shame tag, stacked wanted-plus-rank prefix, villager wanted nametag
 
 **Arrest reward**:
 A Corona purse attached to an active warrant, posted at the court from a kingdom member's player wallet into escrow (the poster may top up the same purse), and paid to the arresting constable's wallet on arrest. A patrol-golem arrest refunds the purse to the poster. Cancelling or rejecting the warrant path that leaves no arrest also refunds the poster. Distinct from the warrant itself and from a fine sentence. Not funded from the kingdom treasury.
@@ -433,11 +437,11 @@ The scope of police authority: any person physically inside the kingdom's linked
 _Avoid_: Citizens only, member crimes, home turf rule
 
 **Immunity**:
-The King, Queen, and Prince cannot be subject to a warrant or arrest under kingdom police law.
+The King, Queen, and Prince cannot be subject to a warrant or arrest under kingdom police law. The villager Speaker likewise cannot be warranted or arrested.
 _Avoid_: Royal exemption, crown privilege, diplomatic immunity
 
 **Arrest**:
-Taking a suspect with an active warrant into custody and opening a pending trial. Constables arrest manually; patrol golems detain automatically inside territory. A player judge is chosen at random from online judges, excluding the accused, the arresting constable, and the Crown who approved the warrant; if none qualify, the villager judge hears the case.
+Taking a suspect with an active warrant into custody and opening a pending trial. Suspects may be players or territory villagers (claimed economy villagers and seated MP or Premier villagers). Constables arrest manually; patrol golems detain automatically inside territory. A player judge is chosen at random from online judges, excluding the accused when the accused is a player, the arresting constable, and the Crown who approved the warrant; if none qualify, a trial jury is seated when possible, otherwise the villager judge hears the case.
 _Avoid_: Ban, kick, instant jail
 
 **Pending trial**:
@@ -449,8 +453,8 @@ The hearing before a player judge or villager judge. Verdict options: guilty wit
 _Avoid_: Hearing, prosecution, court session
 
 **Prison sentence**:
-A guilty verdict that confines the player to an assigned numbered cell for a configured real-world duration (presets of five, fifteen, thirty, or sixty minutes). Hard confinement applies: kingdom teleport is blocked and the player is returned to the cell if they move more than eight blocks away.
-_Avoid_: Temp ban, mute sentence, soft jail
+A guilty verdict that confines the convict to an assigned numbered cell for a configured real-world duration (presets of five, fifteen, thirty, or sixty minutes). On sentence a player convict is teleported to the cell, their spawn is set to that cell, and all teleports are barred for the duration—including kingdom checkpoints, `/tp`, and ceremony summons (State Opening and like). On release, the prior bed or spawn saved at sentence start is restored; if none, world spawn. A villager convict is moved to the cell for the duration and does not trade or earn GDP while confined; on release they return to productive territory life. Anyone under an active prison sentence is ineligible for Parliament. Elected offices (player or villager MP, Premier, player Speaker) are vacated immediately and trigger the normal Premier election or Commons by-election—no resignation-letter approval step. Appointed noble titles and sworn roles on a player are suspended for the duration and restored exactly on release. Hard confinement also returns a player convict to the cell if they move more than eight blocks away. No sentence removes a player from the server whitelist. Crown and Speaker **immunity** still block warrant and arrest of King, Queen, Prince, and the villager Speaker.
+_Avoid_: Temp ban, mute sentence, soft jail, whitelist exile, exile kick, permanent attainder by prison alone, seat held through prison, spawn left on cell after release, warrantable Speaker
 
 **Fine sentence**:
 A guilty verdict that levies Corona from the convicted player to the kingdom treasury without imprisonment.
@@ -461,8 +465,12 @@ A guilty verdict that records the offence without prison time or a treasury fine
 _Avoid_: Caution, slap on the wrist, strike
 
 **Realm-handled trial**:
-A trial conducted by the villager judge at the court when no eligible player judge is online to take the case. The villager judge returns a weighted random verdict from the standard options.
+A trial conducted by the villager judge at the court when no eligible player judge is online and a trial jury cannot be seated (fewer than three eligible online members). The villager judge returns a weighted random verdict from the standard options.
 _Avoid_: Auto-conviction, script trial, NPC prosecution
+
+**Trial jury**:
+Three randomly chosen online kingdom members who vote guilty or not guilty when no eligible player judge is available and at least three eligible members are online. The pool excludes the accused, the arresting constable, the Crown who approved the warrant, and sworn Judges. Replaces the realm-handled trial for that case; does not replace a player judge hearing. Each juror must vote; majority (two of three) decides. Not guilty yields acquittal; guilty draws the sentence from the same weighted realm-handled sentence table the villager judge uses. If fewer than three eligible members are online, or the jury window expires without a full set of votes, the case falls back to a realm-handled trial.
+_Avoid_: Peer court, mob vote, public poll, jury sentencing panel, hung jury softlock
 
 **Sentence**:
 The outcome of a completed trial: prison, fine, warning, or acquittal. Closes the warrant → trial → sentence pipeline for that case.
@@ -512,7 +520,7 @@ _Avoid_: Unban command, forgive keystroke, amnesty button
 
 **Loyalty penalty**:
 The civil effects of **loyalty tier** beyond office bars. **Doubtful** subjects are flagged for constable scrutiny; **Disloyal** subjects become warrant-eligible on further **political offences**; **Traitor** subjects may be arrested on sight inside **jurisdiction** when a warrant is active or on fresh treason report. No noble **loyalty immunity**—automatic tier drops apply to all fealty subjects; monarch **warrant immunity** under police law is separate.
-_Avoid_: Chat mute, glow red, wanted stars UI
+_Avoid_: Chat mute, glow effect, loyalty stars UI
 
 **Political offence**:
 An act that lowers **loyalty tier** by weighted severity: **Act breach** → **Doubtful**; repeat or severe breach → **Disloyal**; **treason** on conviction → **Traitor**. May parallel **morale breach** when the same act spans both tracks.

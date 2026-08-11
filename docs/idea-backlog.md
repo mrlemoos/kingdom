@@ -39,9 +39,9 @@ on the WorldGuard capture spike.
 
 | Idea | Sketch | Rides on |
 |---|---|---|
-| **Wanted nametag** | Warrant issued → red `[WANTED]` prefix above the player. | Warrant issue, nametag pipeline |
-| **Trial jury** | Three random online members vote guilty/not guilty in the court GUI instead of an automatic judge verdict. | Court GUI, judge trial |
-| **Exile** | Sentencing option that removes the player from the server whitelist instead of imprisoning them. Needs an explicit Crown confirmation step — it locks a real player out of the server. | `BukkitServerWhitelistGateway`, sentencing |
+| **Wanted nametag** | Active warrant + inside jurisdiction → red `[WANTED]` replaces other prefixes. | Warrant issue, nametag pipeline |
+| **Trial jury** | When no player judge: 3 eligible members vote guilty/not guilty (majority); else villager judge. | Court GUI, judge trial |
+| ~~**Exile**~~ | ~~Whitelist removal.~~ **Rejected** — no sentence touches the server whitelist. Harden **prison sentence**: cell TP + spawn, all-TP ban (incl. ceremonies), Parliament bar while sentenced, elected offices vacated at once, appointed nobles/sworn suspended then restored; **villager warrants** for territory villagers (Speaker immune). | Cells, resignation/by-election, teleport/ceremony gates, villager MP release |
 
 ## Spectacle — cheap, no domain risk
 

@@ -13,4 +13,11 @@ public sealed interface PoliceResult permits PoliceResult.Success, PoliceResult.
     static Failure fail(String message) {
         return new Failure(message);
     }
+
+    default String message() {
+        return switch (this) {
+            case Success success -> success.message();
+            case Failure failure -> failure.message();
+        };
+    }
 }

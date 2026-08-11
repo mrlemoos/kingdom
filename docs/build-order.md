@@ -106,8 +106,8 @@ Extends hops 1–2 (sworn roles, **warrant** → **trial** → **sentence** pipe
 | **Domain** | Wire breach severity to default charge table; treason charges deferred to manual constable. |
 | **Bukkit** | Existing trial GUI and **hard confinement** for prison; escape attempt logs as new breach. |
 | **Depends on** | Slice 1.4, police trial pipeline. |
-| **Acceptance (domain)** | Tests: warning sentence records offence without tier change beyond 1.3; fine debits Corona; prison blocks kingdom teleport. |
-| **Acceptance (Bukkit)** | Manual end-to-end: break block under build-ban Act → warrant → trial → cell. |
+| **Acceptance (domain)** | Tests: warning sentence records offence without tier change beyond 1.3; fine debits Corona; prison blocks kingdom teleport. **Law hardening (shipped):** wanted nametag policy; prison spawn save/restore + elected vacate / appointed suspend; trial jury seating/majority/timeout→realm-handled; villager Speaker immunity + villager convict economy freeze. |
+| **Acceptance (Bukkit)** | Manual end-to-end: break block under build-ban Act → warrant → trial → cell. Wanted nametag + `/tp` prison ban + State Opening skip wired; full villager warrant Bukkit path still TODO. |
 | **Spike vs flag** | **Feature** — completes hop 3. |
 
 ---

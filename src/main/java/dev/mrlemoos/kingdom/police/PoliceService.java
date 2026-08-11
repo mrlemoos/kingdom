@@ -258,6 +258,14 @@ public final class PoliceService {
         return kingdom.get().getPoliceState().isJudge(playerId);
     }
 
+    public Set<UUID> judgesView(String kingdomId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return Set.of();
+        }
+        return kingdom.get().getPoliceState().judgesView();
+    }
+
     public boolean isRegisteredGolem(String kingdomId, UUID entityUuid) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {

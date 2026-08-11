@@ -1,8 +1,8 @@
 package dev.mrlemoos.kingdom.listener;
 
-import dev.mrlemoos.kingdom.police.PoliceService;
-import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.display.PlayerPrefixComposer;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import java.util.Objects;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -14,21 +14,15 @@ public final class ChatPrefixListener implements Listener {
 
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
-    private final KingdomService service;
-    private final PoliceService policeService;
+    private final PlayerPrefixComposer prefixComposer;
 
-    public ChatPrefixListener(KingdomService service) {
-        this(service, null);
-    }
-
-    public ChatPrefixListener(KingdomService service, PoliceService policeService) {
-        this.service = service;
-        this.policeService = policeService;
+    public ChatPrefixListener(PlayerPrefixComposer prefixComposer) {
+        this.prefixComposer = Objects.requireNonNull(prefixComposer, "prefixComposer");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
-        String colouredPrefix = fullColouredPrefix(event.getPlayer().getUniqueId());
+        String colouredPrefix = prefixComposer.fullColouredPrefix(event.getPlayer().getUniqueId());
         if (colouredPrefix.isEmpty()) {
             return;
         }
@@ -39,16 +33,5 @@ public final class ChatPrefixListener implements Listener {
                 .append(Component.text(": ", NamedTextColor.WHITE))
                 .append(message)
                 .build());
-    }
-
-    private String fullColouredPrefix(java.util.UUID playerId) {
-        String sworn = "";
-        if (policeService != null) {
-            var membership = service.getMembership(playerId);
-            if (membership.isPresent()) {
-                sworn = policeService.colouredSwornChatPrefix(membership.get().getKingdomId(), playerId);
-            }
-        }
-        return sworn + service.colouredNobleChatPrefix(playerId);
     }
 }

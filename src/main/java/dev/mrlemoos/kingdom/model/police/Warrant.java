@@ -18,6 +18,7 @@ public final class Warrant {
     private WarrantStatus status;
     private final long openedAtMs;
     private ArrestReward arrestReward;
+    private UUID approvedBy;
 
     public Warrant(
             String id,
@@ -78,5 +79,13 @@ public final class Warrant {
 
     public void clearArrestReward() {
         this.arrestReward = null;
+    }
+
+    public Optional<UUID> approvedBy() {
+        return Optional.ofNullable(approvedBy);
+    }
+
+    public void setApprovedBy(UUID crownId) {
+        this.approvedBy = Objects.requireNonNull(crownId, "crownId");
     }
 }

@@ -1184,6 +1184,8 @@ public final class YamlKingdomStore {
             config.set(warrantPath + ".provision-kind", warrant.provisionKind().name());
             config.set(warrantPath + ".status", warrant.status().name());
             config.set(warrantPath + ".opened-at-ms", warrant.openedAtMs());
+            warrant.approvedBy().ifPresent(crownId ->
+                    config.set(warrantPath + ".approved-by", crownId.toString()));
             warrant.arrestReward().ifPresent(reward -> {
                 config.set(warrantPath + ".arrest-reward.poster", reward.posterId().toString());
                 config.set(warrantPath + ".arrest-reward.amount", reward.amount());
@@ -1235,6 +1237,10 @@ public final class YamlKingdomStore {
                 if (poster != null && amount > 0) {
                     warrant.setArrestReward(new ArrestReward(UUID.fromString(poster), amount));
                 }
+            }
+            String approvedBy = entry.getString("approved-by");
+            if (approvedBy != null && !approvedBy.isBlank()) {
+                warrant.setApprovedBy(UUID.fromString(approvedBy));
             }
             warrants.add(warrant);
         }

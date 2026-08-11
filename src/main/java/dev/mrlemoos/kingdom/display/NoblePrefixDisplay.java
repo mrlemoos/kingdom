@@ -3,11 +3,8 @@ package dev.mrlemoos.kingdom.display;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
-import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
-import dev.mrlemoos.kingdom.police.PoliceService;
-import dev.mrlemoos.kingdom.service.KingdomService;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -20,20 +17,18 @@ public final class NoblePrefixDisplay {
     private static final String TEAM_PREFIX = "k";
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
-    private final KingdomService service;
-    private final PoliceService policeService;
+    private final PlayerPrefixComposer prefixComposer;
 
-    public NoblePrefixDisplay(KingdomService service) {
-        this(service, null);
+    public NoblePrefixDisplay(dev.mrlemoos.kingdom.service.KingdomService kingdomService) {
+        this(new PlayerPrefixComposer(kingdomService));
     }
 
-    public NoblePrefixDisplay(KingdomService service, PoliceService policeService) {
-        this.service = service;
-        this.policeService = policeService;
+    public NoblePrefixDisplay(PlayerPrefixComposer prefixComposer) {
+        this.prefixComposer = Objects.requireNonNull(prefixComposer, "prefixComposer");
     }
 
     public void refresh(Player player) {
-        String prefix = fullColouredPrefix(player.getUniqueId());
+        String prefix = prefixComposer.fullColouredPrefix(player.getUniqueId());
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         String teamName = teamNameFor(player.getUniqueId());
         Team team = board.getTeam(teamName);
@@ -51,7 +46,7 @@ public final class NoblePrefixDisplay {
         if (team == null) {
             team = board.registerNewTeam(teamName);
         }
-        team.prefix(LEGACY.deserialize(fullColouredPrefix(player.getUniqueId())));
+        team.prefix(LEGACY.deserialize(prefixComposer.fullColouredPrefix(player.getUniqueId())));
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }
@@ -78,17 +73,6 @@ public final class NoblePrefixDisplay {
     public static String speakerVillagerNametag() {
         String title = NobleRank.SPEAKER.displayTitle(TitleStyle.MASCULINE);
         return NobleRank.SPEAKER.chatColor() + "[" + title + "]";
-    }
-
-    private String fullColouredPrefix(UUID playerId) {
-        String sworn = "";
-        if (policeService != null) {
-            Optional<PlayerMembership> membership = service.getMembership(playerId);
-            if (membership.isPresent()) {
-                sworn = policeService.colouredSwornChatPrefix(membership.get().getKingdomId(), playerId);
-            }
-        }
-        return sworn + service.colouredNobleChatPrefix(playerId);
     }
 
     private static String teamNameFor(UUID playerId) {

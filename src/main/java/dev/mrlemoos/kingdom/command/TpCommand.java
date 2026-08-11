@@ -7,6 +7,7 @@ import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TeleportPlace;
+import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.TeleportResult;
 import dev.mrlemoos.kingdom.service.TeleportService;
@@ -30,16 +31,27 @@ public final class TpCommand {
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
     private final KingdomTerritoryResolver territoryResolver;
+    private final PoliceTrialService policeTrialService;
 
     public TpCommand(
             TeleportService teleportService,
             KingdomService kingdomService,
             YamlKingdomStore store,
             KingdomTerritoryResolver territoryResolver) {
+        this(teleportService, kingdomService, store, territoryResolver, null);
+    }
+
+    public TpCommand(
+            TeleportService teleportService,
+            KingdomService kingdomService,
+            YamlKingdomStore store,
+            KingdomTerritoryResolver territoryResolver,
+            PoliceTrialService policeTrialService) {
         this.teleportService = teleportService;
         this.kingdomService = kingdomService;
         this.store = store;
         this.territoryResolver = territoryResolver;
+        this.policeTrialService = policeTrialService;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -399,6 +411,13 @@ public final class TpCommand {
 
     private boolean teleportPlayer(
             CommandSender sender, Player target, Location destination, String staffNotifyDestination) {
+        if (policeTrialService != null && policeTrialService.isKingdomTeleportBlocked(target.getUniqueId())) {
+            sender.sendMessage(error("That player is confined under a prison sentence and may not teleport."));
+            if (!target.equals(sender)) {
+                target.sendMessage(error("You are confined under a prison sentence and may not teleport."));
+            }
+            return false;
+        }
         if (!target.teleport(destination)) {
             sender.sendMessage(error("Teleport failed."));
             return false;

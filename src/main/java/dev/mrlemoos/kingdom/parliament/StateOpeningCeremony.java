@@ -11,6 +11,7 @@ import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.election.ProfessionConstituencyResolver;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
+import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
 import dev.mrlemoos.kingdom.service.ChamberPresence;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -54,6 +55,7 @@ public final class StateOpeningCeremony {
     private final SpeechFromThroneItem speechItem;
     private final CommonsReturnAnnouncer commonsReturnAnnouncer;
     private final VillagerMpEntityService villagerMpEntityService;
+    private PoliceTrialService policeTrialService;
     private final Map<String, Map<UUID, Location>> summonedOrigins = new ConcurrentHashMap<>();
     private final Map<String, Map<UUID, Location>> summonedVillagerOrigins = new ConcurrentHashMap<>();
 
@@ -72,6 +74,10 @@ public final class StateOpeningCeremony {
         this.speechItem = speechItem;
         this.commonsReturnAnnouncer = commonsReturnAnnouncer;
         this.villagerMpEntityService = villagerMpEntityService;
+    }
+
+    public void setPoliceTrialService(PoliceTrialService policeTrialService) {
+        this.policeTrialService = policeTrialService;
     }
 
     public StateOpeningService stateOpeningService() {
@@ -154,6 +160,14 @@ public final class StateOpeningCeremony {
 
         List<Player> summoned = new ArrayList<>(onlineMembers(kingdomId));
         summoned.removeIf(member -> member.getUniqueId().equals(crown.getUniqueId()));
+        summoned.removeIf(member -> {
+            if (policeTrialService != null
+                    && policeTrialService.isKingdomTeleportBlocked(member.getUniqueId())) {
+                member.sendMessage(c("&cYou remain confined under a prison sentence and cannot attend the State Opening."));
+                return true;
+            }
+            return false;
+        });
         List<Entity> villagers = parliamentaryVillagers(kingdomId);
         List<int[]> offsets = SafeChamberLanding.frontOffsets(
                 summoned.size() + villagers.size(), throne.getYaw(), AUDIENCE_STAND_OFF);

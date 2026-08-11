@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Mechanical Act-breach → warrant draft → crown approval pipeline (Police hop 3).
@@ -24,6 +25,7 @@ public final class MechanicalJusticeService {
     private final MechanicalJusticeConfig config;
     private final AtomicLong warrantSequence = new AtomicLong(1);
     private final List<Warrant> warrants = new ArrayList<>();
+    private Function<String, Optional<UUID>> speakerVillagerResolver = kingdomId -> Optional.empty();
 
     public MechanicalJusticeService(
             KingdomService kingdomService,
@@ -32,6 +34,12 @@ public final class MechanicalJusticeService {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.policeService = Objects.requireNonNull(policeService, "policeService");
         this.config = Objects.requireNonNull(config, "config");
+    }
+
+    /** Supplies the seated villager Speaker entity id for warrant immunity checks. */
+    public void setSpeakerVillagerResolver(Function<String, Optional<UUID>> speakerVillagerResolver) {
+        this.speakerVillagerResolver =
+                speakerVillagerResolver == null ? kingdomId -> Optional.empty() : speakerVillagerResolver;
     }
 
     public PoliceResult openFromActBreach(ActBreach breach, UUID suspectId) {
@@ -50,7 +58,7 @@ public final class MechanicalJusticeService {
             return PoliceResult.fail(
                     "Police infrastructure is not ready. Configure at least one cell and a court.");
         }
-        if (hasWarrantImmunity(suspectId)) {
+        if (hasWarrantImmunity(kingdomId, suspectId)) {
             return PoliceResult.fail("That person has warrant immunity under kingdom police law.");
         }
         if (findPendingForSuspect(kingdomId, suspectId).isPresent()
@@ -83,6 +91,7 @@ public final class MechanicalJusticeService {
             return PoliceResult.fail("Only the King or Queen may approve a warrant.");
         }
         warrant.setStatus(WarrantStatus.ACTIVE);
+        warrant.setApprovedBy(crownId);
         return PoliceResult.ok("Warrant approved and now active.");
     }
 
@@ -201,8 +210,11 @@ public final class MechanicalJusticeService {
         }
     }
 
-    private boolean hasWarrantImmunity(UUID playerId) {
-        Optional<PlayerMembership> membership = kingdomService.getMembership(playerId);
+    private boolean hasWarrantImmunity(String kingdomId, UUID suspectId) {
+        if (VillagerWarrantPolicy.isImmune(suspectId, speakerVillagerResolver.apply(kingdomId))) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(suspectId);
         if (membership.isEmpty() || !membership.get().hasNobleTitle()) {
             return false;
         }
