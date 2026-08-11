@@ -55,12 +55,13 @@ public final class CoronaMerchantListener implements Listener {
         if (!isEligibleTerritoryVillager(villager)) {
             return;
         }
-        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
+        boolean onStrike = isOnStrike(villager);
+        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager, onStrike)) {
             event.setCancelled(true);
-            recipeService.refreshRecipes(villager);
+            recipeService.refreshRecipes(villager, onStrike);
             return;
         }
-        recipeService.refreshRecipes(villager);
+        recipeService.refreshRecipes(villager, onStrike);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -71,7 +72,7 @@ public final class CoronaMerchantListener implements Listener {
         if (!isEligibleTerritoryVillager(villager)) {
             return;
         }
-        recipeService.refreshRecipes(villager);
+        recipeService.refreshRecipes(villager, isOnStrike(villager));
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
@@ -101,7 +102,7 @@ public final class CoronaMerchantListener implements Listener {
         }
         if (!(merchantInventory.getMerchant() instanceof Villager villager)
                 || !isEligibleTerritoryVillager(villager)
-                || !VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
+                || !VillagerPlayerTradePolicy.canTradeWithPlayers(villager, isOnStrike(villager))) {
             return;
         }
 
@@ -134,7 +135,8 @@ public final class CoronaMerchantListener implements Listener {
                 coronaPrice,
                 villagerMpEntityService.isTreasuryLordVillager(villager),
                 villagerMpEntityService.isSeatedMpVillager(villager),
-                villagerMpEntityService.isKingdomTaggedMpVillager(villager));
+                villagerMpEntityService.isKingdomTaggedMpVillager(villager),
+                player.getUniqueId());
     }
 
     private boolean isEligibleTerritoryVillager(Villager villager) {
@@ -148,6 +150,24 @@ public final class CoronaMerchantListener implements Listener {
                 villager.getLocation().getBlockZ());
         return TerritoryVillagerCommercePolicy.shouldSettleEmeraldCommerce(
                 kingdomId,
+                villagerMpEntityService.isTreasuryLordVillager(villager),
+                villagerMpEntityService.isSeatedMpVillager(villager),
+                villagerMpEntityService.isKingdomTaggedMpVillager(villager));
+    }
+
+    private boolean isOnStrike(Villager villager) {
+        if (villager.getLocation().getWorld() == null) {
+            return false;
+        }
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                villager.getLocation().getWorld().getName(),
+                villager.getLocation().getBlockX(),
+                villager.getLocation().getBlockY(),
+                villager.getLocation().getBlockZ());
+        return coordinator.isOrdinaryVillagerOnStrike(
+                kingdomId,
+                villager.getUniqueId(),
+                villager.getLocation().getWorld(),
                 villagerMpEntityService.isTreasuryLordVillager(villager),
                 villagerMpEntityService.isSeatedMpVillager(villager),
                 villagerMpEntityService.isKingdomTaggedMpVillager(villager));

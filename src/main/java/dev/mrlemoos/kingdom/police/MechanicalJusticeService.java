@@ -141,21 +141,64 @@ public final class MechanicalJusticeService {
         return PoliceResult.ok("Warrant served.");
     }
 
+    /**
+     * Withdraws an active warrant without arrest. Caller refunds any arrest reward.
+     */
+    public PoliceResult cancelActiveWarrant(String kingdomId, UUID crownId, String warrantId) {
+        Optional<Warrant> found = findById(kingdomId, warrantId);
+        if (found.isEmpty()) {
+            return PoliceResult.fail("Unknown warrant.");
+        }
+        Warrant warrant = found.get();
+        if (warrant.status() != WarrantStatus.ACTIVE) {
+            return PoliceResult.fail("That warrant is not active.");
+        }
+        if (!isCrownApprover(kingdomId, crownId)) {
+            return PoliceResult.fail("Only the King or Queen may cancel an active warrant.");
+        }
+        warrant.setStatus(WarrantStatus.CANCELLED);
+        return PoliceResult.ok("Warrant cancelled.");
+    }
+
     public List<Warrant> warrantsView() {
         return List.copyOf(warrants);
+    }
+
+    public void replaceWarrants(List<Warrant> loaded) {
+        warrants.clear();
+        if (loaded != null) {
+            warrants.addAll(loaded);
+            long maxSequence = 0;
+            for (Warrant warrant : loaded) {
+                maxSequence = Math.max(maxSequence, parseSequence(warrant.id()));
+            }
+            warrantSequence.set(maxSequence + 1);
+        }
     }
 
     public MechanicalJusticeConfig config() {
         return config;
     }
 
-    private Optional<Warrant> findById(String kingdomId, String warrantId) {
+    public Optional<Warrant> findById(String kingdomId, String warrantId) {
         for (Warrant warrant : warrants) {
             if (warrant.kingdomId().equals(kingdomId) && warrant.id().equals(warrantId)) {
                 return Optional.of(warrant);
             }
         }
         return Optional.empty();
+    }
+
+    private long parseSequence(String warrantId) {
+        int dash = warrantId.lastIndexOf('-');
+        if (dash < 0 || dash + 1 >= warrantId.length()) {
+            return 0;
+        }
+        try {
+            return Long.parseLong(warrantId.substring(dash + 1));
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
     }
 
     private boolean hasWarrantImmunity(UUID playerId) {

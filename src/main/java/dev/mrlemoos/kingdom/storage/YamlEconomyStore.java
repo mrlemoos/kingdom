@@ -176,6 +176,8 @@ public final class YamlEconomyStore {
         config.set(path + ".foreign-surcharge", rates.foreignSurcharge());
         config.set(path + ".transfer-fee", rates.transferFee());
         config.set(path + ".cross-kingdom-transfer-fee", rates.crossKingdomTransferFee());
+        config.set(path + ".villager-wallet-interest", rates.villagerWalletInterest());
+        config.set(path + ".tariff", rates.tariff());
         for (Map.Entry<NobleRank, Double> modifier : rates.rankModifiers().entrySet()) {
             config.set(path + ".rank-modifiers." + modifier.getKey().name().toLowerCase(), modifier.getValue());
         }
@@ -203,6 +205,8 @@ public final class YamlEconomyStore {
                 section.getDouble("foreign-surcharge", FiscalRates.defaults().foreignSurcharge()),
                 section.getDouble("transfer-fee", FiscalRates.defaults().transferFee()),
                 section.getDouble("cross-kingdom-transfer-fee", FiscalRates.defaults().crossKingdomTransferFee()),
+                section.getDouble("villager-wallet-interest", FiscalRates.defaults().villagerWalletInterest()),
+                section.getDouble("tariff", FiscalRates.defaults().tariff()),
                 rankModifiers);
     }
 

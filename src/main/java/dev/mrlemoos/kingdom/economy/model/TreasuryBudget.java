@@ -37,4 +37,11 @@ public class TreasuryBudget {
         }
         spentAmount += amount;
     }
+
+    public void reverseSpend(double amount) {
+        if (amount <= 0 || amount > spentAmount) {
+            throw new IllegalArgumentException("Cannot reverse more than has been spent.");
+        }
+        spentAmount -= amount;
+    }
 }

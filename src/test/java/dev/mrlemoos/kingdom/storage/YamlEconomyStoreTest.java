@@ -44,12 +44,16 @@ class YamlEconomyStoreTest {
         assertEquals(0.06, activeRates.foreignSurcharge(), 1e-9);
         assertEquals(0.04, activeRates.transferFee(), 1e-9);
         assertEquals(0.09, activeRates.crossKingdomTransferFee(), 1e-9);
+        assertEquals(0.02, activeRates.villagerWalletInterest(), 1e-9);
+        assertEquals(0.03, activeRates.tariff(), 1e-9);
         assertEquals(-0.03, activeRates.rankModifier(NobleRank.PREMIER), 1e-9);
 
         FiscalProposal proposal = economy.pendingProposal().orElseThrow();
         assertEquals(PREMIER, proposal.proposerId());
         assertEquals(1_700_000_000_000L, proposal.timestampMillis());
         assertEquals(0.11, proposal.proposedRates().baseRate(), 1e-9);
+        assertEquals(0.01, proposal.proposedRates().villagerWalletInterest(), 1e-9);
+        assertEquals(0.04, proposal.proposedRates().tariff(), 1e-9);
 
         assertEquals(100.0, economy.budget().approvedAmount(), 1e-9);
         assertEquals(35.0, economy.budget().spentAmount(), 1e-9);
@@ -137,8 +141,8 @@ class YamlEconomyStoreTest {
     private static EconomyService populatedService() {
         Map<NobleRank, Double> rankModifiers = new EnumMap<>(NobleRank.class);
         rankModifiers.put(NobleRank.PREMIER, -0.03);
-        FiscalRates activeRates = new FiscalRates(0.12, 0.06, 0.04, 0.09, rankModifiers);
-        FiscalRates proposedRates = new FiscalRates(0.11, 0.05, 0.03, 0.08, Map.of());
+        FiscalRates activeRates = new FiscalRates(0.12, 0.06, 0.04, 0.09, 0.02, 0.03, rankModifiers);
+        FiscalRates proposedRates = new FiscalRates(0.11, 0.05, 0.03, 0.08, 0.01, 0.04, Map.of());
         FiscalProposal proposal = new FiscalProposal(proposedRates, PREMIER, 1_700_000_000_000L);
         TreasuryBudget budget = new TreasuryBudget(100.0, 35.0);
         List<MintLocation> mints = List.of(new MintLocation("world", 10, 64, 10));

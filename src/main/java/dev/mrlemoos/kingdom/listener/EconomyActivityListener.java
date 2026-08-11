@@ -129,11 +129,11 @@ public final class EconomyActivityListener implements Listener {
             boolean kingdomTaggedMp = villagerMpEntityService.isKingdomTaggedMpVillager(villager);
             if (coronaCost > 0) {
                 coordinator.settleCoronaMerchantCommerce(
-                        villager, coronaCost, treasuryLord, seatedMp, kingdomTaggedMp);
+                        villager, coronaCost, treasuryLord, seatedMp, kingdomTaggedMp, player.getUniqueId());
             }
             if (emeraldCost > 0) {
                 coordinator.settleEmeraldVillagerCommerce(
-                        villager, emeraldCost, treasuryLord, seatedMp, kingdomTaggedMp);
+                        villager, emeraldCost, treasuryLord, seatedMp, kingdomTaggedMp, player.getUniqueId());
             }
         }
     }

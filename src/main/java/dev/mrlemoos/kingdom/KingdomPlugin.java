@@ -73,6 +73,7 @@ import dev.mrlemoos.kingdom.resignation.ResignationService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
+import dev.mrlemoos.kingdom.parliament.HansardArchivist;
 import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
 import dev.mrlemoos.kingdom.service.TeleportService;
@@ -152,6 +153,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 policeService,
                                 MechanicalJusticeConfig.fromPluginConfig(getConfig()));
                 this.mechanicalJusticeService = mechanicalJusticeService;
+                store.setMechanicalJusticeService(mechanicalJusticeService);
+                store.loadWarrants();
                 nobleDisplay = new NoblePrefixDisplay(kingdomService, policeService);
 
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
@@ -176,7 +179,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService,
                                 territoryResolver,
                                 economyConfig,
-                                villagerEconomyConfig.villagerCommerceTaxRate());
+                                villagerEconomyConfig);
                 economyCoordinator.setPersistenceHook(() -> economyStore.saveFrom(economyService));
 
                 WorldGuardBridge.warmUp();
@@ -192,12 +195,32 @@ public final class KingdomPlugin extends JavaPlugin {
                 ProductiveVillagerScanner villagerScanner = new ProductiveVillagerScanner(kingdomService);
                 VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(
                                 this, kingdomService, villagerScanner, territoryResolver);
+                villagerMpEntityService.setVillagerStrikeSource(economyService, villagerEconomyConfig);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
                 parliamentService.setDivisionWindowMcDays(getConfig().getInt(
                                 "parliament.villager-speaker.division-window-days",
                                 ParliamentService.DEFAULT_DIVISION_WINDOW_MC_DAYS));
+                parliamentService.setPremierQuestionsIntervalMcDays(getConfig().getInt(
+                                "parliament.villager-speaker.premier-questions-interval-days",
+                                ParliamentService.DEFAULT_PREMIER_QUESTIONS_INTERVAL_MC_DAYS));
+                parliamentService.setConfidenceCooldownMcDays(getConfig().getInt(
+                                "parliament.motion.confidence-cooldown-days",
+                                ParliamentService.DEFAULT_CONFIDENCE_COOLDOWN_MC_DAYS));
+                parliamentService.setPollingWindowMcDays(getConfig().getInt(
+                                "parliament.referendum.polling-window-days",
+                                ParliamentService.DEFAULT_POLLING_WINDOW_MC_DAYS));
+                parliamentService.setElectionService(electionService);
+                parliamentService.setVillagerSeatReleaser(villagerMpEntityService::releaseSeat);
                 parliamentService.setWarService(warService);
+                parliamentService.setTerritoryResolver(territoryResolver);
+                parliamentService.setMcDayClock(() -> {
+                        org.bukkit.World mainWorld = getServer().getWorlds().isEmpty()
+                                        ? null
+                                        : getServer().getWorlds().get(0);
+                        return mainWorld != null ? mainWorld.getFullTime() / 24000L : 0L;
+                });
+                electionService.setHansardArchivist(new HansardArchivist(kingdomService)::archive);
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
                                 electionConfig);
@@ -232,7 +255,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService,
                                 store,
                                 territoryResolver,
-                                nobleDisplay);
+                                nobleDisplay,
+                                policeTrialService.arrestRewardService(),
+                                economyService,
+                                economyStore);
                 WhitelistService whitelistService = new WhitelistService(new BukkitServerWhitelistGateway());
                 KingdomWhitelistHandler whitelistHandler = new KingdomWhitelistHandler(
                                 whitelistService,
@@ -260,6 +286,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 ParliamentGuiListener parliamentGuiListener = new ParliamentGuiListener(parliamentHandler,
                                 resignCommand);
                 parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
+                parliamentHandler.setReferendumBallotOpener(parliamentGuiListener::openReferendumBallotGui);
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,

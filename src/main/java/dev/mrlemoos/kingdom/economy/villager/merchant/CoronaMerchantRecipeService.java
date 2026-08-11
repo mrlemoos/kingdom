@@ -17,10 +17,14 @@ public final class CoronaMerchantRecipeService {
     }
 
     public void refreshRecipes(Villager villager) {
+        refreshRecipes(villager, false);
+    }
+
+    public void refreshRecipes(Villager villager, boolean onStrike) {
         if (villager == null) {
             return;
         }
-        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager)) {
+        if (!VillagerPlayerTradePolicy.canTradeWithPlayers(villager, onStrike)) {
             villager.setRecipes(List.of());
             return;
         }

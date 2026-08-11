@@ -15,6 +15,7 @@ economy:
   villager-gdp:
     tick-interval-ticks: 24000
   frozen-wallet-escheat-mc-days: 30
+  frozen-wallet-strike-mc-days: 7
   villager-commerce-tax-rate: 0.05
   villager-trades:
     settlements-per-edge: 3
@@ -146,6 +147,16 @@ parliament:
   villager-speaker:
     # In-game days a villager Speaker holds a division open for seated player MPs.
     division-window-days: 1
+    # In-game days between the Speaker calling Questions to the Premier through an open session.
+    premier-questions-interval-days: 7
+
+  motion:
+    # In-game days after a failed motion of no confidence before the House may table another.
+    confidence-cooldown-days: 7
+
+  referendum:
+    # In-game days a referendum's polling window stays open unless the Premier closes it early.
+    polling-window-days: 2
 
 election:
   general-interval-mc-days: 120
@@ -176,3 +187,8 @@ election:
       librarian: nay
       armorer: nay
       shepherd: aye
+    SPEND_PUBLIC_WORK:
+      farmer: aye
+      librarian: aye
+      armorer: nay
+      mason: aye

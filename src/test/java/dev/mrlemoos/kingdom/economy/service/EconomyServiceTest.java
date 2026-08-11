@@ -26,7 +26,7 @@ class EconomyServiceTest {
     private final UUID alice = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private final UUID bob = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private final UUID premier = UUID.fromString("00000000-0000-0000-0000-000000000003");
-    private final FiscalRates rates = new FiscalRates(0.10, 0.05, 0.03, 0.08, Map.of());
+    private final FiscalRates rates = new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.0, Map.of());
 
     @BeforeEach
     void setUp() {
@@ -135,7 +135,7 @@ class EconomyServiceTest {
 
     @Test
     void premierSubmitsProposalForRoyalApproval() {
-        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, Map.of());
+        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, 0.0, 0.0, Map.of());
 
         EconomyResult submitted = service.submitProposal("northmarch", NobleRank.PREMIER, premier, proposed);
 
@@ -152,7 +152,7 @@ class EconomyServiceTest {
 
     @Test
     void kingApproveProposalRedirectsToParliament() {
-        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, Map.of());
+        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, 0.0, 0.0, Map.of());
         service.submitProposal("northmarch", NobleRank.PREMIER, premier, proposed);
 
         EconomyResult approved = service.approveProposal("northmarch", NobleRank.KING);
@@ -162,7 +162,7 @@ class EconomyServiceTest {
 
     @Test
     void applyFiscalRatesEnactsDirectly() {
-        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, Map.of());
+        FiscalRates proposed = new FiscalRates(0.12, 0.06, 0.04, 0.09, 0.0, 0.0, Map.of());
 
         EconomyResult enacted = service.applyFiscalRates("northmarch", proposed);
 

@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.command;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
 import dev.mrlemoos.kingdom.model.Kingdom;
@@ -11,6 +12,7 @@ import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
+import dev.mrlemoos.kingdom.police.ArrestRewardService;
 import dev.mrlemoos.kingdom.police.PoliceAuthority;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
@@ -18,6 +20,7 @@ import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceResult;
 import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.List;
@@ -41,8 +44,11 @@ public final class KingdomPoliceHandler {
     private final PoliceGolemService golemService;
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
+    private final YamlEconomyStore economyStore;
+    private final EconomyService economyService;
     private final TerritoryResolver territoryResolver;
     private final NoblePrefixDisplay nobleDisplay;
+    private final ArrestRewardService arrestRewardService;
     private final PoliceConfig config;
 
     public KingdomPoliceHandler(
@@ -52,14 +58,20 @@ public final class KingdomPoliceHandler {
             KingdomService kingdomService,
             YamlKingdomStore store,
             TerritoryResolver territoryResolver,
-            NoblePrefixDisplay nobleDisplay) {
+            NoblePrefixDisplay nobleDisplay,
+            ArrestRewardService arrestRewardService,
+            EconomyService economyService,
+            YamlEconomyStore economyStore) {
         this.policeService = policeService;
         this.courtService = courtService;
         this.golemService = golemService;
         this.kingdomService = kingdomService;
         this.store = store;
+        this.economyStore = economyStore;
+        this.economyService = economyService;
         this.territoryResolver = territoryResolver;
         this.nobleDisplay = nobleDisplay;
+        this.arrestRewardService = arrestRewardService;
         this.config = policeService.config();
     }
 
@@ -78,6 +90,8 @@ public final class KingdomPoliceHandler {
             case "despawn" -> handleDespawn(sender);
             case "status" -> handleStatus(sender);
             case "list" -> handleList(sender);
+            case "reward" -> handleReward(sender, args);
+            case "cancelwarrant" -> handleCancelWarrant(sender, args);
             default -> {
                 sender.sendMessage(policeHelp());
                 yield true;
@@ -447,6 +461,88 @@ public final class KingdomPoliceHandler {
         return true;
     }
 
+    private boolean handleReward(CommandSender sender, String[] args) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(error("Usage: /kingdom police reward <player> <amount>"));
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        if (!isNearCourt(player.get(), kingdomId)) {
+            sender.sendMessage(error("Post arrest rewards at the court lectern."));
+            return true;
+        }
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        UUID suspectId = target.getUniqueId();
+        double amount;
+        try {
+            amount = Double.parseDouble(args[2]);
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(error("Amount must be a number."));
+            return true;
+        }
+        PoliceResult result = arrestRewardService.postOrTopUp(
+                kingdomId, player.get().getUniqueId(), suspectId, amount);
+        sender.sendMessage(formatPolice(result));
+        if (result instanceof PoliceResult.Success) {
+            store.saveFrom(kingdomService);
+            economyStore.saveFrom(economyService);
+        }
+        return true;
+    }
+
+    private boolean handleCancelWarrant(CommandSender sender, String[] args) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(error("Usage: /kingdom police cancelwarrant <player>"));
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        PoliceResult result = arrestRewardService.cancelActiveForSuspect(
+                kingdomId, player.get().getUniqueId(), target.getUniqueId());
+        sender.sendMessage(formatPolice(result));
+        if (result instanceof PoliceResult.Success) {
+            store.saveFrom(kingdomService);
+            economyStore.saveFrom(economyService);
+        }
+        return true;
+    }
+
+    private boolean isNearCourt(Player player, String kingdomId) {
+        Optional<CourtLocation> court = policeService.court(kingdomId);
+        if (court.isEmpty()) {
+            return false;
+        }
+        CourtLocation location = court.get();
+        Location playerLoc = player.getLocation();
+        if (playerLoc == null) {
+            return false;
+        }
+        org.bukkit.World world = playerLoc.getWorld();
+        if (world == null || !world.getName().equals(location.worldName())) {
+            return false;
+        }
+        double dx = playerLoc.getX() - location.x();
+        double dy = playerLoc.getY() - location.y();
+        double dz = playerLoc.getZ() - location.z();
+        return (dx * dx + dy * dy + dz * dz) <= 64.0;
+    }
+
     private void listSwornRole(CommandSender sender, String label, java.util.Set<UUID> playerIds) {
         if (playerIds.isEmpty()) {
             sender.sendMessage(c("&7" + label + ": none."));
@@ -551,6 +647,8 @@ public final class KingdomPoliceHandler {
                 + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — spawn patrol golem")
                 + "\n" + c("&e/kingdom police deploy guard") + c("&7 — spawn guard golem")
                 + "\n" + c("&e/kingdom police despawn") + c("&7 — remove aimed or nearest golem")
+                + "\n" + c("&e/kingdom police reward <player> <amount>") + c("&7 — post or top up arrest reward at court")
+                + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — Crown cancels active warrant")
                 + "\n" + c("&e/kingdom police status")
                 + "\n" + c("&e/kingdom police list");
     }

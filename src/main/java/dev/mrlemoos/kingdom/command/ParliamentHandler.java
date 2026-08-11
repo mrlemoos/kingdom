@@ -7,6 +7,8 @@ import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.economy.wealth.EstateBlockPlacer;
+import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.election.VillagerPremierInauguralService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.model.Kingdom;
@@ -19,6 +21,8 @@ import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
 import dev.mrlemoos.kingdom.parliament.AssentedEnactmentResult;
+import dev.mrlemoos.kingdom.parliament.DivisionBloc;
+import dev.mrlemoos.kingdom.parliament.DivisionTally;
 import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
 import dev.mrlemoos.kingdom.parliament.RegistrarShelfWriter;
 import dev.mrlemoos.kingdom.service.ChamberPresence;
@@ -58,6 +62,7 @@ public final class ParliamentHandler {
     private final WarService warService;
     private final DemobilisationService demobilisationService;
     private Consumer<Player> hubGuiOpener;
+    private java.util.function.BiConsumer<Player, String> referendumBallotOpener;
 
     public ParliamentHandler(
             ParliamentService parliamentService,
@@ -110,6 +115,80 @@ public final class ParliamentHandler {
 
     public void setHubGuiOpener(Consumer<Player> hubGuiOpener) {
         this.hubGuiOpener = hubGuiOpener;
+    }
+
+    /** How a member is shown the referendum ballot. */
+    public void setReferendumBallotOpener(java.util.function.BiConsumer<Player, String> referendumBallotOpener) {
+        this.referendumBallotOpener = referendumBallotOpener;
+    }
+
+    /**
+     * {@code /kingdom referendum} — opens the ballot for any member while polling is open;
+     * {@code call <question>} puts a question to the realm; {@code close} ends polling early.
+     */
+    public boolean handleReferendum(CommandSender sender, String[] args) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+
+        if (args.length >= 2 && args[1].equalsIgnoreCase("call")) {
+            if (args.length < 3) {
+                sender.sendMessage(error("Usage: /kingdom referendum call <question>"));
+                return true;
+            }
+            String question = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+            ParliamentResult result = parliamentService.callReferendum(
+                    kingdomId, membership.get().getRank(), player.get().getUniqueId(), question);
+            if (result instanceof ParliamentResult.Success success) {
+                broadcastParliament(kingdomId, c("&e" + success.message()));
+                promptRealmToVote(kingdomId);
+            }
+            return finish(sender, result);
+        }
+
+        if (args.length >= 2 && args[1].equalsIgnoreCase("close")) {
+            ParliamentResult result = parliamentService.closePolling(kingdomId, membership.get().getRank());
+            if (result instanceof ParliamentResult.Success success) {
+                broadcastParliament(kingdomId, c("&e" + success.message()));
+            }
+            return finish(sender, result);
+        }
+
+        if (!parliamentService.isPollingOpen(kingdomId)) {
+            sender.sendMessage(error("No referendum is open to the realm."));
+            return true;
+        }
+        if (referendumBallotOpener != null) {
+            referendumBallotOpener.accept(player.get(), kingdomId);
+        }
+        return true;
+    }
+
+    /** Tells everyone online in the realm that a question awaits their ballot. */
+    public void promptRealmToVote(String kingdomId) {
+        Optional<String> question = parliamentService.referendumQuestion(kingdomId);
+        if (question.isEmpty() || !parliamentService.isPollingOpen(kingdomId)) {
+            return;
+        }
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            promptIfEntitled(online, kingdomId, question.get());
+        }
+    }
+
+    /** Prompts one member, used on login while polling is open. */
+    public void promptIfEntitled(Player online, String kingdomId, String question) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(online.getUniqueId());
+        if (membership.isEmpty() || !membership.get().getKingdomId().equals(kingdomId)) {
+            return;
+        }
+        online.sendMessage(c("&3[Parliament] ")+ c("&eA referendum is open: ")+ c("&f" + question));
+        online.sendMessage(c("&7Use ")+ c("&e/kingdom referendum")+ c("&7 to cast your ballot."));
     }
 
     public ParliamentService parliamentService() {
@@ -262,8 +341,16 @@ public final class ParliamentHandler {
         }
 
         int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
+        EstateBlockPlacer estatePlacer = (worldName, x, y, z, type) -> {
+            org.bukkit.World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                return false;
+            }
+            world.getBlockAt(x, y, z).setType(type.material());
+            return true;
+        };
         AssentedEnactmentResult enacted = ParliamentEnactment.enactAssented(
-                draft.get(), economyService, warService, demobilisationService, maxMints);
+                draft.get(), economyService, warService, demobilisationService, maxMints, estatePlacer);
         if (enacted instanceof AssentedEnactmentResult.Failure failure) {
             player.sendMessage(error("Royal assent recorded but enactment failed: " + failure.message()));
             kingdomStore.saveFrom(kingdomService);
@@ -367,6 +454,11 @@ public final class ParliamentHandler {
         return parliamentService.tableSpendMint(kingdomId, rank, proposerId, cost, title);
     }
 
+    public ParliamentResult tableSpendPublicWork(String kingdomId, NobleRank rank, UUID proposerId, String title) {
+        RealmWealthRates rates = RealmWealthRates.fromPluginConfig(plugin.getConfig().getConfigurationSection("economy"));
+        return parliamentService.tableSpendPublicWork(kingdomId, rank, proposerId, rates, title);
+    }
+
     public ParliamentResult tableSpendStipend(
             String kingdomId,
             NobleRank rank,
@@ -379,10 +471,51 @@ public final class ParliamentHandler {
                 kingdomId, rank, proposerId, recipientId, amount, reason, title);
     }
 
+    /** Puts the confidence question and tells the House it awaits a seconder. */
+    public ParliamentResult tableNoConfidenceWithBroadcast(
+            Player player, String kingdomId, NobleRank rank, UUID proposerId) {
+        ParliamentResult result = parliamentService.tableNoConfidence(kingdomId, rank, proposerId, null);
+        if (result instanceof ParliamentResult.Success success) {
+            player.sendMessage(success(success.message()));
+            broadcastParliament(
+                    kingdomId,
+                    c("&cA motion of no confidence in the Premier has been tabled. It awaits a seconder."));
+            kingdomStore.saveFrom(kingdomService);
+            return result;
+        }
+        player.sendMessage(error(((ParliamentResult.Failure) result).message()));
+        return result;
+    }
+
+    /** Seconds the motion before the House, opening the way to a division. */
+    public ParliamentResult secondNoConfidenceWithBroadcast(
+            Player player, String kingdomId, NobleRank rank, UUID seconderId) {
+        ParliamentResult result = parliamentService.secondNoConfidence(kingdomId, rank, seconderId);
+        if (result instanceof ParliamentResult.Success success) {
+            player.sendMessage(success(success.message()));
+            broadcastParliament(
+                    kingdomId,
+                    c("&cThe motion of no confidence has been seconded. The House may now divide."));
+            kingdomStore.saveFrom(kingdomService);
+            return result;
+        }
+        player.sendMessage(error(((ParliamentResult.Failure) result).message()));
+        return result;
+    }
+
     public ParliamentResult closeDivisionWithBroadcast(Player player, String kingdomId, NobleRank rank) {
+        boolean motion = parliamentService.currentBill(kingdomId)
+                .filter(bill -> bill.type() == dev.mrlemoos.kingdom.model.parliament.BillType.NO_CONFIDENCE)
+                .isPresent();
         ParliamentResult result = parliamentService.closeDivision(kingdomId, rank);
         if (result instanceof ParliamentResult.Success success) {
             player.sendMessage(success(success.message()));
+            if (motion) {
+                broadcastParliament(kingdomId, c("&c" + success.message()));
+                broadcastDivisionBlocs(kingdomId);
+                kingdomStore.saveFrom(kingdomService);
+                return result;
+            }
             if (success.message().contains("passed")) {
                 broadcastParliament(
                         kingdomId,
@@ -390,11 +523,24 @@ public final class ParliamentHandler {
             } else if (success.message().contains("failed")) {
                 broadcastParliament(kingdomId, c("&cA bill failed the Commons division."));
             }
+            broadcastDivisionBlocs(kingdomId);
             kingdomStore.saveFrom(kingdomService);
             return result;
         }
         player.sendMessage(error(((ParliamentResult.Failure) result).message()));
         return result;
+    }
+
+    /** Reads the division out bench by bench: each party, then the independents, then each bloc. */
+    public void broadcastDivisionBlocs(String kingdomId) {
+        List<DivisionBloc> blocs = parliamentService.lastDivisionBlocs(kingdomId);
+        if (blocs.isEmpty()) {
+            return;
+        }
+        broadcastParliament(kingdomId, c("&7The House divided:"));
+        for (String line : DivisionTally.renderLines(blocs)) {
+            broadcastParliament(kingdomId, c("&7 " + line));
+        }
     }
 
     public ParliamentResult rejectWithBroadcast(Player player, String kingdomId, NobleRank rank) {

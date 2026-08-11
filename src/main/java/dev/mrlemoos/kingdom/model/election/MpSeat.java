@@ -14,6 +14,7 @@ public final class MpSeat {
     private UUID entityId;
     private MpSeatLocation originLocation;
     private Integer returnCount;
+    private CandidateDeclaration declaration;
 
     public MpSeat(int index) {
         if (index < 1 || index > 8) {
@@ -55,6 +56,22 @@ public final class MpSeat {
         return returnCount == null ? OptionalInt.empty() : OptionalInt.of(returnCount);
     }
 
+    /**
+     * What the member declared when they stood: manifesto, party, and party colour. Empty for a
+     * villager bench — a villager stands under a profession bloc and never under a party.
+     */
+    public Optional<CandidateDeclaration> declaration() {
+        return Optional.ofNullable(declaration);
+    }
+
+    /** Records a player MP's declaration; a villager bench never carries one. */
+    public void setDeclaration(CandidateDeclaration declaration) {
+        if (kind != MpSeatKind.PLAYER) {
+            return;
+        }
+        this.declaration = declaration == null || declaration.isBlank() ? null : declaration;
+    }
+
     public void setReturnCount(Integer returnCount) {
         this.returnCount = returnCount;
     }
@@ -69,6 +86,7 @@ public final class MpSeat {
         this.profession = null;
         this.entityId = null;
         this.returnCount = null;
+        this.declaration = null;
     }
 
     public void assignVillager(String professionName, UUID entityId) {
@@ -78,6 +96,7 @@ public final class MpSeat {
         this.playerId = null;
         this.originLocation = null;
         this.returnCount = null;
+        this.declaration = null;
     }
 
     public void clear() {
@@ -87,6 +106,7 @@ public final class MpSeat {
         this.entityId = null;
         this.originLocation = null;
         this.returnCount = null;
+        this.declaration = null;
     }
 
     public void setEntityId(UUID entityId) {

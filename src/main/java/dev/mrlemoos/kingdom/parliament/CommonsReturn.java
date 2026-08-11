@@ -1,12 +1,14 @@
 package dev.mrlemoos.kingdom.parliament;
 
 import dev.mrlemoos.kingdom.election.ProfessionConstituencyResolver;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.function.Function;
@@ -76,11 +78,12 @@ public final class CommonsReturn {
             UUID holder = seat.playerId().orElse(null);
             String name = holder == null ? "Unknown" : playerName.apply(holder);
             OptionalInt votes = seat.returnCount();
+            String member = "MP " + name + party(seat);
             if (votes.isEmpty()) {
-                return "MP " + name + ", returned unopposed.";
+                return member + ", returned unopposed." + manifesto(seat);
             }
-            return "MP " + name + ", returned with " + votes.getAsInt()
-                    + plural(votes.getAsInt(), " vote", " votes") + ".";
+            return member + ", returned with " + votes.getAsInt()
+                    + plural(votes.getAsInt(), " vote", " votes") + "." + manifesto(seat);
         }
         String profession = seat.profession().orElse(ProfessionConstituencyResolver.CITIZEN_PROFESSION);
         String label = ProfessionConstituencyResolver.displayLabel(profession);
@@ -91,6 +94,24 @@ public final class CommonsReturn {
         int villagers = seat.returnCount().getAsInt();
         return "MP " + label + ", returned for " + label + ", " + villagers
                 + plural(villagers, " villager", " villagers") + ".";
+    }
+
+    /** The party a member stands under, where they declared one. */
+    private static String party(MpSeat seat) {
+        Optional<CandidateDeclaration> declaration = seat.declaration();
+        if (declaration.isEmpty() || !declaration.get().hasParty()) {
+            return "";
+        }
+        return " of the " + declaration.get().partyName();
+    }
+
+    /** The manifesto a member stood on, read out with their return. */
+    private static String manifesto(MpSeat seat) {
+        Optional<CandidateDeclaration> declaration = seat.declaration();
+        if (declaration.isEmpty() || !declaration.get().hasManifesto()) {
+            return "";
+        }
+        return " \"" + declaration.get().manifesto() + "\"";
     }
 
     private static String plural(int count, String singular, String plural) {

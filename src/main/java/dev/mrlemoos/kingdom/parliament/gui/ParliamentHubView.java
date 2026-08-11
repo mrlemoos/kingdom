@@ -15,9 +15,12 @@ public final class ParliamentHubView {
     private final boolean divisionTied;
     private final boolean castingVoteSet;
     private final boolean hasPreparedMint;
+    private final boolean hasPreparedPublicWork;
     private final boolean electionActive;
     private final boolean pendingResignation;
     private final boolean canResolveResignation;
+    private final boolean canTableMotion;
+    private final boolean canSecondMotion;
     private final Optional<String> billTitle;
     private final Optional<String> resignationSummary;
 
@@ -58,6 +61,72 @@ public final class ParliamentHubView {
             boolean canResolveResignation,
             Optional<String> billTitle,
             Optional<String> resignationSummary) {
+        this(
+                rank,
+                billState,
+                inCommons,
+                inLords,
+                divisionTied,
+                castingVoteSet,
+                hasPreparedMint,
+                electionActive,
+                pendingResignation,
+                canResolveResignation,
+                billTitle,
+                resignationSummary,
+                false,
+                false);
+    }
+
+    public ParliamentHubView(
+            NobleRank rank,
+            BillState billState,
+            boolean inCommons,
+            boolean inLords,
+            boolean divisionTied,
+            boolean castingVoteSet,
+            boolean hasPreparedMint,
+            boolean electionActive,
+            boolean pendingResignation,
+            boolean canResolveResignation,
+            Optional<String> billTitle,
+            Optional<String> resignationSummary,
+            boolean canTableMotion,
+            boolean canSecondMotion) {
+        this(
+                rank,
+                billState,
+                inCommons,
+                inLords,
+                divisionTied,
+                castingVoteSet,
+                hasPreparedMint,
+                false,
+                electionActive,
+                pendingResignation,
+                canResolveResignation,
+                billTitle,
+                resignationSummary,
+                canTableMotion,
+                canSecondMotion);
+    }
+
+    public ParliamentHubView(
+            NobleRank rank,
+            BillState billState,
+            boolean inCommons,
+            boolean inLords,
+            boolean divisionTied,
+            boolean castingVoteSet,
+            boolean hasPreparedMint,
+            boolean hasPreparedPublicWork,
+            boolean electionActive,
+            boolean pendingResignation,
+            boolean canResolveResignation,
+            Optional<String> billTitle,
+            Optional<String> resignationSummary,
+            boolean canTableMotion,
+            boolean canSecondMotion) {
         this.rank = rank;
         this.billState = billState;
         this.inCommons = inCommons;
@@ -65,11 +134,24 @@ public final class ParliamentHubView {
         this.divisionTied = divisionTied;
         this.castingVoteSet = castingVoteSet;
         this.hasPreparedMint = hasPreparedMint;
+        this.hasPreparedPublicWork = hasPreparedPublicWork;
         this.electionActive = electionActive;
         this.pendingResignation = pendingResignation;
         this.canResolveResignation = canResolveResignation;
         this.billTitle = billTitle != null ? billTitle : Optional.empty();
         this.resignationSummary = resignationSummary != null ? resignationSummary : Optional.empty();
+        this.canTableMotion = canTableMotion;
+        this.canSecondMotion = canSecondMotion;
+    }
+
+    /** Whether this Member may put the confidence question to the House. */
+    public boolean canTableMotion() {
+        return canTableMotion;
+    }
+
+    /** Whether this Member may second the motion awaiting a seconder. */
+    public boolean canSecondMotion() {
+        return canSecondMotion;
     }
 
     public NobleRank rank() {
@@ -98,6 +180,10 @@ public final class ParliamentHubView {
 
     public boolean hasPreparedMint() {
         return hasPreparedMint;
+    }
+
+    public boolean hasPreparedPublicWork() {
+        return hasPreparedPublicWork;
     }
 
     public boolean electionActive() {
@@ -133,6 +219,7 @@ public final class ParliamentHubView {
                 actions.add(ParliamentHubAction.TABLE_BUDGET);
                 actions.add(ParliamentHubAction.TABLE_SPEND_MINT);
                 actions.add(ParliamentHubAction.TABLE_SPEND_STIPEND);
+                actions.add(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK);
                 actions.add(ParliamentHubAction.STIPEND_OTHER);
                 actions.add(ParliamentHubAction.BUDGET_PRESET);
                 actions.add(ParliamentHubAction.CUSTOM_AMOUNT);
@@ -148,6 +235,12 @@ public final class ParliamentHubView {
                         actions.add(ParliamentHubAction.CAST_NAY);
                     }
                 }
+            }
+            if (rank == NobleRank.MP && billState == null && canTableMotion) {
+                actions.add(ParliamentHubAction.TABLE_NO_CONFIDENCE);
+            }
+            if (rank == NobleRank.MP && billState == BillState.AWAITING_SECOND && canSecondMotion) {
+                actions.add(ParliamentHubAction.SECOND_NO_CONFIDENCE);
             }
             if (rank == NobleRank.MP && billState == BillState.DIVISION_OPEN) {
                 actions.add(ParliamentHubAction.VOTE_AYE);
@@ -192,12 +285,15 @@ public final class ParliamentHubView {
         }
         return switch (action) {
             case TABLE_SPEND_MINT -> hasPreparedMint;
+            case TABLE_SPEND_PUBLIC_WORK -> hasPreparedPublicWork;
             case CLOSE_DIVISION -> !closeDivisionBlocked();
             case OPEN_DIVISION -> billState == BillState.TABLED;
             case CAST_AYE, CAST_NAY -> divisionTied && !castingVoteSet;
             case ASSENT, REJECT -> billState == BillState.AWAITING_ASSENT;
             case VOTE_AYE, VOTE_NAY, VOTE_ABSTAIN -> billState == BillState.DIVISION_OPEN;
             case REVIEW_RESIGNATION -> pendingResignation && canResolveResignation;
+            case TABLE_NO_CONFIDENCE -> canTableMotion;
+            case SECOND_NO_CONFIDENCE -> canSecondMotion;
             default -> true;
         };
     }

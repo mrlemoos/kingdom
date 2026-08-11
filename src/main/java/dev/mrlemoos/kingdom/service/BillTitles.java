@@ -20,8 +20,11 @@ public final class BillTitles {
             case BUDGET -> "Budget Act";
             case SPEND_MINT -> "Supply Act (Mint)";
             case SPEND_STIPEND -> "Supply Act";
+            case SPEND_PUBLIC_WORK -> "Supply Act (Public work)";
             case WAR -> "War Bill";
             case PEACE -> "Peace Bill";
+            case NO_CONFIDENCE -> "Motion of No Confidence";
+            case REFERENDUM -> "Referendum";
         };
         return label + " — " + kingdomId + " — " + date;
     }

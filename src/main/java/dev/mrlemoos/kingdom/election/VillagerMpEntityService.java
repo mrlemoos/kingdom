@@ -1,7 +1,10 @@
 package dev.mrlemoos.kingdom.election;
 
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
+import dev.mrlemoos.kingdom.economy.villager.VillagerStrike;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
@@ -43,6 +46,8 @@ public final class VillagerMpEntityService {
     private final NamespacedKey mpKingdomTagKey;
     private final NamespacedKey mpOriginKey;
     private final NamespacedKey treasuryLordTagKey;
+    private EconomyService economyService;
+    private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
 
     public VillagerMpEntityService(
             JavaPlugin plugin,
@@ -56,6 +61,12 @@ public final class VillagerMpEntityService {
         this.mpKingdomTagKey = new NamespacedKey(plugin, "kingdom_mp");
         this.mpOriginKey = new NamespacedKey(plugin, "kingdom_mp_origin");
         this.treasuryLordTagKey = new NamespacedKey(plugin, "treasury_lord");
+    }
+
+    public void setVillagerStrikeSource(EconomyService economyService, VillagerEconomyConfig villagerEconomyConfig) {
+        this.economyService = economyService;
+        this.villagerEconomyConfig =
+                villagerEconomyConfig != null ? villagerEconomyConfig : VillagerEconomyConfig.defaults();
     }
 
     public void syncKingdom(String kingdomId) {
@@ -130,7 +141,8 @@ public final class VillagerMpEntityService {
         if (!isEligibleForOrdinaryTerritoryNametag(villager)) {
             return;
         }
-        applyStandardNametag(villager, VillagerMpProfessionMatcher.professionName(profession));
+        applyOrdinaryTerritoryNametag(
+                villager, VillagerMpProfessionMatcher.professionName(profession), isOnStrike(villager));
     }
 
     public void reconcileTerritoryVillagerNametag(Villager villager) {
@@ -138,11 +150,12 @@ public final class VillagerMpEntityService {
             return;
         }
         String professionName = VillagerMpProfessionMatcher.professionName(villager);
+        boolean onStrike = isOnStrike(villager);
         if (!VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
-                villager.getCustomName(), professionName, true)) {
+                villager.getCustomName(), professionName, true, onStrike)) {
             return;
         }
-        applyStandardNametag(villager, professionName);
+        applyOrdinaryTerritoryNametag(villager, professionName, onStrike);
     }
 
     public boolean isTreasuryLordVillager(Villager villager) {
@@ -612,9 +625,32 @@ public final class VillagerMpEntityService {
     }
 
     private static void applyStandardNametag(Villager villager, String professionName) {
-        String label = VillagerTerritoryNametagReconciliation.labelForProfession(professionName);
+        applyOrdinaryTerritoryNametag(villager, professionName, false);
+    }
+
+    private static void applyOrdinaryTerritoryNametag(Villager villager, String professionName, boolean onStrike) {
+        String label = VillagerTerritoryNametagReconciliation.labelFor(professionName, onStrike);
         villager.setCustomNameVisible(true);
         villager.setCustomName(label);
+    }
+
+    private boolean isOnStrike(Villager villager) {
+        if (economyService == null || villager.getLocation().getWorld() == null) {
+            return false;
+        }
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                villager.getLocation().getWorld().getName(),
+                villager.getLocation().getBlockX(),
+                villager.getLocation().getBlockY(),
+                villager.getLocation().getBlockZ());
+        if (kingdomId.isEmpty()) {
+            return false;
+        }
+        return VillagerStrike.isOnStrike(
+                economyService.getVillagerWalletFrozenSince(kingdomId.get(), villager.getUniqueId()),
+                villager.getLocation().getWorld().getFullTime() / 24000L,
+                villagerEconomyConfig.frozenWalletStrikeMcDays(),
+                villagerEconomyConfig.frozenWalletEscheatMcDays());
     }
 
     private static void refreshMpNametag(Villager villager, String profession) {

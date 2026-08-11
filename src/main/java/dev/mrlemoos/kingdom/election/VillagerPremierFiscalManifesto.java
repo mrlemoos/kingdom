@@ -36,6 +36,8 @@ public final class VillagerPremierFiscalManifesto {
                 enacted.foreignSurcharge() + delta,
                 enacted.transferFee() + delta,
                 enacted.crossKingdomTransferFee() + delta,
+                enacted.villagerWalletInterest() + delta,
+                enacted.tariff() + delta,
                 adjustedModifiers);
     }
 }

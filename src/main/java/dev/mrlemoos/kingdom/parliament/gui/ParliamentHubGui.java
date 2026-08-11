@@ -22,6 +22,7 @@ public final class ParliamentHubGui implements InventoryHolder {
     static final int SLOT_TABLE_SPEND_MINT = 21;
     static final int SLOT_TABLE_SPEND_STIPEND = 22;
     static final int SLOT_STIPEND_OTHER = 23;
+    static final int SLOT_TABLE_SPEND_PUBLIC_WORK = 24;
 
     static final int SLOT_BUDGET_50 = 28;
     static final int SLOT_BUDGET_100 = 29;
@@ -41,6 +42,8 @@ public final class ParliamentHubGui implements InventoryHolder {
     static final int SLOT_ASSENT = 41;
     static final int SLOT_REJECT = 42;
     static final int SLOT_REVIEW_RESIGNATION = 43;
+    static final int SLOT_TABLE_NO_CONFIDENCE = 25;
+    static final int SLOT_SECOND_NO_CONFIDENCE = 34;
 
     private static final int[] BUDGET_PRESET_SLOTS = {SLOT_BUDGET_50, SLOT_BUDGET_100, SLOT_BUDGET_250, SLOT_BUDGET_500};
     private static final int[] BUDGET_PRESET_AMOUNTS = {50, 100, 250, 500};
@@ -80,7 +83,14 @@ public final class ParliamentHubGui implements InventoryHolder {
         placeIfVisible(inventory, view, ParliamentHubAction.TABLE_SPEND_MINT, SLOT_TABLE_SPEND_MINT, spendMintItem(view));
         placeIfVisible(
                 inventory, view, ParliamentHubAction.TABLE_SPEND_STIPEND, SLOT_TABLE_SPEND_STIPEND, spendStipendItem(view));
-        placeIfVisible(inventory, view, ParliamentHubAction.STIPEND_OTHER, SLOT_STIPEND_OTHER, stipendOtherItem(view));
+        placeIfVisible(
+                inventory, view, ParliamentHubAction.STIPEND_OTHER, SLOT_STIPEND_OTHER, stipendOtherItem(view));
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK,
+                SLOT_TABLE_SPEND_PUBLIC_WORK,
+                spendPublicWorkItem(view));
 
         for (int i = 0; i < BUDGET_PRESET_SLOTS.length; i++) {
             int slot = BUDGET_PRESET_SLOTS[i];
@@ -157,6 +167,27 @@ public final class ParliamentHubGui implements InventoryHolder {
                 ParliamentHubAction.REJECT,
                 SLOT_REJECT,
                 ItemBuilder.labelled(Material.BARRIER, c("&cWithhold assent"), "Reject the bill"));
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.TABLE_NO_CONFIDENCE,
+                SLOT_TABLE_NO_CONFIDENCE,
+                ItemBuilder.labelled(
+                        Material.BELL,
+                        enabledColour(view.isEnabled(ParliamentHubAction.TABLE_NO_CONFIDENCE))
+                                + "Table motion of no confidence",
+                        "Ask the House whether it still supports the Premier"));
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.SECOND_NO_CONFIDENCE,
+                SLOT_SECOND_NO_CONFIDENCE,
+                ItemBuilder.labelled(
+                        Material.BELL,
+                        enabledColour(view.isEnabled(ParliamentHubAction.SECOND_NO_CONFIDENCE))
+                                + "Second the motion",
+                        "Confirm the motion so the House may divide"));
+
         view.resignationSummary()
                 .ifPresent(summary -> placeIfVisible(
                         inventory,
@@ -183,6 +214,7 @@ public final class ParliamentHubGui implements InventoryHolder {
             case SLOT_TABLE_BUDGET -> ParliamentHubAction.TABLE_BUDGET;
             case SLOT_TABLE_SPEND_MINT -> ParliamentHubAction.TABLE_SPEND_MINT;
             case SLOT_TABLE_SPEND_STIPEND -> ParliamentHubAction.TABLE_SPEND_STIPEND;
+            case SLOT_TABLE_SPEND_PUBLIC_WORK -> ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK;
             case SLOT_STIPEND_OTHER -> ParliamentHubAction.STIPEND_OTHER;
             case SLOT_BUDGET_50, SLOT_BUDGET_100, SLOT_BUDGET_250, SLOT_BUDGET_500 -> ParliamentHubAction.BUDGET_PRESET;
             case SLOT_CUSTOM_AMOUNT -> ParliamentHubAction.CUSTOM_AMOUNT;
@@ -195,6 +227,8 @@ public final class ParliamentHubGui implements InventoryHolder {
             case SLOT_VOTE_ABSTAIN -> ParliamentHubAction.VOTE_ABSTAIN;
             case SLOT_ASSENT -> ParliamentHubAction.ASSENT;
             case SLOT_REJECT -> ParliamentHubAction.REJECT;
+            case SLOT_TABLE_NO_CONFIDENCE -> ParliamentHubAction.TABLE_NO_CONFIDENCE;
+            case SLOT_SECOND_NO_CONFIDENCE -> ParliamentHubAction.SECOND_NO_CONFIDENCE;
             case SLOT_REVIEW_RESIGNATION -> ParliamentHubAction.REVIEW_RESIGNATION;
             default -> null;
         };
@@ -257,6 +291,14 @@ public final class ParliamentHubGui implements InventoryHolder {
                 ? "Authorise mint placement from treasury"
                 : "Prepare a mint location at a lectern first";
         return ItemBuilder.labelled(Material.LECTERN, enabledColour(enabled) + "Table mint supply bill", lore);
+    }
+
+    private static ItemStack spendPublicWorkItem(ParliamentHubView view) {
+        boolean enabled = view.isEnabled(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK);
+        String lore = enabled
+                ? "Authorise estate placement from treasury"
+                : "Prepare a public work site first (look at a block)";
+        return ItemBuilder.labelled(Material.BEACON, enabledColour(enabled) + "Table public work bill", lore);
     }
 
     private static ItemStack spendStipendItem(ParliamentHubView view) {

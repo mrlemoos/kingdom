@@ -131,6 +131,38 @@ class PoliceTrialPipelineTest {
         assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isEmpty());
     }
 
+    @Test
+    void constableArrestPaysArrestRewardFromEscrow() {
+        UUID poster = UUID.fromString("00000000-0000-0000-0000-000000000020");
+        kingdomService.joinKingdom(poster, "northmarch");
+        economyService.creditWalletDirect(poster, 40.0);
+        openAndApproveWarrant();
+        trialService.arrestRewardService().postOrTopUp("northmarch", poster, SUSPECT, 25.0);
+
+        PoliceResult result = trialService.arrest("northmarch", CONSTABLE, SUSPECT);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertEquals(25.0, economyService.getWalletBalance(CONSTABLE), 1e-9);
+        assertEquals(15.0, economyService.getWalletBalance(poster), 1e-9);
+    }
+
+    @Test
+    void patrolGolemArrestRefundsArrestRewardToPoster() {
+        UUID poster = UUID.fromString("00000000-0000-0000-0000-000000000020");
+        kingdomService.joinKingdom(poster, "northmarch");
+        economyService.creditWalletDirect(poster, 40.0);
+        openAndApproveWarrant();
+        trialService.arrestRewardService().postOrTopUp("northmarch", poster, SUSPECT, 25.0);
+
+        PoliceResult result = trialService.arrestByPatrolGolem("northmarch", SUSPECT);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertEquals(40.0, economyService.getWalletBalance(poster), 1e-9);
+        assertEquals(0.0, economyService.getWalletBalance(CONSTABLE), 1e-9);
+        assertEquals(PoliceCaseStatus.PENDING_TRIAL,
+                trialService.findOpenCase("northmarch", SUSPECT).orElseThrow().status());
+    }
+
     private void openAndApproveWarrant() {
         ActBreach breach = new ActBreach("northmarch", "northmarch-build", ConductKind.BUILD_BAN);
         justice.openFromActBreach(breach, SUSPECT);

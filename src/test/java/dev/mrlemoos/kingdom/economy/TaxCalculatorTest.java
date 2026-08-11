@@ -16,7 +16,7 @@ class TaxCalculatorTest {
     private static final double WILDERNESS_MULTIPLIER = 0.5;
 
     private FiscalRates ratesWithModifiers(Map<NobleRank, Double> modifiers) {
-        return new FiscalRates(0.10, 0.05, 0.03, 0.08, modifiers);
+        return new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.0, modifiers);
     }
 
     @Test
@@ -70,7 +70,7 @@ class TaxCalculatorTest {
 
     @Test
     void effectiveRateIsClampedToOne() {
-        FiscalRates rates = new FiscalRates(0.90, 0.20, 0.03, 0.08, Map.of());
+        FiscalRates rates = new FiscalRates(0.90, 0.20, 0.03, 0.08, 0.0, 0.0, Map.of());
 
         double effectiveRate = TaxCalculator.effectiveRate(IncomeLocation.FOREIGN_KINGDOM, null, rates);
 

@@ -8,6 +8,12 @@ public final class VillagerPlayerTradePolicy {
     }
 
     public static boolean canTradeWithPlayers(Villager villager) {
-        return villager != null && villager.getProfession() != Villager.Profession.NONE;
+        return canTradeWithPlayers(villager, false);
+    }
+
+    public static boolean canTradeWithPlayers(Villager villager, boolean onStrike) {
+        return villager != null
+                && villager.getProfession() != Villager.Profession.NONE
+                && !onStrike;
     }
 }

@@ -17,6 +17,13 @@ public final class RegistrarShelfWriter {
     public record ShelfPlacement(RegistrarSite shelf, int slot) {}
 
     public static ShelfPlacement placeActBook(RegistrarSite anchor, List<String> pages, List<RegistrarSite> existingShelves) {
+        String title = pages.isEmpty() ? "Act" : pages.get(0);
+        return placeBook(anchor, title, pages, existingShelves);
+    }
+
+    /** Shelves any bound volume—an Act, or a volume of Hansard—under its own title. */
+    public static ShelfPlacement placeBook(
+            RegistrarSite anchor, String bookTitle, List<String> pages, List<RegistrarSite> existingShelves) {
         ShelfPlacement placement = findSlot(anchor, existingShelves);
         World world = org.bukkit.Bukkit.getWorld(placement.shelf().worldName());
         if (world == null) {
@@ -35,7 +42,7 @@ public final class RegistrarShelfWriter {
             throw new IllegalStateException("Registrar shelf is not a chiseled bookshelf.");
         }
 
-        String title = pages.isEmpty() ? "Act" : pages.get(0);
+        String title = bookTitle == null || bookTitle.isBlank() ? "Act" : bookTitle;
         if (title.length() > 32) {
             title = title.substring(0, 32);
         }

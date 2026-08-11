@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.model.police;
 
 import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -16,6 +17,7 @@ public final class Warrant {
     private final ConductKind provisionKind;
     private WarrantStatus status;
     private final long openedAtMs;
+    private ArrestReward arrestReward;
 
     public Warrant(
             String id,
@@ -64,5 +66,17 @@ public final class Warrant {
 
     public long openedAtMs() {
         return openedAtMs;
+    }
+
+    public Optional<ArrestReward> arrestReward() {
+        return Optional.ofNullable(arrestReward);
+    }
+
+    public void setArrestReward(ArrestReward reward) {
+        this.arrestReward = Objects.requireNonNull(reward, "reward");
+    }
+
+    public void clearArrestReward() {
+        this.arrestReward = null;
     }
 }

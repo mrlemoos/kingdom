@@ -31,10 +31,28 @@ public final class PoliceCase {
             String warrantId,
             String actBillId,
             long openedAtMs) {
+        this(
+                id,
+                kingdomId,
+                accusedId,
+                Optional.ofNullable(arrestingConstableId),
+                warrantId,
+                actBillId,
+                openedAtMs);
+    }
+
+    public PoliceCase(
+            String id,
+            String kingdomId,
+            UUID accusedId,
+            Optional<UUID> arrestingConstableId,
+            String warrantId,
+            String actBillId,
+            long openedAtMs) {
         this.id = Objects.requireNonNull(id, "id");
         this.kingdomId = Objects.requireNonNull(kingdomId, "kingdomId");
         this.accusedId = Objects.requireNonNull(accusedId, "accusedId");
-        this.arrestingConstableId = Objects.requireNonNull(arrestingConstableId, "arrestingConstableId");
+        this.arrestingConstableId = arrestingConstableId == null ? null : arrestingConstableId.orElse(null);
         this.warrantId = Objects.requireNonNull(warrantId, "warrantId");
         this.actBillId = actBillId;
         this.status = PoliceCaseStatus.PENDING_TRIAL;
@@ -53,8 +71,8 @@ public final class PoliceCase {
         return accusedId;
     }
 
-    public UUID arrestingConstableId() {
-        return arrestingConstableId;
+    public Optional<UUID> arrestingConstableId() {
+        return Optional.ofNullable(arrestingConstableId);
     }
 
     public String warrantId() {

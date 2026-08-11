@@ -17,6 +17,7 @@ public final class ElectionState {
     private Integer byElectionSeatIndex;
     private final List<UUID> nominations = new ArrayList<>();
     private final Map<UUID, Long> nominationOrder = new HashMap<>();
+    private final Map<UUID, CandidateDeclaration> declarations = new HashMap<>();
     private final Map<UUID, UUID> votes = new HashMap<>();
     private final Set<UUID> speakerTieCandidates = new LinkedHashSet<>();
     private UUID speakerTieChoice;
@@ -39,6 +40,16 @@ public final class ElectionState {
 
     public List<UUID> nominationsView() {
         return List.copyOf(nominations);
+    }
+
+    /** What each candidate declared on nomination: manifesto, party, and party colour. */
+    public Map<UUID, CandidateDeclaration> declarationsView() {
+        return Map.copyOf(declarations);
+    }
+
+    /** A candidate's declaration, blank where they declined to declare one. */
+    public CandidateDeclaration declaration(UUID candidateId) {
+        return declarations.getOrDefault(candidateId, CandidateDeclaration.blank());
     }
 
     public Map<UUID, UUID> votesView() {
@@ -92,14 +103,21 @@ public final class ElectionState {
     }
 
     public boolean nominate(UUID candidateId, long orderMs) {
+        return nominate(candidateId, orderMs, CandidateDeclaration.blank());
+    }
+
+    public boolean nominate(UUID candidateId, long orderMs, CandidateDeclaration declaration) {
         if (!isActive() || phase != ElectionPhase.OPEN) {
             return false;
         }
+        CandidateDeclaration declared = declaration == null ? CandidateDeclaration.blank() : declaration;
         if (nominations.contains(candidateId)) {
+            declarations.put(candidateId, declared);
             return true;
         }
         nominations.add(candidateId);
         nominationOrder.put(candidateId, orderMs);
+        declarations.put(candidateId, declared);
         return true;
     }
 
@@ -136,6 +154,30 @@ public final class ElectionState {
             Map<UUID, UUID> loadedVotes,
             Set<UUID> loadedSpeakerTieCandidates,
             UUID loadedSpeakerTieChoice) {
+        restore(
+                type,
+                phase,
+                endsAtMs,
+                byElectionSeatIndex,
+                loadedNominations,
+                loadedNominationOrder,
+                loadedVotes,
+                loadedSpeakerTieCandidates,
+                loadedSpeakerTieChoice,
+                Map.of());
+    }
+
+    public void restore(
+            ElectionType type,
+            ElectionPhase phase,
+            long endsAtMs,
+            Integer byElectionSeatIndex,
+            List<UUID> loadedNominations,
+            Map<UUID, Long> loadedNominationOrder,
+            Map<UUID, UUID> loadedVotes,
+            Set<UUID> loadedSpeakerTieCandidates,
+            UUID loadedSpeakerTieChoice,
+            Map<UUID, CandidateDeclaration> loadedDeclarations) {
         reset();
         this.type = type;
         this.phase = phase;
@@ -153,6 +195,9 @@ public final class ElectionState {
         if (loadedSpeakerTieCandidates != null) {
             speakerTieCandidates.addAll(loadedSpeakerTieCandidates);
         }
+        if (loadedDeclarations != null) {
+            declarations.putAll(loadedDeclarations);
+        }
         this.speakerTieChoice = loadedSpeakerTieChoice;
     }
 
@@ -167,6 +212,7 @@ public final class ElectionState {
         byElectionSeatIndex = null;
         nominations.clear();
         nominationOrder.clear();
+        declarations.clear();
         votes.clear();
         speakerTieCandidates.clear();
         speakerTieChoice = null;

@@ -10,6 +10,7 @@ import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.IncomeLocation;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.economy.wealth.EstateBlockPlacer;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthCalculator;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthCounts;
@@ -17,6 +18,7 @@ import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -122,6 +124,11 @@ public class EconomyService {
         return wallet != null && wallet.isFrozen();
     }
 
+    public Optional<Long> getVillagerWalletFrozenSince(String kingdomId, UUID villagerId) {
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId);
+        return wallet != null ? wallet.frozenSinceEpochDay() : Optional.empty();
+    }
+
     public double getTotalActiveVillagerWalletBalance(String kingdomId) {
         Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
         if (kingdomWallets == null) {
@@ -159,6 +166,83 @@ public class EconomyService {
         VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId, true);
         wallet.setBalance(wallet.balance() + amount);
         wallet.markActive();
+    }
+
+    /**
+     * Applies the enacted villager wallet interest rate to productive (non-frozen) wallets.
+     * Positive credits come from the treasury (untaxed, pro-rata on shortfall); negative charges
+     * wallets into the treasury without reducing any wallet below zero.
+     */
+    public void applyVillagerWalletInterest(String kingdomId) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        double rate = economy.activeRates().villagerWalletInterest();
+        if (rate == 0.0) {
+            return;
+        }
+
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null || kingdomWallets.isEmpty()) {
+            return;
+        }
+
+        if (rate > 0.0) {
+            applyPositiveVillagerWalletInterest(kingdomId, economy, kingdomWallets, rate);
+        } else {
+            applyNegativeVillagerWalletInterest(kingdomId, kingdomWallets, rate);
+        }
+    }
+
+    private void applyPositiveVillagerWalletInterest(
+            String kingdomId,
+            KingdomEconomy economy,
+            Map<UUID, VillagerWalletState> kingdomWallets,
+            double rate) {
+        Map<UUID, Double> dueByVillager = new HashMap<>();
+        double totalDue = 0.0;
+        for (Map.Entry<UUID, VillagerWalletState> entry : kingdomWallets.entrySet()) {
+            VillagerWalletState wallet = entry.getValue();
+            if (wallet.isFrozen() || wallet.balance() <= 0.0) {
+                continue;
+            }
+            double due = wallet.balance() * rate;
+            if (due <= 0.0) {
+                continue;
+            }
+            dueByVillager.put(entry.getKey(), due);
+            totalDue += due;
+        }
+        if (totalDue <= 0.0) {
+            return;
+        }
+
+        double available = Math.min(economy.treasuryBalance(), totalDue);
+        if (available <= 0.0) {
+            return;
+        }
+        economy.setTreasuryBalance(economy.treasuryBalance() - available);
+        double scale = available / totalDue;
+        for (Map.Entry<UUID, Double> entry : dueByVillager.entrySet()) {
+            creditVillagerWalletDirect(kingdomId, entry.getKey(), entry.getValue() * scale);
+        }
+    }
+
+    private void applyNegativeVillagerWalletInterest(
+            String kingdomId, Map<UUID, VillagerWalletState> kingdomWallets, double rate) {
+        double charged = 0.0;
+        for (VillagerWalletState wallet : kingdomWallets.values()) {
+            if (wallet.isFrozen() || wallet.balance() <= 0.0) {
+                continue;
+            }
+            double charge = Math.min(wallet.balance(), wallet.balance() * Math.abs(rate));
+            if (charge <= 0.0) {
+                continue;
+            }
+            wallet.setBalance(wallet.balance() - charge);
+            charged += charge;
+        }
+        if (charged > 0.0) {
+            creditTreasury(kingdomId, charged);
+        }
     }
 
     public boolean creditEmeraldVillagerCommerce(
@@ -495,6 +579,41 @@ public class EconomyService {
 
         economy.addMintLocation(location);
         return EconomyResult.ok("Mint placed.");
+    }
+
+    public EconomyResult placePublicWork(
+            String kingdomId,
+            String worldName,
+            int x,
+            int y,
+            int z,
+            WealthBlockType estateType,
+            double cost,
+            EstateBlockPlacer placer) {
+        if (estateType == null || !estateType.isEstate()) {
+            return EconomyResult.fail("Public work type must be an estate block (beacon, conduit, or lodestone).");
+        }
+        if (worldName == null || worldName.isBlank()) {
+            return EconomyResult.fail("Public work location is required.");
+        }
+        if (cost < 0) {
+            return EconomyResult.fail("Public work cost cannot be negative.");
+        }
+        if (placer == null) {
+            return EconomyResult.fail("Estate block placer is required.");
+        }
+
+        EconomyResult spendResult = spendFromBudget(kingdomId, cost);
+        if (spendResult instanceof EconomyResult.Failure) {
+            return spendResult;
+        }
+
+        if (!placer.place(worldName, x, y, z, estateType)) {
+            creditTreasury(kingdomId, cost);
+            economyFor(kingdomId).budget().reverseSpend(cost);
+            return EconomyResult.fail("Could not place the estate block.");
+        }
+        return EconomyResult.ok("Public work placed.");
     }
 
     public EconomyResult placeRoyalMint(String kingdomId, MintLocation location, int maxMints) {

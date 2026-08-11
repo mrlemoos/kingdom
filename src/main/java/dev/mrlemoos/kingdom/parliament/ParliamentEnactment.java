@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.parliament;
 
 import dev.mrlemoos.kingdom.economy.service.EconomyResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.economy.wealth.EstateBlockPlacer;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.ParliamentService.AssentedActDraft;
@@ -16,17 +17,35 @@ public final class ParliamentEnactment {
     private ParliamentEnactment() {}
 
     public static EconomyResult enact(AssentedActDraft draft, EconomyService economyService, int maxMints) {
+        return enact(draft, economyService, maxMints, null);
+    }
+
+    public static EconomyResult enact(
+            AssentedActDraft draft, EconomyService economyService, int maxMints, EstateBlockPlacer estatePlacer) {
         return switch (draft.payload()) {
             case BillPayload.Fiscal fiscal -> economyService.applyFiscalRates(draft.kingdomId(), fiscal.rates());
             case BillPayload.Budget budget -> economyService.enactBudget(draft.kingdomId(), budget.amount());
             case BillPayload.SpendMint mint -> economyService.placeMint(
                     draft.kingdomId(), mint.mintLocation(), mint.cost(), maxMints);
+            case BillPayload.SpendPublicWork work -> economyService.placePublicWork(
+                    draft.kingdomId(),
+                    work.worldName(),
+                    work.x(),
+                    work.y(),
+                    work.z(),
+                    work.estateType(),
+                    work.cost(),
+                    estatePlacer);
             case BillPayload.SpendStipend stipend -> enactStipend(
                     economyService, draft.kingdomId(), stipend.recipientId(), stipend.amount());
             case BillPayload.War war -> EconomyResult.fail(
                     "War bills carry no economic effect. Use ParliamentEnactment.enactWar.");
             case BillPayload.Peace peace -> EconomyResult.fail(
                     "Peace bills carry no economic effect. Use ParliamentEnactment.enactPeace.");
+            case BillPayload.NoConfidence motion -> EconomyResult.fail(
+                    "A motion of no confidence is decided in the Commons and enacts nothing.");
+            case BillPayload.Referendum referendum -> EconomyResult.fail(
+                    "A referendum is advisory: the realm's answer enacts nothing.");
         };
     }
 
@@ -40,6 +59,16 @@ public final class ParliamentEnactment {
             WarService warService,
             DemobilisationService demobilisationService,
             int maxMints) {
+        return enactAssented(draft, economyService, warService, demobilisationService, maxMints, null);
+    }
+
+    public static AssentedEnactmentResult enactAssented(
+            AssentedActDraft draft,
+            EconomyService economyService,
+            WarService warService,
+            DemobilisationService demobilisationService,
+            int maxMints,
+            EstateBlockPlacer estatePlacer) {
         return switch (draft.payload()) {
             case BillPayload.War ignored -> {
                 if (warService == null) {
@@ -56,7 +85,7 @@ public final class ParliamentEnactment {
                 yield toAssentedResult(peaceResult);
             }
             default -> {
-                EconomyResult economyResult = enact(draft, economyService, maxMints);
+                EconomyResult economyResult = enact(draft, economyService, maxMints, estatePlacer);
                 yield switch (economyResult) {
                     case EconomyResult.Success success -> AssentedEnactmentResult.ok(success.message());
                     case EconomyResult.Failure failure -> AssentedEnactmentResult.fail(failure.message());

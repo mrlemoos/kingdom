@@ -4,6 +4,7 @@ import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.ElectionState;
 import dev.mrlemoos.kingdom.model.election.ElectionType;
@@ -11,6 +12,7 @@ import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
+import dev.mrlemoos.kingdom.parliament.HansardRecord;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public final class ElectionService {
@@ -27,6 +30,7 @@ public final class ElectionService {
     private final KingdomService kingdomService;
     private final ElectionConfig config;
     private final Supplier<Long> clockMs;
+    private BiConsumer<String, List<HansardRecord>> hansardArchivist = (kingdomId, records) -> {};
 
     public ElectionService(KingdomService kingdomService, ElectionConfig config) {
         this(kingdomService, config, System::currentTimeMillis);
@@ -36,6 +40,20 @@ public final class ElectionService {
         this.kingdomService = kingdomService;
         this.config = config;
         this.clockMs = clockMs;
+    }
+
+    /** Who binds and shelves Hansard when a Parliament is prorogued. */
+    public void setHansardArchivist(BiConsumer<String, List<HansardRecord>> hansardArchivist) {
+        this.hansardArchivist = hansardArchivist != null ? hansardArchivist : (kingdomId, records) -> {};
+    }
+
+    /** Hands the closing Parliament's record to the archivist before prorogation clears it. */
+    private void archiveHansard(String kingdomId, Kingdom kingdom) {
+        List<HansardRecord> records = kingdom.getParliamentState().hansardView();
+        if (records.isEmpty()) {
+            return;
+        }
+        hansardArchivist.accept(kingdomId, records);
     }
 
     public ElectionResult startGeneralElection(String kingdomId) {
@@ -57,6 +75,7 @@ public final class ElectionService {
         electionState.clearAllSeats();
         electionState.setPendingInauguralFiscal(false);
         electionState.setPendingInauguralBudget(false);
+        archiveHansard(kingdomId, kingdom.get());
         kingdom.get().getParliamentState().prorogue();
         electionState.election().openGeneral(clockMs.get() + config.durationMs());
         return ElectionResult
@@ -90,6 +109,11 @@ public final class ElectionService {
     }
 
     public ElectionResult nominate(String kingdomId, UUID playerId) {
+        return nominate(kingdomId, playerId, CandidateDeclaration.blank());
+    }
+
+    /** Stand for a seat, declaring a manifesto, a party, and the colour it stands under. */
+    public ElectionResult nominate(String kingdomId, UUID playerId, CandidateDeclaration declaration) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             return ElectionResult.fail("Unknown kingdom.");
@@ -109,7 +133,7 @@ public final class ElectionService {
             if (!isSeatedPlayerMp(kingdom.get().getElectionState(), playerId)) {
                 return ElectionResult.fail("Only seated player MPs may stand for Premier.");
             }
-            election.nominate(playerId, clockMs.get());
+            election.nominate(playerId, clockMs.get(), declaration);
             return ElectionResult.ok("You are nominated for Premier.");
         }
 
@@ -121,7 +145,7 @@ public final class ElectionService {
             return ElectionResult.fail("Only citizens may stand for a player MP seat.");
         }
 
-        election.nominate(playerId, clockMs.get());
+        election.nominate(playerId, clockMs.get(), declaration);
         return ElectionResult.ok("You are nominated for a player MP seat.");
     }
 
@@ -336,7 +360,7 @@ public final class ElectionService {
         electionState.clearPremierVillager();
         electionState.clearAllSeats();
 
-        assignPlayerSeats(electionState, playerWinners, 1, voteTally(election));
+        assignPlayerSeats(electionState, playerWinners, 1, voteTally(election), election.declarationsView());
         assignVillagerSeats(electionState, professions, playerWinners.size() + 1, professionCounts);
 
         election.close();
@@ -370,6 +394,7 @@ public final class ElectionService {
         seat.clear();
         seat.assignPlayer(winner);
         seat.setReturnCount(voteTally(election).get(winner));
+        seat.setDeclaration(election.declaration(winner));
         election.close();
         return ElectionCloseOutcome.completed(List.of(winner), List.of());
     }
@@ -525,7 +550,11 @@ public final class ElectionService {
     }
 
     private void assignPlayerSeats(
-            KingdomElectionState electionState, List<UUID> winners, int startIndex, Map<UUID, Integer> voteCounts) {
+            KingdomElectionState electionState,
+            List<UUID> winners,
+            int startIndex,
+            Map<UUID, Integer> voteCounts,
+            Map<UUID, CandidateDeclaration> declarations) {
         int index = startIndex;
         for (UUID winner : winners) {
             kingdomService.assignTitleFromElection(winner, TitleStyle.MASCULINE);
@@ -533,6 +562,7 @@ public final class ElectionService {
             seat.clear();
             seat.assignPlayer(winner);
             seat.setReturnCount(voteCounts.get(winner));
+            seat.setDeclaration(declarations.get(winner));
             index++;
         }
     }

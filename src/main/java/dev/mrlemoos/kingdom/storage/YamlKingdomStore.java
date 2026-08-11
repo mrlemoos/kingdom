@@ -5,6 +5,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TeleportPlace;
 import dev.mrlemoos.kingdom.model.TitleStyle;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.ElectionType;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
@@ -23,10 +24,18 @@ import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
+import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.parliament.DivisionBloc;
+import dev.mrlemoos.kingdom.parliament.DivisionBlocKind;
+import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
+import dev.mrlemoos.kingdom.parliament.HansardRecord;
+import dev.mrlemoos.kingdom.model.police.ArrestReward;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
+import dev.mrlemoos.kingdom.model.police.Warrant;
+import dev.mrlemoos.kingdom.model.police.WarrantStatus;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
@@ -38,12 +47,14 @@ import dev.mrlemoos.kingdom.loyalty.MoraleStore;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterStore;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -66,6 +77,7 @@ public final class YamlKingdomStore {
     private MoraleStore moraleStore;
     private WarService warService;
     private StandingRosterStore standingRosterStore;
+    private MechanicalJusticeService mechanicalJusticeService;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -86,6 +98,35 @@ public final class YamlKingdomStore {
 
     public void setStandingRosterStore(StandingRosterStore standingRosterStore) {
         this.standingRosterStore = standingRosterStore;
+    }
+
+    public void setMechanicalJusticeService(MechanicalJusticeService mechanicalJusticeService) {
+        this.mechanicalJusticeService = mechanicalJusticeService;
+    }
+
+    /** Loads persisted warrants after {@link MechanicalJusticeService} is constructed. */
+    public void loadWarrants() {
+        if (mechanicalJusticeService == null || !dataFile.exists()) {
+            return;
+        }
+        FileConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
+        ConfigurationSection kingdomSection = data.getConfigurationSection("kingdoms");
+        if (kingdomSection == null) {
+            return;
+        }
+        List<Warrant> loaded = new ArrayList<>();
+        for (String id : kingdomSection.getKeys(false)) {
+            ConfigurationSection entry = kingdomSection.getConfigurationSection(id);
+            if (entry == null) {
+                continue;
+            }
+            ConfigurationSection policeSection = entry.getConfigurationSection("police");
+            if (policeSection == null) {
+                continue;
+            }
+            loaded.addAll(readWarrants(policeSection.getConfigurationSection("warrants"), id));
+        }
+        mechanicalJusticeService.replaceWarrants(loaded);
     }
 
     public void loadInto(KingdomService service) {
@@ -173,6 +214,14 @@ public final class YamlKingdomStore {
             writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
             writeParliament(data, path + ".parliament", kingdom);
             writePolice(data, path + ".police", kingdom);
+            if (mechanicalJusticeService != null) {
+                writeWarrants(
+                        data,
+                        path + ".police.warrants",
+                        mechanicalJusticeService.warrantsView().stream()
+                                .filter(warrant -> kingdom.getId().equals(warrant.kingdomId()))
+                                .toList());
+            }
         }
 
         for (PlayerMembership membership : service.getMembershipsView().values()) {
@@ -276,6 +325,17 @@ public final class YamlKingdomStore {
                 path + ".state-opening-pending-since-mc-day",
                 state.stateOpeningPendingSinceMcDay().orElse(-1L));
         config.set(
+                path + ".last-premier-questions-mc-day",
+                state.lastPremierQuestionsMcDay().orElse(-1L));
+        config.set(
+                path + ".confidence-cooldown-until-mc-day",
+                state.confidenceCooldownUntilMcDay().orElse(-1L));
+        state.pendingMotionSecond().ifPresent(pending -> {
+            config.set(path + ".pending-motion-second.bill", pending.billId());
+            config.set(path + ".pending-motion-second.moved-by", pending.proposedBy().toString());
+            config.set(path + ".pending-motion-second.offered-at", pending.offeredAtMs());
+        });
+        config.set(
                 path + ".speaker-villager",
                 state.speakerVillagerEntityId().map(UUID::toString).orElse(null));
         state.preparedMint().ifPresent(mint -> {
@@ -285,8 +345,17 @@ public final class YamlKingdomStore {
             config.set(mintPath + ".y", mint.y());
             config.set(mintPath + ".z", mint.z());
         });
+        state.preparedPublicWork().ifPresent(work -> {
+            String workPath = path + ".prepared-public-work";
+            config.set(workPath + ".type", work.estateType().configKey());
+            config.set(workPath + ".world", work.worldName());
+            config.set(workPath + ".x", work.x());
+            config.set(workPath + ".y", work.y());
+            config.set(workPath + ".z", work.z());
+        });
         state.currentBill().ifPresent(bill -> writeBill(config, path + ".current-bill", bill));
         writeActs(config, path + ".acts", state.assentedActsView());
+        writeHansard(config, path + ".hansard", state.hansardView());
         writeElection(config, path, kingdom);
     }
 
@@ -309,11 +378,35 @@ public final class YamlKingdomStore {
         } else {
             state.clearStateOpeningPending();
         }
+        long lastQuestions = section.getLong("last-premier-questions-mc-day", -1L);
+        if (lastQuestions >= 0) {
+            state.recordPremierQuestions(lastQuestions);
+        } else {
+            state.clearPremierQuestions();
+        }
+        long cooldownUntil = section.getLong("confidence-cooldown-until-mc-day", -1L);
+        if (cooldownUntil >= 0) {
+            state.startConfidenceCooldown(cooldownUntil);
+        } else {
+            state.clearConfidenceCooldown();
+        }
+        ConfigurationSection pendingSecond = section.getConfigurationSection("pending-motion-second");
+        if (pendingSecond != null && pendingSecond.getString("bill") != null) {
+            state.setPendingMotionSecond(new dev.mrlemoos.kingdom.model.parliament.PendingMotionSecond(
+                    pendingSecond.getString("bill"),
+                    UUID.fromString(pendingSecond.getString("moved-by")),
+                    pendingSecond.getLong("offered-at")));
+        } else {
+            state.clearPendingMotionSecond();
+        }
         String speakerVillager = section.getString("speaker-villager");
         state.setSpeakerVillagerEntityId(speakerVillager != null ? UUID.fromString(speakerVillager) : null);
         readMint(section.getConfigurationSection("prepared-mint")).ifPresent(state::setPreparedMint);
+        readPreparedPublicWork(section.getConfigurationSection("prepared-public-work"))
+                .ifPresent(state::setPreparedPublicWork);
         readBill(section.getConfigurationSection("current-bill")).ifPresent(state::setCurrentBill);
         state.replaceAssentedActs(readActs(section.getConfigurationSection("acts")));
+        state.replaceHansard(readHansard(section.getConfigurationSection("hansard")));
         readElection(section, kingdom);
     }
 
@@ -354,6 +447,16 @@ public final class YamlKingdomStore {
             } else {
                 config.set(seatPath + ".returned", null);
             }
+            if (seat.declaration().isPresent()) {
+                var declared = seat.declaration().get();
+                config.set(seatPath + ".manifesto", declared.manifesto());
+                config.set(seatPath + ".party", declared.partyName());
+                config.set(seatPath + ".party-colour", declared.partyColour());
+            } else {
+                config.set(seatPath + ".manifesto", null);
+                config.set(seatPath + ".party", null);
+                config.set(seatPath + ".party-colour", null);
+            }
             seat.originLocation().ifPresent(origin -> {
                 config.set(seatPath + ".origin.world", origin.worldName());
                 config.set(seatPath + ".origin.x", origin.x());
@@ -385,6 +488,12 @@ public final class YamlKingdomStore {
         config.set(electionPath + ".ends-at-ms", election.endsAtMs());
         election.byElectionSeatIndex().ifPresent(index -> config.set(electionPath + ".by-election-seat", index));
         config.set(electionPath + ".nominations", election.nominationsView().stream().map(UUID::toString).toList());
+        for (var declared : election.declarationsView().entrySet()) {
+            String declarationPath = electionPath + ".declarations." + declared.getKey();
+            config.set(declarationPath + ".manifesto", declared.getValue().manifesto());
+            config.set(declarationPath + ".party", declared.getValue().partyName());
+            config.set(declarationPath + ".party-colour", declared.getValue().partyColour());
+        }
         for (var vote : election.votesView().entrySet()) {
             config.set(electionPath + ".votes." + vote.getKey() + ".candidate", vote.getValue().toString());
         }
@@ -444,6 +553,12 @@ public final class YamlKingdomStore {
                 if (seatSection.contains("returned")) {
                     seat.setReturnCount(seatSection.getInt("returned"));
                 }
+                if (seatSection.contains("manifesto") || seatSection.contains("party")) {
+                    seat.setDeclaration(new CandidateDeclaration(
+                            seatSection.getString("manifesto", ""),
+                            seatSection.getString("party", ""),
+                            seatSection.getString("party-colour", CandidateDeclaration.DEFAULT_PARTY_COLOUR)));
+                }
                 loadedSeats.put(index, seat);
             }
             electionState.replaceSeats(loadedSeats);
@@ -496,6 +611,19 @@ public final class YamlKingdomStore {
         for (String id : electionSection.getStringList("speaker-tie-candidates")) {
             speakerTieCandidates.add(UUID.fromString(id));
         }
+        Map<UUID, CandidateDeclaration> declarations = new HashMap<>();
+        ConfigurationSection declarationsSection = electionSection.getConfigurationSection("declarations");
+        if (declarationsSection != null) {
+            for (String candidate : declarationsSection.getKeys(false)) {
+                declarations.put(
+                        UUID.fromString(candidate),
+                        new CandidateDeclaration(
+                                declarationsSection.getString(candidate + ".manifesto", ""),
+                                declarationsSection.getString(candidate + ".party", ""),
+                                declarationsSection.getString(
+                                        candidate + ".party-colour", CandidateDeclaration.DEFAULT_PARTY_COLOUR)));
+            }
+        }
         UUID speakerTieChoice = electionSection.contains("speaker-tie-choice")
                 ? UUID.fromString(electionSection.getString("speaker-tie-choice"))
                 : null;
@@ -508,7 +636,8 @@ public final class YamlKingdomStore {
                 Map.of(),
                 votes,
                 speakerTieCandidates,
-                speakerTieChoice);
+                speakerTieChoice,
+                declarations);
     }
 
     private static void writeChamber(FileConfiguration config, String path, ChamberSite site) {
@@ -564,6 +693,27 @@ public final class YamlKingdomStore {
             return Optional.empty();
         }
         return Optional.of(new MintLocation(
+                world,
+                section.getInt("x"),
+                section.getInt("y"),
+                section.getInt("z")));
+    }
+
+    private static Optional<PreparedPublicWork> readPreparedPublicWork(ConfigurationSection section) {
+        if (section == null) {
+            return Optional.empty();
+        }
+        String world = section.getString("world");
+        Optional<WealthBlockType> type = WealthBlockType.fromConfigKey(section.getString("type"));
+        if (world == null || type.isEmpty()) {
+            return Optional.empty();
+        }
+        WealthBlockType estateType = type.get();
+        if (!estateType.isEstate()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PreparedPublicWork(
+                estateType,
                 world,
                 section.getInt("x"),
                 section.getInt("y"),
@@ -640,6 +790,8 @@ public final class YamlKingdomStore {
                 config.set(path + ".foreign-surcharge", fiscal.rates().foreignSurcharge());
                 config.set(path + ".transfer-fee", fiscal.rates().transferFee());
                 config.set(path + ".cross-fee", fiscal.rates().crossKingdomTransferFee());
+                config.set(path + ".villager-wallet-interest", fiscal.rates().villagerWalletInterest());
+                config.set(path + ".tariff", fiscal.rates().tariff());
             }
             case BillPayload.Budget budget -> config.set(path + ".amount", budget.amount());
             case BillPayload.SpendMint mint -> {
@@ -648,6 +800,14 @@ public final class YamlKingdomStore {
                 config.set(path + ".y", mint.mintLocation().y());
                 config.set(path + ".z", mint.mintLocation().z());
                 config.set(path + ".cost", mint.cost());
+            }
+            case BillPayload.SpendPublicWork work -> {
+                config.set(path + ".type", work.estateType().configKey());
+                config.set(path + ".world", work.worldName());
+                config.set(path + ".x", work.x());
+                config.set(path + ".y", work.y());
+                config.set(path + ".z", work.z());
+                config.set(path + ".cost", work.cost());
             }
             case BillPayload.SpendStipend stipend -> {
                 config.set(path + ".recipient", stipend.recipientId().toString());
@@ -661,6 +821,11 @@ public final class YamlKingdomStore {
                 config.set(path + ".muster-deadline-mc-days", war.musterDeadlineMcDays());
             }
             case BillPayload.Peace peace -> config.set(path + ".war-id", peace.warId());
+            case BillPayload.NoConfidence motion -> config.set(path + ".moved-by", motion.proposerId().toString());
+            case BillPayload.Referendum referendum -> {
+                config.set(path + ".question", referendum.question());
+                config.set(path + ".called-by", referendum.calledBy().toString());
+            }
         }
     }
 
@@ -674,6 +839,8 @@ public final class YamlKingdomStore {
                     section.getDouble("foreign-surcharge"),
                     section.getDouble("transfer-fee"),
                     section.getDouble("cross-fee"),
+                    section.getDouble("villager-wallet-interest", 0.0),
+                    section.getDouble("tariff", 0.0),
                     FiscalRates.defaults().rankModifiers()));
             case BUDGET -> new BillPayload.Budget(section.getDouble("amount"));
             case SPEND_MINT -> new BillPayload.SpendMint(
@@ -683,6 +850,21 @@ public final class YamlKingdomStore {
                             section.getInt("y"),
                             section.getInt("z")),
                     section.getDouble("cost"));
+            case SPEND_PUBLIC_WORK -> {
+                Optional<WealthBlockType> estateType =
+                        WealthBlockType.fromConfigKey(section.getString("type"));
+                if (estateType.isEmpty() || !estateType.get().isEstate()) {
+                    throw new IllegalArgumentException(
+                            "Invalid public work estate type: " + section.getString("type"));
+                }
+                yield new BillPayload.SpendPublicWork(
+                        estateType.get(),
+                        section.getString("world"),
+                        section.getInt("x"),
+                        section.getInt("y"),
+                        section.getInt("z"),
+                        section.getDouble("cost"));
+            }
             case SPEND_STIPEND -> new BillPayload.SpendStipend(
                     UUID.fromString(section.getString("recipient")),
                     section.getDouble("amount"),
@@ -693,7 +875,84 @@ public final class YamlKingdomStore {
                     WarOutcome.valueOf(section.getString("outcome", "annexation").toUpperCase(Locale.ROOT)),
                     section.getInt("muster-deadline-mc-days"));
             case PEACE -> new BillPayload.Peace(section.getString("war-id"));
+            case NO_CONFIDENCE -> new BillPayload.NoConfidence(UUID.fromString(section.getString("moved-by")));
+            case REFERENDUM -> new BillPayload.Referendum(
+                    section.getString("question", ""),
+                    UUID.fromString(section.getString("called-by")));
         };
+    }
+
+    private static void writeHansard(FileConfiguration config, String path, List<HansardRecord> records) {
+        config.set(path, null);
+        for (int index = 0; index < records.size(); index++) {
+            HansardRecord record = records.get(index);
+            String recordPath = path + "." + index;
+            config.set(recordPath + ".title", record.title());
+            config.set(recordPath + ".business", record.business());
+            config.set(recordPath + ".carried", record.carried());
+            config.set(recordPath + ".aye", record.aye());
+            config.set(recordPath + ".nay", record.nay());
+            config.set(recordPath + ".abstain", record.abstain());
+            config.set(recordPath + ".electorate", record.electorate());
+            config.set(recordPath + ".mc-day", record.decidedOnMcDay());
+            List<DivisionBloc> blocs = record.blocs();
+            for (int blocIndex = 0; blocIndex < blocs.size(); blocIndex++) {
+                DivisionBloc bloc = blocs.get(blocIndex);
+                String blocPath = recordPath + ".blocs." + blocIndex;
+                config.set(blocPath + ".kind", bloc.kind().name().toLowerCase(Locale.ROOT));
+                config.set(blocPath + ".label", bloc.label());
+                config.set(blocPath + ".colour", bloc.colour());
+                config.set(blocPath + ".aye", bloc.aye());
+                config.set(blocPath + ".nay", bloc.nay());
+                config.set(blocPath + ".abstain", bloc.abstain());
+            }
+        }
+    }
+
+    private static List<HansardRecord> readHansard(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+        List<String> keys = new ArrayList<>(section.getKeys(false));
+        keys.sort(Comparator.comparingInt(Integer::parseInt));
+        List<HansardRecord> records = new ArrayList<>();
+        for (String key : keys) {
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) {
+                continue;
+            }
+            List<DivisionBloc> blocs = new ArrayList<>();
+            ConfigurationSection blocSection = entry.getConfigurationSection("blocs");
+            if (blocSection != null) {
+                List<String> blocKeys = new ArrayList<>(blocSection.getKeys(false));
+                blocKeys.sort(Comparator.comparingInt(Integer::parseInt));
+                for (String blocKey : blocKeys) {
+                    ConfigurationSection bloc = blocSection.getConfigurationSection(blocKey);
+                    if (bloc == null) {
+                        continue;
+                    }
+                    blocs.add(new DivisionBloc(
+                            DivisionBlocKind.valueOf(
+                                    bloc.getString("kind", "party").toUpperCase(Locale.ROOT)),
+                            bloc.getString("label", ""),
+                            bloc.getString("colour", ""),
+                            bloc.getInt("aye"),
+                            bloc.getInt("nay"),
+                            bloc.getInt("abstain")));
+                }
+            }
+            records.add(new HansardRecord(
+                    entry.getString("title", ""),
+                    entry.getString("business", ""),
+                    entry.getBoolean("carried"),
+                    entry.getInt("aye"),
+                    entry.getInt("nay"),
+                    entry.getInt("abstain"),
+                    entry.getInt("electorate"),
+                    blocs,
+                    entry.getLong("mc-day")));
+        }
+        return List.copyOf(records);
     }
 
     private static void writeActs(FileConfiguration config, String path, List<AssentedAct> acts) {
@@ -912,6 +1171,74 @@ public final class YamlKingdomStore {
             guardGolems.add(UUID.fromString(id));
         }
         police.replaceGuardGolems(guardGolems);
+    }
+
+    static void writeWarrants(FileConfiguration config, String path, List<Warrant> warrants) {
+        if (warrants == null || warrants.isEmpty()) {
+            return;
+        }
+        for (Warrant warrant : warrants) {
+            String warrantPath = path + "." + warrant.id();
+            config.set(warrantPath + ".suspect", warrant.suspectId().toString());
+            config.set(warrantPath + ".act-bill-id", warrant.actBillId());
+            config.set(warrantPath + ".provision-kind", warrant.provisionKind().name());
+            config.set(warrantPath + ".status", warrant.status().name());
+            config.set(warrantPath + ".opened-at-ms", warrant.openedAtMs());
+            warrant.arrestReward().ifPresent(reward -> {
+                config.set(warrantPath + ".arrest-reward.poster", reward.posterId().toString());
+                config.set(warrantPath + ".arrest-reward.amount", reward.amount());
+            });
+        }
+    }
+
+    static List<Warrant> readWarrants(ConfigurationSection section, String kingdomId) {
+        if (section == null) {
+            return List.of();
+        }
+        List<Warrant> warrants = new ArrayList<>();
+        for (String warrantId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(warrantId);
+            if (entry == null) {
+                continue;
+            }
+            String suspect = entry.getString("suspect");
+            String actBillId = entry.getString("act-bill-id");
+            String provisionKind = entry.getString("provision-kind");
+            String statusName = entry.getString("status");
+            if (suspect == null || actBillId == null || provisionKind == null || statusName == null) {
+                continue;
+            }
+            WarrantStatus status;
+            try {
+                status = WarrantStatus.valueOf(statusName);
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            ConductKind kind;
+            try {
+                kind = ConductKind.valueOf(provisionKind);
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            Warrant warrant = new Warrant(
+                    warrantId,
+                    kingdomId,
+                    UUID.fromString(suspect),
+                    actBillId,
+                    kind,
+                    status,
+                    entry.getLong("opened-at-ms"));
+            ConfigurationSection rewardSection = entry.getConfigurationSection("arrest-reward");
+            if (rewardSection != null) {
+                String poster = rewardSection.getString("poster");
+                double amount = rewardSection.getDouble("amount");
+                if (poster != null && amount > 0) {
+                    warrant.setArrestReward(new ArrestReward(UUID.fromString(poster), amount));
+                }
+            }
+            warrants.add(warrant);
+        }
+        return warrants;
     }
 
     static void writeWars(FileConfiguration config, String path, Collection<ActiveWar> wars) {

@@ -28,6 +28,7 @@ public final class PoliceTrialService {
     private final PoliceService policeService;
     private final MechanicalJusticeService justiceService;
     private final EconomyService economyService;
+    private final ArrestRewardService arrestRewardService;
     private final AtomicLong caseSequence = new AtomicLong(1);
     private final List<PoliceCase> cases = new ArrayList<>();
     private final Map<UUID, SentenceType> lastClosedSentences = new HashMap<>();
@@ -39,10 +40,29 @@ public final class PoliceTrialService {
             PoliceService policeService,
             MechanicalJusticeService justiceService,
             EconomyService economyService) {
+        this(
+                kingdomService,
+                policeService,
+                justiceService,
+                economyService,
+                new ArrestRewardService(kingdomService, justiceService, economyService));
+    }
+
+    public PoliceTrialService(
+            KingdomService kingdomService,
+            PoliceService policeService,
+            MechanicalJusticeService justiceService,
+            EconomyService economyService,
+            ArrestRewardService arrestRewardService) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.policeService = Objects.requireNonNull(policeService, "policeService");
         this.justiceService = Objects.requireNonNull(justiceService, "justiceService");
         this.economyService = Objects.requireNonNull(economyService, "economyService");
+        this.arrestRewardService = Objects.requireNonNull(arrestRewardService, "arrestRewardService");
+    }
+
+    public ArrestRewardService arrestRewardService() {
+        return arrestRewardService;
     }
 
     public PoliceResult arrest(String kingdomId, UUID constableId, UUID suspectId) {
@@ -69,6 +89,8 @@ public final class PoliceTrialService {
             return served;
         }
 
+        arrestRewardService.payOnConstableArrest(warrant.get(), constableId);
+
         PoliceCase policeCase = new PoliceCase(
                 nextCaseId(kingdomId),
                 kingdomId,
@@ -79,6 +101,44 @@ public final class PoliceTrialService {
                 System.currentTimeMillis());
         cases.add(policeCase);
         return PoliceResult.ok("Suspect arrested. Pending trial opened.");
+    }
+
+    /**
+     * Patrol-golem detain: same pending-trial flow, but any arrest reward refunds to the poster.
+     */
+    public PoliceResult arrestByPatrolGolem(String kingdomId, UUID suspectId) {
+        if (kingdomService.getKingdom(kingdomId).isEmpty()) {
+            return PoliceResult.fail("Unknown kingdom.");
+        }
+        if (!policeService.isPoliceReady(kingdomId)) {
+            return PoliceResult.fail(
+                    "Police infrastructure is not ready. Configure at least one cell and a court.");
+        }
+        if (findOpenCase(kingdomId, suspectId).isPresent()) {
+            return PoliceResult.fail("That suspect already has a pending trial.");
+        }
+        Optional<Warrant> warrant = justiceService.findActiveForSuspect(kingdomId, suspectId);
+        if (warrant.isEmpty()) {
+            return PoliceResult.fail("No active warrant for that suspect.");
+        }
+
+        PoliceResult served = justiceService.markWarrantServed(kingdomId, warrant.get().id());
+        if (served instanceof PoliceResult.Failure) {
+            return served;
+        }
+
+        arrestRewardService.refundPoster(warrant.get());
+
+        PoliceCase policeCase = new PoliceCase(
+                nextCaseId(kingdomId),
+                kingdomId,
+                suspectId,
+                Optional.empty(),
+                warrant.get().id(),
+                warrant.get().actBillId(),
+                System.currentTimeMillis());
+        cases.add(policeCase);
+        return PoliceResult.ok("Suspect detained by patrol. Pending trial opened.");
     }
 
     public PoliceResult sentence(

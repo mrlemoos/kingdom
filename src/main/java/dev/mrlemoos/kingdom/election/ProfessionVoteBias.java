@@ -50,6 +50,11 @@ public final class ProfessionVoteBias {
                 "librarian", VoteChoice.NAY,
                 "armorer", VoteChoice.NAY,
                 "shepherd", VoteChoice.AYE));
+        table.put(BillType.SPEND_PUBLIC_WORK, Map.of(
+                "farmer", VoteChoice.AYE,
+                "librarian", VoteChoice.AYE,
+                "armorer", VoteChoice.NAY,
+                "mason", VoteChoice.AYE));
         return new ProfessionVoteBias(table);
     }
 

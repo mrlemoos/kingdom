@@ -23,10 +23,20 @@ public final class EmeraldVillagerTradeCalculator {
     }
 
     public EmeraldVillagerTradeSettlement settlementFromGross(double grossCorona, double commerceTaxRate) {
+        return settlementFromGross(grossCorona, commerceTaxRate, 0.0, true);
+    }
+
+    public EmeraldVillagerTradeSettlement settlementFromGross(
+            double grossCorona, double commerceTaxRate, double tariff, boolean territoryMember) {
         if (grossCorona <= 0.0) {
             return new EmeraldVillagerTradeSettlement(0.0, 0.0, 0.0);
         }
-        double tax = grossCorona * Math.clamp(commerceTaxRate, 0.0, 1.0);
+        double tax = grossCorona * effectiveTaxRate(commerceTaxRate, tariff, territoryMember);
         return new EmeraldVillagerTradeSettlement(grossCorona, tax, grossCorona - tax);
+    }
+
+    public static double effectiveTaxRate(double commerceTaxRate, double tariff, boolean territoryMember) {
+        double surcharge = territoryMember ? 0.0 : tariff;
+        return Math.clamp(commerceTaxRate + surcharge, 0.0, 1.0);
     }
 }

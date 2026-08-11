@@ -6,13 +6,19 @@ import org.bukkit.configuration.ConfigurationSection;
 
 public record VillagerEconomyConfig(
         int frozenWalletEscheatMcDays,
+        int frozenWalletStrikeMcDays,
         double villagerCommerceTaxRate,
         int settlementsPerEdge,
         List<VillagerTradeEdge> tradeEdges) {
 
+    public VillagerEconomyConfig {
+        VillagerStrike.requireStrikeShorterThanEscheat(frozenWalletStrikeMcDays, frozenWalletEscheatMcDays);
+    }
+
     public static VillagerEconomyConfig defaults() {
         return new VillagerEconomyConfig(
                 30,
+                7,
                 0.05,
                 3,
                 List.of(
@@ -35,10 +41,17 @@ public record VillagerEconomyConfig(
         }
 
         int escheatDays = economy.getInt("frozen-wallet-escheat-mc-days", defaults.frozenWalletEscheatMcDays());
+        int strikeDays = economy.getInt("frozen-wallet-strike-mc-days", defaults.frozenWalletStrikeMcDays());
+        if (strikeDays >= escheatDays) {
+            strikeDays = defaults.frozenWalletStrikeMcDays();
+            if (strikeDays >= escheatDays) {
+                strikeDays = Math.max(0, escheatDays - 1);
+            }
+        }
         double commerceTax = economy.getDouble("villager-commerce-tax-rate", defaults.villagerCommerceTaxRate());
         int settlementsPerEdge = economy.getInt("villager-trades.settlements-per-edge", defaults.settlementsPerEdge());
         List<VillagerTradeEdge> edges = readTradeEdges(economy.getConfigurationSection("villager-trades"), defaults.tradeEdges());
-        return new VillagerEconomyConfig(escheatDays, commerceTax, settlementsPerEdge, edges);
+        return new VillagerEconomyConfig(escheatDays, strikeDays, commerceTax, settlementsPerEdge, edges);
     }
 
     private static List<VillagerTradeEdge> readTradeEdges(ConfigurationSection section, List<VillagerTradeEdge> defaults) {

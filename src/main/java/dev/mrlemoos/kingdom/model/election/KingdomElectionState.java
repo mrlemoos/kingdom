@@ -151,6 +151,9 @@ public final class KingdomElectionState {
             if (source.returnCount().isPresent()) {
                 target.setReturnCount(source.returnCount().getAsInt());
             }
+            if (source.declaration().isPresent()) {
+                target.setDeclaration(source.declaration().get());
+            }
         }
     }
 

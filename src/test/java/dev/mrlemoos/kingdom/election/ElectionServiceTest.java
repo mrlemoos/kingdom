@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
@@ -364,6 +365,51 @@ class ElectionServiceTest {
         electionService.nominate("northmarch", CITIZEN_TWO);
         electionService.nominate("northmarch", CITIZEN_THREE);
         electionService.nominate("northmarch", CITIZEN_FOUR);
+    }
+
+    @Test
+    void declarationsFollowWinnersOntoTheirBenches() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate(
+                "northmarch", CITIZEN_ONE, CandidateDeclaration.of("Cheaper bread", "Reform", "red"));
+        electionService.nominate("northmarch", CITIZEN_TWO);
+        castVote(VOTER, CITIZEN_ONE);
+        castVote(DUKE, CITIZEN_TWO);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        KingdomElectionState state = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        MpSeat first = seatOf(state, CITIZEN_ONE);
+        assertEquals("Reform", first.declaration().orElseThrow().partyName());
+        assertEquals("Cheaper bread", first.declaration().orElseThrow().manifesto());
+        assertTrue(seatOf(state, CITIZEN_TWO).declaration().isEmpty());
+    }
+
+    @Test
+    void declarationsSurviveAByElection() {
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        castVote(VOTER, CITIZEN_ONE);
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        KingdomElectionState state = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        int seatIndex = seatOf(state, CITIZEN_ONE).index();
+        state.seat(seatIndex).orElseThrow().clear();
+        assertInstanceOf(
+                ElectionResult.Success.class, electionService.startByElection("northmarch", seatIndex));
+        electionService.nominate(
+                "northmarch", CITIZEN_TWO, CandidateDeclaration.of("Fair taxes", "Loyalist", "blue"));
+        castVote(VOTER, CITIZEN_TWO);
+        now += ElectionConfig.defaults().durationMs() + 1;
+
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        MpSeat seat = state.seat(seatIndex).orElseThrow();
+        assertEquals(CITIZEN_TWO, seat.playerId().orElseThrow());
+        assertEquals("Loyalist", seat.declaration().orElseThrow().partyName());
+        assertEquals("&9", seat.declaration().orElseThrow().partyColour());
     }
 
     private void castVote(UUID voter, UUID candidate) {

@@ -16,6 +16,8 @@ class VillagerPremierFiscalManifestoTest {
             0.05,
             0.03,
             0.08,
+            0.0,
+            0.0,
             rankModifiers(-0.02, -0.03));
 
     @Test
@@ -27,6 +29,8 @@ class VillagerPremierFiscalManifestoTest {
         assertEquals(0.04, manifesto.foreignSurcharge(), 1e-9);
         assertEquals(0.02, manifesto.transferFee(), 1e-9);
         assertEquals(0.07, manifesto.crossKingdomTransferFee(), 1e-9);
+        assertEquals(-0.01, manifesto.villagerWalletInterest(), 1e-9);
+        assertEquals(-0.01, manifesto.tariff(), 1e-9);
         assertEquals(-0.03, manifesto.rankModifier(NobleRank.PREMIER), 1e-9);
         assertEquals(-0.04, manifesto.rankModifier(NobleRank.PRINCE), 1e-9);
     }
@@ -40,6 +44,8 @@ class VillagerPremierFiscalManifestoTest {
         assertEquals(0.06, manifesto.foreignSurcharge(), 1e-9);
         assertEquals(0.04, manifesto.transferFee(), 1e-9);
         assertEquals(0.09, manifesto.crossKingdomTransferFee(), 1e-9);
+        assertEquals(0.01, manifesto.villagerWalletInterest(), 1e-9);
+        assertEquals(0.01, manifesto.tariff(), 1e-9);
         assertEquals(-0.01, manifesto.rankModifier(NobleRank.PREMIER), 1e-9);
         assertEquals(-0.02, manifesto.rankModifier(NobleRank.PRINCE), 1e-9);
     }
@@ -53,6 +59,8 @@ class VillagerPremierFiscalManifestoTest {
         assertEquals(ENACTED.foreignSurcharge(), manifesto.foreignSurcharge(), 1e-9);
         assertEquals(ENACTED.transferFee(), manifesto.transferFee(), 1e-9);
         assertEquals(ENACTED.crossKingdomTransferFee(), manifesto.crossKingdomTransferFee(), 1e-9);
+        assertEquals(ENACTED.villagerWalletInterest(), manifesto.villagerWalletInterest(), 1e-9);
+        assertEquals(ENACTED.tariff(), manifesto.tariff(), 1e-9);
         assertEquals(ENACTED.rankModifier(NobleRank.PREMIER), manifesto.rankModifier(NobleRank.PREMIER), 1e-9);
     }
 

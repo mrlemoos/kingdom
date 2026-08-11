@@ -22,7 +22,7 @@ class VillagerWalletServiceTest {
     void setUp() {
         service = new EconomyService();
         KingdomEconomy economy = new KingdomEconomy();
-        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, Map.of()));
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.0, Map.of()));
         service.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
     }
 

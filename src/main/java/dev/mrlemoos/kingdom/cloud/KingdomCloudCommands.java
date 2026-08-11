@@ -121,6 +121,7 @@ public final class KingdomCloudCommands {
         registerGreedySubcommand(manager, kingdomCommand, "mint");
         registerGreedySubcommand(manager, kingdomCommand, "treasury");
         registerGreedySubcommand(manager, kingdomCommand, "parliament");
+        registerGreedySubcommand(manager, kingdomCommand, "referendum");
         registerGreedySubcommand(manager, kingdomCommand, "election");
         registerGreedySubcommand(manager, kingdomCommand, "police");
         registerGreedySubcommand(manager, kingdomCommand, "whitelist");

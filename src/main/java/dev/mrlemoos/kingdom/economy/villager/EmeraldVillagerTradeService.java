@@ -17,6 +17,9 @@ public final class EmeraldVillagerTradeService {
     public boolean settle(EconomyService economyService, EmeraldVillagerTradeRequest request) {
         Objects.requireNonNull(economyService, "economyService");
         Objects.requireNonNull(request, "request");
+        if (request.onStrike()) {
+            return false;
+        }
         if (!TerritoryVillagerCommercePolicy.shouldSettleEmeraldCommerce(
                 request.kingdomId(),
                 request.treasuryLord(),
@@ -25,7 +28,11 @@ public final class EmeraldVillagerTradeService {
             return false;
         }
 
-        EmeraldVillagerTradeSettlement settlement = calculator.settlement(request.emeraldCost(), commerceTaxRate);
+        EmeraldVillagerTradeSettlement settlement = calculator.settlementFromGross(
+                calculator.coronaEquivalent(request.emeraldCost()),
+                commerceTaxRate,
+                tariffFor(economyService, request),
+                request.territoryMember());
         if (settlement.grossCorona() <= 0.0) {
             return false;
         }
@@ -40,6 +47,9 @@ public final class EmeraldVillagerTradeService {
             EconomyService economyService, EmeraldVillagerTradeRequest request, int coronaPrice) {
         Objects.requireNonNull(economyService, "economyService");
         Objects.requireNonNull(request, "request");
+        if (request.onStrike()) {
+            return false;
+        }
         if (!TerritoryVillagerCommercePolicy.shouldSettleEmeraldCommerce(
                 request.kingdomId(),
                 request.treasuryLord(),
@@ -48,7 +58,11 @@ public final class EmeraldVillagerTradeService {
             return false;
         }
 
-        EmeraldVillagerTradeSettlement settlement = calculator.settlementFromGross(coronaPrice, commerceTaxRate);
+        EmeraldVillagerTradeSettlement settlement = calculator.settlementFromGross(
+                coronaPrice,
+                commerceTaxRate,
+                tariffFor(economyService, request),
+                request.territoryMember());
         if (settlement.grossCorona() <= 0.0) {
             return false;
         }
@@ -57,5 +71,13 @@ public final class EmeraldVillagerTradeService {
                 request.kingdomId().orElseThrow(),
                 request.villagerId(),
                 settlement);
+    }
+
+    private static double tariffFor(EconomyService economyService, EmeraldVillagerTradeRequest request) {
+        if (request.territoryMember() || request.kingdomId().isEmpty()) {
+            return 0.0;
+        }
+        var economy = economyService.kingdomEconomies().get(request.kingdomId().get());
+        return economy != null ? economy.activeRates().tariff() : 0.0;
     }
 }

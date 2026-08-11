@@ -176,6 +176,7 @@ public final class KingdomCommand {
             case "mint" -> handleMint(sender, args);
             case "treasury" -> handleTreasury(sender, args);
             case "parliament" -> handleParliament(sender, args);
+            case "referendum" -> handleReferendum(sender, args);
             case "election" -> handleElection(sender, args);
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
@@ -501,6 +502,14 @@ public final class KingdomCommand {
         electionHandler.handle(sender, shifted);
     }
 
+    private void handleReferendum(CommandSender sender, String[] args) {
+        if (parliamentHandler == null) {
+            sender.sendMessage(error("Parliament is not available."));
+            return;
+        }
+        parliamentHandler.handleReferendum(sender, args);
+    }
+
     private void handleParliament(CommandSender sender, String[] args) {
         if (parliamentHandler == null) {
             sender.sendMessage(error("Parliament is not available."));
@@ -590,6 +599,8 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — MP elections and nominations");
             builder.append("\n").append(c("&e")).append("/kingdom parliament ...");
             builder.append(c("&7")).append(" — table bills, divisions, royal assent");
+            builder.append("\n").append(c("&e")).append("/kingdom referendum");
+            builder.append(c("&7")).append(" — cast your ballot while polling is open");
             builder.append("\n").append(c("&e")).append("/kingdom fiscal show");
             builder.append(c("&7")).append(" — view active fiscal rates");
             builder.append("\n").append(c("&e")).append("/kingdom budget status");

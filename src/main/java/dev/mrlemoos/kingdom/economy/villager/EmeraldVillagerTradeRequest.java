@@ -9,4 +9,6 @@ public record EmeraldVillagerTradeRequest(
         int emeraldCost,
         boolean treasuryLord,
         boolean seatedMp,
-        boolean kingdomTaggedMp) {}
+        boolean kingdomTaggedMp,
+        boolean territoryMember,
+        boolean onStrike) {}

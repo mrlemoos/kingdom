@@ -31,7 +31,7 @@ class VillagerPlayerTradePolicyTest {
         Villager villager = new VillagerMock(server, UUID.randomUUID());
         villager.setProfession(Villager.Profession.NONE);
 
-        assertFalse(VillagerPlayerTradePolicy.canTradeWithPlayers(villager));
+        assertFalse(VillagerPlayerTradePolicy.canTradeWithPlayers(villager, false));
     }
 
     @Test
@@ -39,6 +39,14 @@ class VillagerPlayerTradePolicyTest {
         Villager villager = new VillagerMock(server, UUID.randomUUID());
         villager.setProfession(Villager.Profession.FARMER);
 
-        assertTrue(VillagerPlayerTradePolicy.canTradeWithPlayers(villager));
+        assertTrue(VillagerPlayerTradePolicy.canTradeWithPlayers(villager, false));
+    }
+
+    @Test
+    void villagerOnStrikeCannotTradeWithPlayers() {
+        Villager villager = new VillagerMock(server, UUID.randomUUID());
+        villager.setProfession(Villager.Profession.FARMER);
+
+        assertFalse(VillagerPlayerTradePolicy.canTradeWithPlayers(villager, true));
     }
 }

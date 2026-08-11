@@ -459,6 +459,86 @@ Requires **Slice 0.1 spike** success (or scripted-conquest fallback). Implements
 
 ---
 
+## Phase 7 — Parliamentary politics
+
+Six ideas from [`docs/idea-backlog.md`](idea-backlog.md), designed 2026-08-11. Independent of the war critical path — **may run in parallel with any phase**, since it touches only Parliament and election code.
+
+Design decisions taken:
+
+- **Motions ride `BillType`.** `NO_CONFIDENCE` and `REFERENDUM` are new `BillType` values on the single order paper. No second business slot. Consequence accepted: a referendum blocks legislation for its polling window; a no-confidence motion cannot be tabled while a budget is live.
+- **Motions take no royal assent.** Division close branches on **motion** vs **bill**; motions decide in the Commons and never reach the Lords.
+- **A carried no-confidence motion does not prorogue.** Session stays open, Premier election runs, no State Opening. (A dissolution-flavoured motion that *does* prorogue was considered and deferred.)
+- **Referendums are advisory.** Binding referendums carrying a nested `BillPayload` were considered and deferred; the payload plumbing on `Bill` makes it a clean follow-up.
+- **Manifestos and parties are free text.** No pledge-matching engine, no party registry.
+
+### Slice 7.1 — Manifestos and parties on nomination
+
+| | |
+|---|---|
+| **Goal** | Candidates declare a **manifesto** line, a **party** name, and a party colour when they nominate; all three surface in the election GUI and the **return of the Commons**. |
+| **Domain** | Extend `ElectionState` nominations to carry `(manifesto, partyName, partyColour)`; validation caps manifesto ~60 chars and party name shorter; round-trip in `data.yml`. |
+| **Bukkit** | Nomination command/GUI prompts for the three fields; election GUI renders manifesto beside each candidate; `CommonsReturnAnnouncer` reads party with the name. |
+| **Depends on** | Existing election nomination flow. |
+| **Acceptance (domain)** | Tests: nomination without manifesto is valid (blank); over-length manifesto rejected; fields survive YAML round-trip and by-election. |
+| **Spike vs flag** | **Feature** — cosmetic, no vote-logic change. |
+
+### Slice 7.2 — Division tally by party and profession bloc
+
+| | |
+|---|---|
+| **Goal** | Division results group player MPs by **party** and villager MPs by **profession bloc**. |
+| **Domain** | Tally function over `Bill.votes` joined to seat party/profession; returns grouped aye/nay/abstain counts. |
+| **Bukkit** | `DivisionVoteGui` and the result broadcast render the grouping. |
+| **Depends on** | Slice 7.1. |
+| **Acceptance (domain)** | Tests: two players same party group together; villagers group by profession, never by party; partyless player MP groups as independent. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 7.3 — Hansard
+
+| | |
+|---|---|
+| **Goal** | Every division and referendum result is recorded as it closes; at prorogation the session's record is written to the registrar as one **Hansard** volume. |
+| **Domain** | `HansardRecord` per decided business (title, type, tally, in-game day); appended to `ParliamentState` and persisted on each close; book-page renderer that splits into volumes past the 100-page/256-char MC limit. |
+| **Bukkit** | `RegistrarShelfWriter` places the volume(s) at prorogation. |
+| **Depends on** | Slice 7.2 for the tally shape. |
+| **Acceptance (domain)** | Tests: records survive restart mid-session; prorogue empties the live record; a 60-division session renders to ≥1 volume with no truncation. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 7.4 — Motion of no confidence
+
+| | |
+|---|---|
+| **Goal** | A seated player MP tables a **motion of no confidence**; a **seconder** confirms; the House divides; carrying it removes the Premier and opens a Premier election. |
+| **Domain** | `BillType.NO_CONFIDENCE`; motion-vs-bill branch at division close (no assent path); pending-second state modelled on `PendingResignation`; Premier and proposer excluded from seconding; **confidence cooldown** in in-game days (config, default 7) after a failed motion; villager Premier dismissal reuses `VillagerMpDespawnPolicy` release. |
+| **Bukkit** | Table/second entries in `ParliamentHubGui`; broadcast on tabling, on seconding, and on result. |
+| **Depends on** | Slice 7.3 (result must be recordable). |
+| **Acceptance (domain)** | Tests: unavailable with one seated player MP; Premier may neither table nor second; carried motion clears the Premier rank and opens a `PREMIER` election without prorogation; villager Premier released on carry; second motion inside cooldown refused; motion never produces an `AssentedAct`. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 7.5 — Questions to the Premier
+
+| | |
+|---|---|
+| **Goal** | The villager Speaker announces a **Questions to the Premier** window at intervals through an open session. |
+| **Domain** | Interval check in the `ElectionTask` sweep: session open + Premier seated + N in-game days since last, else skip. |
+| **Bukkit** | Broadcast from the Speaker; no queue, no command, no record. |
+| **Depends on** | Villager Speaker sweep. |
+| **Acceptance (domain)** | Tests: no announcement while prorogued or with no Premier; interval respected across restart. |
+| **Spike vs flag** | **Feature** — ceremony only. |
+
+### Slice 7.6 — Referendum
+
+| | |
+|---|---|
+| **Goal** | The Premier or the Crown puts a question to every member; ballots accepted anywhere for a **polling window**; result and **turnout** proclaimed and recorded. |
+| **Domain** | `BillType.REFERENDUM` with a question string; electorate = kingdom members, not seats; window in in-game days (config, default 2) reusing `divisionClosesOnMcDay`; early close by the Premier; no quorum; turnout computed against member count. |
+| **Bukkit** | `/kingdom referendum` opens an aye/nay GUI shaped like `DivisionVoteGui`; login prompt while polling is open; result broadcast carries turnout. |
+| **Depends on** | Slice 7.3, 7.4 (motion/bill branch already in place). |
+| **Acceptance (domain)** | Tests: seated MPs get no extra weight; one ballot per member, re-vote replaces; window closes on in-game day or on early close; turnout counts members entitled, not online; referendum never produces an `AssentedAct`; occupies the order paper for its window. |
+| **Spike vs flag** | **Feature**. |
+
+---
+
 ## Slice count and sequencing notes
 
 | Phase | Slices | Cumulative |
@@ -470,8 +550,9 @@ Requires **Slice 0.1 spike** success (or scripted-conquest fallback). Implements
 | 4 — Loyalty/morale | 5 | 20 |
 | 5 — Squads | 5 | 25 |
 | 6 — Siege/outcomes | 9 | **34** |
+| 7 — Parliamentary politics | 6 | **40** |
 
-**Parallelism:** Slice 0.1 should start as soon as Phase 2 build enforcement is far enough along to need realistic territory edits — do not wait for squads. Phase 4 Slice 4.1 can overlap late Phase 3 once muster exists.
+**Parallelism:** Slice 0.1 should start as soon as Phase 2 build enforcement is far enough along to need realistic territory edits — do not wait for squads. Phase 4 Slice 4.1 can overlap late Phase 3 once muster exists. Phase 7 is off the war critical path entirely and may run at any time.
 
 **Persistence:** Keep war/loyalty/capture state in plugin YAML with domain IDs (kingdom id, player uuid as strings in adapter layer only) per ADR Q6 portability.
 

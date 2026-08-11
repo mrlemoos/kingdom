@@ -63,7 +63,7 @@ class ParliamentServiceTest {
 
     @Test
     void fiscalBillPassesWithMajorityAndAssent() {
-        FiscalRates rates = new FiscalRates(0.12, 0.06, 0.02, 0.05, FiscalRates.defaults().rankModifiers());
+        FiscalRates rates = new FiscalRates(0.12, 0.06, 0.02, 0.05, 0.0, 0.0, FiscalRates.defaults().rankModifiers());
 
         assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableFiscal(
                 "northmarch", NobleRank.PREMIER, PREMIER, rates, "Finance Act 2026"));
@@ -471,6 +471,77 @@ class ParliamentServiceTest {
         assertInstanceOf(AssentedEnactmentResult.Success.class, result);
         assertFalse(warService.isAtWar("northmarch"));
         assertFalse(warService.isAtWar("southreach"));
+    }
+
+    @Test
+    void speakerCallsQuestionsToThePremierWhenAPremierIsSeated() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+
+        ParliamentResult called = parliamentService.callPremierQuestions("northmarch", 100).orElseThrow();
+
+        assertInstanceOf(ParliamentResult.Success.class, called);
+        assertTrue(((ParliamentResult.Success) called).message().contains("Questions to the Premier"));
+    }
+
+    @Test
+    void noQuestionsToThePremierWhileParliamentIsProrogued() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+        kingdomService.getKingdom("northmarch").orElseThrow().getParliamentState().setSessionOpen(false);
+
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 100).isEmpty());
+    }
+
+    @Test
+    void noQuestionsToThePremierWhenNoPremierIsSeated() {
+        kingdomService.clearTitle(SPEAKER);
+        kingdomService.clearTitle(PREMIER);
+        seatPlayerMps();
+
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 100).isEmpty());
+    }
+
+    @Test
+    void questionsToThePremierAreCalledForAVillagerPremierToo() {
+        clearPlayerMpTitles();
+        kingdomService.clearTitle(SPEAKER);
+        kingdomService.clearTitle(PREMIER);
+        fillVillagerParliament();
+        kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().setPremierVillagerSeatIndex(1);
+
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 100).isPresent());
+    }
+
+    @Test
+    void questionsToThePremierRespectTheInterval() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+        parliamentService.setPremierQuestionsIntervalMcDays(7);
+
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 100).isPresent());
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 100).isEmpty());
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 106).isEmpty());
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 107).isPresent());
+    }
+
+    @Test
+    void questionsToThePremierIntervalSurvivesARestart() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+        parliamentService.setPremierQuestionsIntervalMcDays(7);
+        parliamentService.callPremierQuestions("northmarch", 100);
+
+        // A restart rebuilds the service but reloads the recorded day from data.yml.
+        var state = kingdomService.getKingdom("northmarch").orElseThrow().getParliamentState();
+        long recorded = state.lastPremierQuestionsMcDay().orElseThrow();
+        parliamentService = new ParliamentService(kingdomService, () -> 1_700_000_000_000L);
+        parliamentService.setPremierQuestionsIntervalMcDays(7);
+        state.clearPremierQuestions();
+        state.recordPremierQuestions(recorded);
+
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 103).isEmpty());
+        assertTrue(parliamentService.callPremierQuestions("northmarch", 107).isPresent());
     }
 
     private void clearPlayerMpTitles() {

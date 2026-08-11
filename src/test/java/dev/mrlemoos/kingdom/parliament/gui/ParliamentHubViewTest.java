@@ -30,7 +30,48 @@ class ParliamentHubViewTest {
         assertTrue(visible.contains(ParliamentHubAction.TABLE_BUDGET));
         assertTrue(visible.contains(ParliamentHubAction.TABLE_SPEND_MINT));
         assertTrue(visible.contains(ParliamentHubAction.TABLE_SPEND_STIPEND));
+        assertTrue(visible.contains(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK));
         assertTrue(visible.contains(ParliamentHubAction.STIPEND_OTHER));
+    }
+
+    @Test
+    void publicWorkTableEnabledOnlyWhenPrepared() {
+        ParliamentHubView unprepared = new ParliamentHubView(
+                NobleRank.PREMIER,
+                null,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                false);
+        assertTrue(unprepared.visibleActions().contains(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK));
+        assertFalse(unprepared.isEnabled(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK));
+
+        ParliamentHubView prepared = new ParliamentHubView(
+                NobleRank.PREMIER,
+                null,
+                true,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                false);
+        assertTrue(prepared.isEnabled(ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK));
     }
 
     @Test

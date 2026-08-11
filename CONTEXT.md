@@ -28,6 +28,10 @@ _Avoid_: Stockpile, ore wealth, block GDP
 A significant structure inside kingdom territory detected automatically by scanning for beacon, conduit, or lodestone blocks. Each type has a fixed Corona worth in config. No manual registration.
 _Avoid_: Plot, homestead, land deed, property title
 
+**Public work**:
+An authorised treasury spend that places one estate block—beacon, conduit, or lodestone—inside linked territory. The Premier prepares a site and type, tables a spend bill, and on royal assent the realm places the block (no survival materials) and debits the treasury by that type's Estate Corona worth, counting against the approved treasury budget. Realm wealth still counts the block only through the ordinary Estate scan; the spend does not register an estate by hand.
+_Avoid_: Public works programme, estate commission, manual estate, government plot
+
 **Corona**:
 The kingdom economy's unit of wealth. Tracked on an abstract ledger; one gold nugget represents one Corona when withdrawn or deposited.
 _Avoid_: Coin, crown, currency, money
@@ -68,6 +72,10 @@ _Avoid_: Dormant wallet, inactive account, suspended balance
 After a configured number of in-game days with a frozen villager wallet, the wallet balance transfers to the kingdom treasury and the wallet is cleared.
 _Avoid_: Forfeiture, unclaimed funds, treasury claim
 
+**Villager strike**:
+The visible pressure state on a frozen villager wallet after a configured strike threshold of in-game days, which must be shorter than villager wallet escheatment. While on strike the ordinary territory villager's nametag reads **[on strike]** and player Corona merchant trades and emerald villager trade taxation are refused; background villager trades are already idle under the freeze. The strike clears when the villager becomes productive again. Seated MP economic participants and Treasury Lords do not enter a strike.
+_Avoid_: Labour dispute, walkout, frozen nametag, unproductive tag
+
 **Seated MP economic participation**:
 Seated profession villager MPs act as kingdom-wide proxies for their profession in the villager economy. They receive villager GDP and participate in villager trades even while seated in the Commons and not territory-productive.
 _Avoid_: MP income, parliament wage, seated villager GDP
@@ -88,9 +96,17 @@ _Avoid_: Emerald duty, emerald sales tax, villager emerald levy
 A fixed configured percentage of each villager trade payment routed to the kingdom treasury. Applied at payment time on Corona merchant trades, emerald villager trade taxation (on the Corona-equivalent value), and background villager-wallet trade settlements.
 _Avoid_: Trade duty, transaction levy, sales tax
 
+**Tariff**:
+An extra commerce surcharge, enacted as a FISCAL rate, applied on top of villager commerce tax when a player who is not a member of the territory kingdom completes a Corona merchant trade or emerald villager trade taxation there. Taken from the same gross as villager commerce tax—treasury takes commerce tax plus tariff; the traded villager's net falls accordingly; the player's trade price is unchanged. Same exclusions as villager commerce tax (Treasury Lords and seated MPs). Background villager-wallet settlements are out of scope. Member trades pay villager commerce tax only.
+_Avoid_: Foreign commerce tax, visitor duty, import tax, customs
+
 **Villager income tax**:
 The kingdom base tax rate applied when villager GDP is credited to a villager wallet. Routed to the kingdom treasury. Noble rank discounts do not apply to villager income.
 _Avoid_: Villager levy, GDP tax, profession tithe
+
+**Villager wallet interest**:
+A signed daily rate on productive villager wallets (including seated MP economic participants), enacted as a FISCAL rate. Positive credits from the kingdom treasury; negative charges the wallet into the treasury. Interest credits are not subject to villager income tax. Applied to each eligible wallet's balance after that day's villager GDP and villager trades have settled, and before villager wallet escheatment. When the treasury cannot cover the day's positive interest in full, each eligible wallet receives a pro-rata share of what remains. Negative interest cannot reduce a wallet below zero. Frozen villager wallets and player wallets are out of scope.
+_Avoid_: Bank of Corona, bank interest, savings rate, storage fee
 
 **Economic activity**:
 Player actions that earn value-weighted Corona into a personal wallet: harvesting crops, crafting items, trading with villagers, and player-to-player commerce. Each category has cooldowns and diminishing returns to discourage farming loops.
@@ -117,7 +133,7 @@ A slice of wallet income routed to the player's kingdom treasury at credit time.
 _Avoid_: Levy, tithe, duty
 
 **Premier**:
-The noble who proposes a kingdom's fiscal rates: tax (base, per-rank modifiers, foreign-income surcharge) and Corona transfer fees. Rates take effect only after the King or Queen approves. One Premier slot per kingdom. Elected by seated player MPs after a general election; if no player MPs are seated, the monarch may appoint a Premier.
+The noble who proposes a kingdom's fiscal rates: tax (base, per-rank modifiers, foreign-income surcharge), Corona transfer fees, villager wallet interest, and tariff. Rates take effect only after the King or Queen approves. One Premier slot per kingdom. Elected by seated player MPs after a general election; if no player MPs are seated, the monarch may appoint a Premier.
 _Avoid_: Chancellor, treasurer, finance minister
 
 **Premier election**:
@@ -133,7 +149,7 @@ The pair of bills tabled automatically when a Premier villager is appointed afte
 _Avoid_: Starter budget, auto-fiscal, opening bills
 
 **Inaugural FISCAL bill**:
-The first bill in an inaugural fiscal package. Proposes fiscal rates adjusted from the kingdom's current enacted rates: each rate field—base tax, per-rank modifiers, foreign-income surcharge, and transfer fees—moves by exactly one percentage point according to the seated Premier villager's **profession vote bias** on FISCAL bills: aye lowers, nay raises, abstain leaves every field unchanged.
+The first bill in an inaugural fiscal package. Proposes fiscal rates adjusted from the kingdom's current enacted rates: each rate field—base tax, per-rank modifiers, foreign-income surcharge, transfer fees, villager wallet interest, and tariff—moves by exactly one percentage point according to the seated Premier villager's **profession vote bias** on FISCAL bills: aye lowers, nay raises, abstain leaves every field unchanged.
 _Avoid_: Policy bill, rate shuffle, default fiscal
 
 **Full villager parliament**:
@@ -141,7 +157,7 @@ A Commons where every seated MP is a villager and no player MPs hold seats. The 
 _Avoid_: NPC parliament, all-villager chamber, automated legislature
 
 **Tax proposal**:
-A pending set of fiscal rates submitted by the Premier: tax rates and transfer fees. Inactive until approved by the King or Queen.
+A pending set of fiscal rates submitted by the Premier: tax rates, transfer fees, villager wallet interest, and tariff. Inactive until approved by the King or Queen.
 _Avoid_: Bill, decree, budget
 
 **Treasury budget**:
@@ -191,7 +207,7 @@ A bill that has passed the Commons and received royal assent. Enacts fiscal rate
 _Avoid_: Law, statute, decree
 
 **Bill**:
-A formal proposal before Parliament: fiscal rates, treasury budget, or treasury spend (including mint placement). Only one bill may be in progress per kingdom at a time. Under a full villager parliament, fiscal bills may be submitted on the Premier villager's behalf; they still table in the Commons and pass through division, but royal assent in the Lords is unchanged—the monarch must be present and grant or withhold assent manually. No bill becomes an Act without that step, and there is no automatic or timed assent for villager-submitted bills.
+A formal proposal before Parliament: fiscal rates, treasury budget, or treasury spend (including mint placement, stipend, and public work). Only one bill may be in progress per kingdom at a time. Under a full villager parliament, fiscal bills may be submitted on the Premier villager's behalf; they still table in the Commons and pass through division, but royal assent in the Lords is unchanged—the monarch must be present and grant or withhold assent manually. No bill becomes an Act without that step, and there is no automatic or timed assent for villager-submitted bills.
 _Avoid_: Proposal, motion, decree
 
 **Division**:
@@ -306,6 +322,54 @@ _Avoid_: Zero votes, uncontested vote
 The fallback that opens a session without ceremony: used when the kingdom has no House of Lords set, or when neither monarch nor regent has opened Parliament within three in-game days of the government forming. Parliament opens by announcement alone — no summons, no teleport — so the realm's business is never frozen by an absent Crown.
 _Avoid_: Auto-open, timeout open, forced opening
 
+**Motion**:
+Business before the House that settles a question rather than making law. A motion is tabled, divided upon, and decided in the Commons alone: it never travels to the House of Lords and never becomes an Act. Motions share the order paper with bills, so a kingdom may have only one piece of business — motion or bill — before the House at a time.
+_Avoid_: Non-binding bill, resolution, proposal
+
+**Motion of no confidence**:
+A motion asking the Commons whether it still supports the Premier. Tabled by a seated player MP and requiring a **seconder** before the division opens; neither may be the Premier. Carrying the motion removes the Premier at once — a villager Premier is dismissed and released to the territory as any villager MP is — and opens a Premier election. Parliament is not prorogued and no State Opening follows: the government changes, the session continues. A motion that fails begins the **confidence cooldown**.
+_Avoid_: Impeachment, vote of censure, recall
+
+**Seconder**:
+The second seated player MP who must confirm a motion of no confidence before it reaches division. One member's grievance is not the House's question. Where only one player MP is seated the motion is unavailable, there being no confidence question a single-member House can put.
+_Avoid_: Co-signer, backer, sponsor
+
+**Confidence cooldown**:
+The period in in-game days after a failed motion of no confidence during which no further such motion may be tabled in that kingdom. It binds the whole House, not only those who signed the failed motion, so that a rotating handful of members cannot hold the order paper hostage.
+_Avoid_: Motion timeout, no-confidence lockout, spam guard
+
+**Referendum**:
+A question put to every member of the realm rather than to the eight seats of the Commons. Called by the Premier or by the Crown, and advisory: the realm's answer is proclaimed and recorded in **Hansard**, but enacts nothing by itself. A Premier who disregards the realm's answer answers to the Commons, not to the plugin. Members vote wherever they stand — a referendum is not a division and does not sit in the chamber.
+_Avoid_: Plebiscite, poll, binding vote, division
+
+**Polling window**:
+The span in in-game days during which a referendum accepts ballots. Members are prompted on login while it remains open, and the Premier may close polling early. The referendum holds the order paper for its whole window: no other business comes before the House until it closes.
+_Avoid_: Voting period, election window, ballot timer
+
+**Turnout**:
+The count of members who voted in a referendum set against the number entitled to. Proclaimed with every result, so the realm may weigh a thin answer for itself. There is no quorum: a referendum is never void for want of voters.
+_Avoid_: Participation rate, quorum, validity threshold
+
+**Manifesto**:
+A single line a candidate writes on nomination, shown beside their name in the election and read out with the result. It is a promise made to the realm, not a term the plugin enforces: nothing checks a manifesto against how its author later votes.
+_Avoid_: Pledge, platform, campaign promise (as a tracked commitment)
+
+**Party**:
+A name and colour a candidate chooses on nomination, under which divisions are tallied. Parties are declared, not registered: any candidate may stand under any name, and members coordinate their own. Villager MPs stand not under a party but under their **profession bloc**.
+_Avoid_: Faction, caucus, registered party
+
+**Profession bloc**:
+How villager MPs are grouped in a division tally — by the profession that returned them rather than by any party, which they neither choose nor join. A player cannot stand for a profession bloc, nor a villager for a party.
+_Avoid_: Villager party, profession party
+
+**Hansard**:
+The bound record of a parliamentary session: every division, its tally by party and profession bloc, and every referendum result. Written to the registrar as a book at prorogation, one volume per Parliament, from records kept as each division closes.
+_Avoid_: Log, minutes, transcript
+
+**Questions to the Premier**:
+A window the villager Speaker calls at intervals through a session, inviting the realm to put questions to the Premier. Ceremony alone: the Speaker announces it, the House speaks, and nothing is recorded or tallied. Called only while a Premier is seated and the session is open.
+_Avoid_: PMQs (in player-facing text), question time, debate session
+
 ## Police
 
 **Police department**:
@@ -343,6 +407,10 @@ _Avoid_: Instant warrant, auto-approve, chat approval
 **Active warrant**:
 An approved warrant that authorises constables and patrol golems to arrest the named suspect inside kingdom territory.
 _Avoid_: Open case, manhunt tag, wanted flag
+
+**Arrest reward**:
+A Corona purse attached to an active warrant, posted at the court from a kingdom member's player wallet into escrow (the poster may top up the same purse), and paid to the arresting constable's wallet on arrest. A patrol-golem arrest refunds the purse to the poster. Cancelling or rejecting the warrant path that leaves no arrest also refunds the poster. Distinct from the warrant itself and from a fine sentence. Not funded from the kingdom treasury.
+_Avoid_: Bounty, bounty board, hit purse, warrant prize
 
 **Infrastructure gate**:
 A requirement that at least one numbered prison cell and one court lectern are configured in linked territory before warrant applications or arrests are permitted.

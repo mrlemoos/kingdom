@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.parliament;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import java.util.List;
@@ -147,5 +148,28 @@ class CommonsReturnTest {
     @Test
     void anEmptySeatHasNothingToReturn() {
         assertEquals("Seat 7 — vacant.", CommonsReturn.seatReturn(seat(7), CommonsReturnTest::nameOf));
+    }
+
+    @Test
+    void playerReturnNamesThePartyAndReadsTheManifesto() {
+        MpSeat seat = seat(1);
+        seat.assignPlayer(ALICE);
+        seat.setReturnCount(5);
+        seat.setDeclaration(CandidateDeclaration.of("Cheaper bread", "Reform", "red"));
+
+        List<String> lines = CommonsReturn.rollCall(state, 8, CommonsReturnTest::nameOf);
+
+        assertTrue(lines.contains("MP Alice of the Reform, returned with 5 votes. \"Cheaper bread\""));
+    }
+
+    @Test
+    void playerWithoutADeclarationIsReadAsBefore() {
+        MpSeat seat = seat(1);
+        seat.assignPlayer(BOB);
+        seat.setReturnCount(3);
+
+        List<String> lines = CommonsReturn.rollCall(state, 8, CommonsReturnTest::nameOf);
+
+        assertTrue(lines.contains("MP Bob, returned with 3 votes."));
     }
 }

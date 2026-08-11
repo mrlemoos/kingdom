@@ -17,8 +17,12 @@ import dev.mrlemoos.kingdom.parliament.gui.MintPrepareGui;
 import dev.mrlemoos.kingdom.parliament.gui.ParliamentHubAction;
 import dev.mrlemoos.kingdom.parliament.gui.ParliamentHubGui;
 import dev.mrlemoos.kingdom.parliament.gui.ParliamentHubView;
+import dev.mrlemoos.kingdom.parliament.gui.PublicWorkPrepareGui;
+import dev.mrlemoos.kingdom.parliament.gui.ReferendumBallotGui;
 import dev.mrlemoos.kingdom.parliament.gui.ResignationReviewGui;
 import dev.mrlemoos.kingdom.parliament.gui.StipendSelectGui;
+import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
+import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
 import dev.mrlemoos.kingdom.resignation.ResignationSummaries;
 import dev.mrlemoos.kingdom.service.ParliamentResult;
@@ -27,7 +31,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -67,12 +73,30 @@ public final class ParliamentGuiListener implements Listener {
         player.openInventory(gui.getInventory());
     }
 
-    public void openDivisionVoteGui(Player player, String kingdomId) {
-        Optional<Bill> bill = parliamentService.currentBill(kingdomId);
-        if (bill.isEmpty() || bill.get().state() != BillState.DIVISION_OPEN) {
+    /** Opens the referendum ballot. Members may answer from anywhere—no chamber is required. */
+    public void openReferendumBallotGui(Player player, String kingdomId) {
+        Optional<String> question = parliamentService.referendumQuestion(kingdomId);
+        if (question.isEmpty() || !parliamentService.isPollingOpen(kingdomId)) {
+            player.sendMessage(handler.error("No referendum is open to the realm."));
             return;
         }
-        DivisionVoteGui gui = DivisionVoteGui.create(kingdomId, bill.get().title());
+        int votesCast = parliamentService.currentReferendum(kingdomId)
+                .map(referendum -> referendum.votesView().size())
+                .orElse(0);
+        ReferendumBallotGui gui = ReferendumBallotGui.create(
+                kingdomId, question.get(), votesCast, parliamentService.electorate(kingdomId));
+        player.openInventory(gui.getInventory());
+    }
+
+    public void openDivisionVoteGui(Player player, String kingdomId) {
+        Optional<Bill> bill = parliamentService.currentBill(kingdomId);
+        if (bill.isEmpty()
+                || bill.get().state() != BillState.DIVISION_OPEN
+                || bill.get().type() == dev.mrlemoos.kingdom.model.parliament.BillType.REFERENDUM) {
+            return;
+        }
+        DivisionVoteGui gui = DivisionVoteGui.create(
+                kingdomId, bill.get().title(), parliamentService.divisionBlocs(kingdomId));
         player.openInventory(gui.getInventory());
     }
 
@@ -108,6 +132,10 @@ public final class ParliamentGuiListener implements Listener {
                 .getKingdom(kingdomId)
                 .flatMap(k -> k.getParliamentState().preparedMint())
                 .isPresent();
+        boolean hasPreparedPublicWork = handler.kingdomService()
+                .getKingdom(kingdomId)
+                .flatMap(k -> k.getParliamentState().preparedPublicWork())
+                .isPresent();
         boolean electionActive = parliamentService.isPremierBlockedByElection(kingdomId);
         var pendingResignation = handler.kingdomService()
                 .getKingdom(kingdomId)
@@ -123,11 +151,14 @@ public final class ParliamentGuiListener implements Listener {
                 divisionTied,
                 castingVoteSet,
                 hasPreparedMint,
+                hasPreparedPublicWork,
                 electionActive,
                 pendingResignation.isPresent(),
                 canResolveResignation,
                 billTitle,
-                pendingResignation.map(ResignationSummaries::describe));
+                pendingResignation.map(ResignationSummaries::describe),
+                parliamentService.canTableNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
+                parliamentService.canSecondNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -139,8 +170,12 @@ public final class ParliamentGuiListener implements Listener {
             handleHubClick(event, player, hub);
         } else if (event.getInventory().getHolder() instanceof DivisionVoteGui voteGui) {
             handleDivisionVoteClick(event, player, voteGui);
+        } else if (event.getInventory().getHolder() instanceof ReferendumBallotGui ballotGui) {
+            handleReferendumBallotClick(event, player, ballotGui);
         } else if (event.getInventory().getHolder() instanceof MintPrepareGui mintGui) {
             handleMintPrepareClick(event, player, mintGui);
+        } else if (event.getInventory().getHolder() instanceof PublicWorkPrepareGui publicWorkGui) {
+            handlePublicWorkPrepareClick(event, player, publicWorkGui);
         } else if (event.getInventory().getHolder() instanceof StipendSelectGui stipendGui) {
             handleStipendSelectClick(event, player, stipendGui);
         } else if (event.getInventory().getHolder() instanceof ResignationReviewGui resignationGui) {
@@ -170,6 +205,8 @@ public final class ParliamentGuiListener implements Listener {
                 player.sendMessage(handler.error("Division is tied. Cast your vote before closing."));
             } else if (action == ParliamentHubAction.TABLE_SPEND_MINT) {
                 player.sendMessage(handler.error("Prepare a mint location at a lectern first."));
+            } else if (action == ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK) {
+                openPublicWorkPrepareFromLook(player, membership.get());
             }
             return;
         }
@@ -181,6 +218,7 @@ public final class ParliamentGuiListener implements Listener {
             }
             case CUSTOM_AMOUNT -> startBudgetCustomPrompt(player, kingdomId);
             case TABLE_SPEND_MINT -> tableMintBill(player, membership.get());
+            case TABLE_SPEND_PUBLIC_WORK -> tablePublicWorkBill(player, membership.get());
             case TABLE_SPEND_STIPEND -> openStipendSelect(player, kingdomId);
             case STIPEND_OTHER -> startStipendOtherPrompt(player, kingdomId);
             case BUDGET_PRESET -> hub.budgetPresetAmountForSlot(event.getRawSlot())
@@ -194,10 +232,24 @@ public final class ParliamentGuiListener implements Listener {
             case VOTE_ABSTAIN -> castMpVote(player, membership.get(), VoteChoice.ABSTAIN);
             case ASSENT -> grantAssent(player, membership.get());
             case REJECT -> withholdAssent(player, membership.get());
+            case TABLE_NO_CONFIDENCE -> tableNoConfidence(player, membership.get());
+            case SECOND_NO_CONFIDENCE -> secondNoConfidence(player, membership.get());
             case REVIEW_RESIGNATION -> openResignationReview(player, hub.kingdomId());
             default -> {
             }
         }
+    }
+
+    private void tableNoConfidence(Player player, PlayerMembership membership) {
+        handler.tableNoConfidenceWithBroadcast(player, membership.getKingdomId(), membership.getRank(),
+                membership.getPlayerId());
+        player.closeInventory();
+    }
+
+    private void secondNoConfidence(Player player, PlayerMembership membership) {
+        handler.secondNoConfidenceWithBroadcast(player, membership.getKingdomId(), membership.getRank(),
+                membership.getPlayerId());
+        player.closeInventory();
     }
 
     private void openResignationReview(Player player, String kingdomId) {
@@ -316,6 +368,30 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
     }
 
+    private void handleReferendumBallotClick(
+            InventoryClickEvent event, Player player, ReferendumBallotGui ballotGui) {
+        event.setCancelled(true);
+        if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+
+        ParliamentHubAction action = ballotGui.actionForSlot(event.getRawSlot());
+        if (action == null) {
+            return;
+        }
+        VoteChoice choice = switch (action) {
+            case VOTE_AYE -> VoteChoice.AYE;
+            case VOTE_NAY -> VoteChoice.NAY;
+            case VOTE_ABSTAIN -> VoteChoice.ABSTAIN;
+            default -> null;
+        };
+        if (choice == null) {
+            return;
+        }
+        handler.finish(player, parliamentService.castBallot(ballotGui.kingdomId(), player.getUniqueId(), choice));
+        player.closeInventory();
+    }
+
     private void handleMintPrepareClick(InventoryClickEvent event, Player player, MintPrepareGui mintGui) {
         event.setCancelled(true);
         if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
@@ -376,7 +452,7 @@ public final class ParliamentGuiListener implements Listener {
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.FISCAL, kingdomId, player.getUniqueId()));
         player.sendMessage(
-                c("&bType fiscal rates: ") + c("&fbase foreign transferFee crossFee [title]") + c("&7 (or 'cancel')"));
+                c("&bType fiscal rates: ") + c("&fbase foreign transferFee crossFee interest tariff [title]") + c("&7 (or 'cancel')"));
     }
 
     private void startBudgetCustomPrompt(Player player, String kingdomId) {
@@ -396,6 +472,68 @@ public final class ParliamentGuiListener implements Listener {
     private void tableMintBill(Player player, PlayerMembership membership) {
         ParliamentResult result = handler.tableSpendMint(
                 membership.getKingdomId(), membership.getRank(), membership.getPlayerId(), null);
+        handler.finish(player, result);
+        player.closeInventory();
+    }
+
+    private void tablePublicWorkBill(Player player, PlayerMembership membership) {
+        ParliamentResult result = handler.tableSpendPublicWork(
+                membership.getKingdomId(), membership.getRank(), membership.getPlayerId(), null);
+        handler.finish(player, result);
+        player.closeInventory();
+    }
+
+    private void openPublicWorkPrepareFromLook(Player player, PlayerMembership membership) {
+        if (membership.getRank() != NobleRank.PREMIER) {
+            player.sendMessage(handler.error("Only the Premier may prepare a public work."));
+            return;
+        }
+        Block target = player.getTargetBlockExact(5);
+        if (target == null || target.getType() == Material.AIR) {
+            player.sendMessage(handler.error("Look at a block in your territory to prepare a public work."));
+            return;
+        }
+        if (!handler.isLecternInTerritory(player, target, membership.getKingdomId())) {
+            player.sendMessage(handler.error("Public work must be inside your kingdom's linked territory."));
+            return;
+        }
+        player.closeInventory();
+        PublicWorkPrepareGui gui = PublicWorkPrepareGui.create(
+                membership.getKingdomId(),
+                target.getWorld().getName(),
+                target.getX(),
+                target.getY(),
+                target.getZ());
+        player.openInventory(gui.getInventory());
+    }
+
+    private void handlePublicWorkPrepareClick(InventoryClickEvent event, Player player, PublicWorkPrepareGui gui) {
+        event.setCancelled(true);
+        if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+        Optional<PlayerMembership> membership = handler.requireMembership(player);
+        if (membership.isEmpty()) {
+            player.closeInventory();
+            return;
+        }
+        if (gui.isCancelSlot(event.getRawSlot())) {
+            player.closeInventory();
+            return;
+        }
+        Optional<WealthBlockType> type = gui.typeForSlot(event.getRawSlot());
+        if (type.isEmpty()) {
+            return;
+        }
+        if (membership.get().getRank() != NobleRank.PREMIER) {
+            player.sendMessage(handler.error("Only the Premier may prepare a public work."));
+            player.closeInventory();
+            return;
+        }
+        PreparedPublicWork work = new PreparedPublicWork(
+                type.get(), gui.worldName(), gui.x(), gui.y(), gui.z());
+        ParliamentResult result =
+                parliamentService.preparePublicWork(membership.get().getKingdomId(), NobleRank.PREMIER, work);
         handler.finish(player, result);
         player.closeInventory();
     }
@@ -505,14 +643,14 @@ public final class ParliamentGuiListener implements Listener {
     private void handleFiscalChat(
             Player player, ParliamentChatSessions.Session session, String message, PlayerMembership membership) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 4) {
-            player.sendMessage(handler.error("Need four numbers: base foreign transferFee crossFee [title]"));
+        if (parts.length < 6) {
+            player.sendMessage(handler.error("Need six numbers: base foreign transferFee crossFee interest tariff [title]"));
             return;
         }
 
         String title = null;
         int rateCount = parts.length;
-        if (parts.length > 4) {
+        if (parts.length > 6) {
             try {
                 Double.parseDouble(parts[parts.length - 1]);
             } catch (NumberFormatException ex) {
@@ -523,18 +661,20 @@ public final class ParliamentGuiListener implements Listener {
                 rateCount = parts.length - 1;
             }
         }
-        if (rateCount < 4) {
-            player.sendMessage(handler.error("Need four numbers: base foreign transferFee crossFee [title]"));
+        if (rateCount < 6) {
+            player.sendMessage(handler.error("Need six numbers: base foreign transferFee crossFee interest tariff [title]"));
             return;
         }
 
-        int offset = rateCount - 4;
+        int offset = rateCount - 6;
         try {
             FiscalRates proposed = new FiscalRates(
                     Double.parseDouble(parts[offset]),
                     Double.parseDouble(parts[offset + 1]),
                     Double.parseDouble(parts[offset + 2]),
                     Double.parseDouble(parts[offset + 3]),
+                    Double.parseDouble(parts[offset + 4]),
+                    Double.parseDouble(parts[offset + 5]),
                     FiscalRates.defaults().rankModifiers());
             ParliamentResult result = handler.tableFiscal(
                     session.kingdomId(),
@@ -610,6 +750,25 @@ public final class ParliamentGuiListener implements Listener {
                 session.optionalTitle());
         chatSessions.cancel(player.getUniqueId());
         handler.finish(player, result);
+    }
+
+    /** Members are reminded of an open referendum as they log in, wherever they happen to be. */
+    @EventHandler
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+        Optional<PlayerMembership> membership =
+                handler.kingdomService().getMembership(event.getPlayer().getUniqueId());
+        if (membership.isEmpty()) {
+            return;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        if (!parliamentService.isPollingOpen(kingdomId)) {
+            return;
+        }
+        Optional<String> question = parliamentService.referendumQuestion(kingdomId);
+        if (question.isEmpty()) {
+            return;
+        }
+        handler.promptIfEntitled(event.getPlayer(), kingdomId, question.get());
     }
 
     @EventHandler

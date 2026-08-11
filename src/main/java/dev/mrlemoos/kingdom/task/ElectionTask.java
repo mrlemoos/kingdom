@@ -8,6 +8,7 @@ import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
 import dev.mrlemoos.kingdom.election.VillagerPremierInauguralService;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.parliament.DivisionTally;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.parliament.StateOpeningCeremony;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -71,7 +72,29 @@ public final class ElectionTask implements Runnable {
         openOverdueParliaments();
         processDueInauguralFiscalPackages();
         conductVillagerSpeakerDivisions();
+        closeDuePollingWindows();
         scheduleGeneralElections();
+    }
+
+    /** Closes any referendum whose polling window has run and proclaims the realm's answer. */
+    private void closeDuePollingWindows() {
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            if (!parliamentService.isPollingOpen(kingdom.getId())) {
+                continue;
+            }
+            World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+            if (world == null) {
+                continue;
+            }
+            long currentMcDay = world.getFullTime() / 24000L;
+            parliamentService.closePollingIfDue(kingdom.getId(), currentMcDay).ifPresent(result -> {
+                store.saveFrom(kingdomService);
+                if (result instanceof ParliamentResult.Success success) {
+                    Bukkit.broadcastMessage(
+                            c("&6" + success.message() + " (" + kingdom.getDisplayName() + ")"));
+                }
+            });
+        }
     }
 
     /** Opens any session the Crown has failed to open in person within the commission delay. */
@@ -132,6 +155,12 @@ public final class ElectionTask implements Runnable {
                 continue;
             }
             long currentMcDay = world.getFullTime() / 24000L;
+            parliamentService.callPremierQuestions(kingdom.getId(), currentMcDay).ifPresent(questions -> {
+                store.saveFrom(kingdomService);
+                if (questions instanceof ParliamentResult.Success success) {
+                    Bukkit.broadcastMessage(c("&6" + success.message() + " (" + kingdom.getDisplayName() + ")"));
+                }
+            });
             parliamentService
                     .conductVillagerSpeakerDivision(kingdom.getId(), currentMcDay)
                     .ifPresent(result -> {
@@ -142,6 +171,12 @@ public final class ElectionTask implements Runnable {
                             }
                             Bukkit.broadcastMessage(
                                     c("&6" + success.message() + " (" + kingdom.getDisplayName() + ")"));
+                            if (!success.message().contains("opened a division")) {
+                                for (String line : DivisionTally.renderLines(
+                                        parliamentService.lastDivisionBlocs(kingdom.getId()))) {
+                                    Bukkit.broadcastMessage(c("&7 " + line));
+                                }
+                            }
                         }
                     });
         }

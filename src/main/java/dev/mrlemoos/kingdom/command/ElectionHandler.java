@@ -11,6 +11,7 @@ import dev.mrlemoos.kingdom.election.VillagerPremierInauguralService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.election.ElectionPhase;
 import dev.mrlemoos.kingdom.model.election.ElectionType;
 import dev.mrlemoos.kingdom.parliament.CommonsReturnAnnouncer;
@@ -19,6 +20,7 @@ import dev.mrlemoos.kingdom.parliament.StateOpeningSummons;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,12 +72,15 @@ public final class ElectionHandler {
 
     public boolean handle(CommandSender sender, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(error("Usage: /kingdom election <start|nominate|vote|speaker-vote|status>"));
+            sender.sendMessage(error(
+                    "Usage: /kingdom election <start|nominate|vote|speaker-vote|status>"));
+            sender.sendMessage(info("To stand under a party: /kingdom election nominate "
+                    + "<party> <colour> [manifesto...]"));
             return true;
         }
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "start" -> handleStart(sender);
-            case "nominate" -> handleNominate(sender);
+            case "nominate" -> handleNominate(sender, args);
             case "vote" -> handleVote(sender, args);
             case "speaker-vote" -> handleSpeakerVote(sender, args);
             case "status" -> handleStatus(sender);
@@ -149,7 +154,7 @@ public final class ElectionHandler {
         return true;
     }
 
-    private boolean handleNominate(CommandSender sender) {
+    private boolean handleNominate(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Only players can nominate."));
             return true;
@@ -159,7 +164,15 @@ public final class ElectionHandler {
             sender.sendMessage(error("You are not in a kingdom."));
             return true;
         }
-        ElectionResult result = electionService.nominate(membership.get().getKingdomId(), player.getUniqueId());
+        CandidateDeclaration declaration;
+        try {
+            declaration = readDeclaration(args);
+        } catch (IllegalArgumentException rejected) {
+            sender.sendMessage(error(rejected.getMessage()));
+            return true;
+        }
+        ElectionResult result =
+                electionService.nominate(membership.get().getKingdomId(), player.getUniqueId(), declaration);
         sender.sendMessage(format(result));
         if (result instanceof ElectionResult.Success) {
             store.saveFrom(kingdomService);
@@ -241,7 +254,34 @@ public final class ElectionHandler {
         sender.sendMessage(info("Phase: " + election.phase().name().toLowerCase(Locale.ROOT).replace('_', ' ')));
         sender.sendMessage(info("Time remaining: " + formatDuration(remainingMs)));
         sender.sendMessage(info("Nominations: " + election.nominationsView().size()));
+        for (UUID candidate : election.nominationsView()) {
+            CandidateDeclaration declared = election.declaration(candidate);
+            String name = Bukkit.getOfflinePlayer(candidate).getName();
+            sender.sendMessage(c(declared.partyColour() + "  " + (name == null ? "Unknown" : name) + " &7("
+                    + declared.partyLabel() + ")"));
+            if (declared.hasManifesto()) {
+                sender.sendMessage(c("&7    \"" + declared.manifesto() + "\""));
+            }
+        }
         return true;
+    }
+
+    /**
+     * Reads what a candidate declares on nomination: {@code /kingdom election nominate [party]
+     * [colour] [manifesto...]}. A candidate may decline to declare and simply stand.
+     */
+    private static CandidateDeclaration readDeclaration(String[] args) {
+        if (args.length < 2) {
+            return CandidateDeclaration.blank();
+        }
+        String party = args[1];
+        String colour = args.length >= 3 ? args[2] : "";
+        if (args.length >= 3 && CandidateDeclaration.parseColour(colour).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "That is not a party colour the realm recognises. Try: red, blue, green, gold, purple.");
+        }
+        String manifesto = args.length >= 4 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : "";
+        return CandidateDeclaration.of(manifesto, party, colour);
     }
 
     private void finishElection(String kingdomId) {

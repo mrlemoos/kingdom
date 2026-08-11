@@ -57,6 +57,7 @@ public final class VillagerEconomyProcessor {
             }
         }
         economyService.setLastDayTradesSettled(kingdomId, settledTrades);
+        economyService.applyVillagerWalletInterest(kingdomId);
         economyService.escheatFrozenWallets(
                 kingdomId, epochDay, villagerConfig.frozenWalletEscheatMcDays());
 

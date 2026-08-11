@@ -36,4 +36,25 @@ class TreasuryBudgetTest {
 
         assertThrows(IllegalArgumentException.class, () -> budget.recordSpend(51.0));
     }
+
+    @Test
+    void reverseSpendRestoresAllowance() {
+        TreasuryBudget budget = new TreasuryBudget();
+        budget.approve(100.0);
+        budget.recordSpend(40.0);
+
+        budget.reverseSpend(40.0);
+
+        assertEquals(0.0, budget.spentAmount(), 1e-9);
+        assertTrue(budget.canSpend(100.0));
+    }
+
+    @Test
+    void reverseSpendRejectsMoreThanSpent() {
+        TreasuryBudget budget = new TreasuryBudget();
+        budget.approve(100.0);
+        budget.recordSpend(10.0);
+
+        assertThrows(IllegalArgumentException.class, () -> budget.reverseSpend(10.01));
+    }
 }

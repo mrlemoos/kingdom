@@ -9,6 +9,8 @@ public record FiscalRates(
         double foreignSurcharge,
         double transferFee,
         double crossKingdomTransferFee,
+        double villagerWalletInterest,
+        double tariff,
         Map<NobleRank, Double> rankModifiers) {
 
     public FiscalRates {
@@ -22,7 +24,7 @@ public record FiscalRates(
         modifiers.put(NobleRank.PRINCE, -0.03);
         modifiers.put(NobleRank.PREMIER, -0.02);
         modifiers.put(NobleRank.KNIGHT, 0.02);
-        return new FiscalRates(0.10, 0.05, 0.03, 0.08, modifiers);
+        return new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.0, modifiers);
     }
 
     public double rankModifier(NobleRank rank) {

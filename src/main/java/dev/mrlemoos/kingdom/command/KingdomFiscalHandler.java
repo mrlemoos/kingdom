@@ -158,6 +158,8 @@ public final class KingdomFiscalHandler {
         sender.sendMessage(rateLine("Foreign surcharge", active.foreignSurcharge()));
         sender.sendMessage(rateLine("Transfer fee", active.transferFee()));
         sender.sendMessage(rateLine("Cross-kingdom transfer fee", active.crossKingdomTransferFee()));
+        sender.sendMessage(rateLine("Villager wallet interest", active.villagerWalletInterest()));
+        sender.sendMessage(rateLine("Tariff", active.tariff()));
 
         Optional<FiscalProposal> pending = kingdomEconomy(kingdomId).pendingProposal();
         if (pending.isEmpty()) {
@@ -171,6 +173,8 @@ public final class KingdomFiscalHandler {
         sender.sendMessage(rateLine("Foreign surcharge", proposed.foreignSurcharge()));
         sender.sendMessage(rateLine("Transfer fee", proposed.transferFee()));
         sender.sendMessage(rateLine("Cross-kingdom transfer fee", proposed.crossKingdomTransferFee()));
+        sender.sendMessage(rateLine("Villager wallet interest", proposed.villagerWalletInterest()));
+        sender.sendMessage(rateLine("Tariff", proposed.tariff()));
         OfflinePlayer proposer = Bukkit.getOfflinePlayer(pending.get().proposerId());
         String proposerName = proposer.getName() != null ? proposer.getName() : pending.get().proposerId().toString();
         sender.sendMessage(c("&7Proposed by: ")+ c("&f" + proposerName));

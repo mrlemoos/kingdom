@@ -25,7 +25,7 @@ class EmeraldVillagerTradeServiceTest {
     void setUp() {
         economyService = new EconomyService();
         KingdomEconomy economy = new KingdomEconomy();
-        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, Map.of()));
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.0, Map.of()));
         economyService.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
         tradeService = new EmeraldVillagerTradeService(new EmeraldVillagerTradeCalculator(1.0), 0.05);
     }
@@ -37,7 +37,8 @@ class EmeraldVillagerTradeServiceTest {
 
         boolean settled = tradeService.settle(
                 economyService,
-                new EmeraldVillagerTradeRequest(Optional.of("northmarch"), VILLAGER, 10, false, false, false));
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 10, false, false, false, true, false));
 
         assertTrue(settled);
         assertEquals(0.5, economyService.getTreasuryBalance("northmarch"), 1e-9);
@@ -51,7 +52,8 @@ class EmeraldVillagerTradeServiceTest {
 
         boolean settled = tradeService.settle(
                 economyService,
-                new EmeraldVillagerTradeRequest(Optional.of("northmarch"), VILLAGER, 10, false, false, false));
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 10, false, false, false, true, false));
 
         assertTrue(settled);
         assertEquals(10.0, economyService.getTreasuryBalance("northmarch"), 1e-9);
@@ -59,12 +61,84 @@ class EmeraldVillagerTradeServiceTest {
     }
 
     @Test
-    void skipsIneligibleTrades() {
+    void refusesSettlementWhenVillagerOnStrike() {
+        economyService.creditVillagerWalletDirect("northmarch", VILLAGER, 1.0);
+        economyService.syncVillagerWalletActivity("northmarch", Set.of(), 5L);
+
         boolean settled = tradeService.settle(
                 economyService,
-                new EmeraldVillagerTradeRequest(Optional.empty(), VILLAGER, 10, false, false, false));
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 10, false, false, false, true, true));
 
         assertFalse(settled);
         assertEquals(0.0, economyService.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(1.0, economyService.getVillagerWalletBalance("northmarch", VILLAGER), 1e-9);
+    }
+
+    @Test
+    void skipsIneligibleTrades() {
+        boolean settled = tradeService.settle(
+                economyService,
+                new EmeraldVillagerTradeRequest(Optional.empty(), VILLAGER, 10, false, false, false, false, false));
+
+        assertFalse(settled);
+        assertEquals(0.0, economyService.getTreasuryBalance("northmarch"), 1e-9);
+    }
+
+    @Test
+    void nonMemberPaysCommerceTaxPlusTariff() {
+        KingdomEconomy economy = new KingdomEconomy();
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.10, Map.of()));
+        economyService.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
+        economyService.creditVillagerWalletDirect("northmarch", VILLAGER, 1.0);
+        economyService.syncVillagerWalletActivity("northmarch", Set.of(VILLAGER), 5L);
+
+        boolean settled = tradeService.settle(
+                economyService,
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 10, false, false, false, false, false));
+
+        assertTrue(settled);
+        // commerce 5% + tariff 10% = 15% of 10
+        assertEquals(1.5, economyService.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(9.5, economyService.getVillagerWalletBalance("northmarch", VILLAGER), 1e-9);
+    }
+
+    @Test
+    void memberPaysCommerceTaxOnlyWhenTariffEnacted() {
+        KingdomEconomy economy = new KingdomEconomy();
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.10, Map.of()));
+        economyService.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
+        economyService.creditVillagerWalletDirect("northmarch", VILLAGER, 1.0);
+        economyService.syncVillagerWalletActivity("northmarch", Set.of(VILLAGER), 5L);
+
+        boolean settled = tradeService.settle(
+                economyService,
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 10, false, false, false, true, false));
+
+        assertTrue(settled);
+        assertEquals(0.5, economyService.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(10.5, economyService.getVillagerWalletBalance("northmarch", VILLAGER), 1e-9);
+    }
+
+    @Test
+    void coronaMerchantNonMemberPaysCommerceTaxPlusTariff() {
+        KingdomEconomy economy = new KingdomEconomy();
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.05, Map.of()));
+        economyService.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
+        economyService.creditVillagerWalletDirect("northmarch", VILLAGER, 1.0);
+        economyService.syncVillagerWalletActivity("northmarch", Set.of(VILLAGER), 5L);
+
+        boolean settled = tradeService.settleCoronaMerchant(
+                economyService,
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), VILLAGER, 0, false, false, false, false, false),
+                20);
+
+        assertTrue(settled);
+        // commerce 5% + tariff 5% = 10% of 20
+        assertEquals(2.0, economyService.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(19.0, economyService.getVillagerWalletBalance("northmarch", VILLAGER), 1e-9);
     }
 }
