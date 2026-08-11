@@ -151,7 +151,9 @@ public final class CommonsReturnAnnouncer {
             } else {
                 hologram.teleport(above);
             }
-            hologram.text(ColourEncoder.component("&f" + line));
+            // A text display inherits no chat default, so an uncoloured root renders black.
+            hologram.text(ColourEncoder.component("&f" + line)
+                    .colorIfAbsent(net.kyori.adventure.text.format.NamedTextColor.WHITE));
         }
 
         private void finish() {
