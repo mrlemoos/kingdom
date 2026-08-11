@@ -25,6 +25,7 @@ import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.listener.BuildConductListener;
 import dev.mrlemoos.kingdom.listener.ChatPrefixListener;
+import dev.mrlemoos.kingdom.listener.TrialJuryGuiListener;
 import dev.mrlemoos.kingdom.listener.WantedNametagListener;
 import dev.mrlemoos.kingdom.listener.CoronaMerchantListener;
 import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
@@ -62,6 +63,9 @@ import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.police.PoliceTrialService;
+import dev.mrlemoos.kingdom.police.TrialJuryConfig;
+import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
+import dev.mrlemoos.kingdom.police.TrialJuryService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
 import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
@@ -279,6 +283,18 @@ public final class KingdomPlugin extends JavaPlugin {
                                 policeTrialService.arrestRewardService(),
                                 economyService,
                                 economyStore);
+                TrialJuryConfig trialJuryConfig = TrialJuryConfig.fromPluginConfig(getConfig());
+                TrialJuryService trialJuryService = new TrialJuryService(
+                                kingdomService,
+                                policeService,
+                                policeTrialService,
+                                mechanicalJusticeService,
+                                trialJuryConfig,
+                                new java.util.Random());
+                TrialJuryRuntime trialJuryRuntime = new TrialJuryRuntime(
+                                trialJuryService, policeTrialService, kingdomService, trialJuryConfig);
+                policeHandler.setTrialJuryRuntime(policeTrialService, trialJuryRuntime);
+                policeTrialService.setTrialJuryService(trialJuryService);
                 WhitelistService whitelistService = new WhitelistService(new BukkitServerWhitelistGateway());
                 KingdomWhitelistHandler whitelistHandler = new KingdomWhitelistHandler(
                                 whitelistService,
@@ -335,6 +351,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
                 getServer().getPluginManager().registerEvents(
                                 new WantedNametagListener(nobleDisplay, jurisdictionPort), this);
+                getServer().getPluginManager().registerEvents(
+                                new TrialJuryGuiListener(trialJuryRuntime), this);
                 getServer().getPluginManager().registerEvents(
                                 new JoinReminderListener(
                                                 kingdomService,
@@ -402,6 +420,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                 () -> policeTrialService.releaseDueSentences(System.currentTimeMillis()),
                                 20L,
                                 20L * 30);
+                getServer().getScheduler().runTaskTimer(
+                                this,
+                                () -> trialJuryRuntime.sweepTimeouts(System.currentTimeMillis()),
+                                20L,
+                                20L * 5);
 
                 getServer().getScheduler().runTaskLater(this, fiscalHandler::respawnTreasuryLords, 20L);
                 getServer().getScheduler().runTaskLater(this, policeHandler::pruneStaleEntities, 20L);

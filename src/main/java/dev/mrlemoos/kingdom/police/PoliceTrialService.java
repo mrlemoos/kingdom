@@ -39,6 +39,7 @@ public final class PoliceTrialService {
     private final ArrestRewardService arrestRewardService;
     private ElectedOfficeVacator electedOfficeVacator;
     private PrisonSpawnPort prisonSpawnPort;
+    private TrialJuryService trialJuryService;
     private final AtomicLong caseSequence = new AtomicLong(1);
     private final List<PoliceCase> cases = new ArrayList<>();
     private final Map<UUID, SentenceType> lastClosedSentences = new HashMap<>();
@@ -102,6 +103,10 @@ public final class PoliceTrialService {
 
     public void setPrisonSpawnPort(PrisonSpawnPort prisonSpawnPort) {
         this.prisonSpawnPort = Objects.requireNonNull(prisonSpawnPort, "prisonSpawnPort");
+    }
+
+    public void setTrialJuryService(TrialJuryService trialJuryService) {
+        this.trialJuryService = trialJuryService;
     }
 
     public ArrestRewardService arrestRewardService() {
@@ -200,6 +205,9 @@ public final class PoliceTrialService {
         }
         if (!policeService.isJudge(kingdomId, judgeId)) {
             return PoliceResult.fail("Only a judge may pass sentence.");
+        }
+        if (trialJuryService != null && trialJuryService.findSession(kingdomId, accusedId).isPresent()) {
+            return PoliceResult.fail("A trial jury is seated for that case. The jury must finish.");
         }
         PoliceCase policeCase = open.get();
 

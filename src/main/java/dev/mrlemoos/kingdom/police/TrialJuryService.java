@@ -98,6 +98,40 @@ public final class TrialJuryService {
         return PoliceResult.ok("Trial jury of three seated.");
     }
 
+    /**
+     * Routes a freshly opened pending trial: await player Judge, seat a jury, or realm-handle.
+     * If a jury is already seated for the case, leaves it running (Judge login does not seize it).
+     */
+    public HearingOutcome resolveHearing(String kingdomId, UUID accusedId, Set<UUID> onlineMemberIds) {
+        Optional<TrialJurySession> existing = findSession(kingdomId, accusedId);
+        if (existing.isPresent()) {
+            return HearingOutcome.of(
+                    HearingResolution.JURY_ALREADY_SEATED,
+                    PoliceResult.ok("A trial jury is already seated for that case."),
+                    existing);
+        }
+        Optional<PoliceCase> open = trialService.findOpenCase(kingdomId, accusedId);
+        if (open.isEmpty()) {
+            return HearingOutcome.of(
+                    HearingResolution.REALM_HANDLED,
+                    PoliceResult.fail("No pending trial for that accused."),
+                    Optional.empty());
+        }
+        Set<UUID> exclusions = buildExclusions(open.get());
+        if (hasEligibleOnlineJudge(kingdomId, onlineMemberIds, exclusions)) {
+            return HearingOutcome.of(
+                    HearingResolution.AWAITING_JUDGE,
+                    PoliceResult.ok("Eligible player Judge available. Awaiting hearing."),
+                    Optional.empty());
+        }
+        PoliceResult seated = trySeatJury(kingdomId, accusedId, onlineMemberIds);
+        Optional<TrialJurySession> session = findSession(kingdomId, accusedId);
+        if (session.isPresent()) {
+            return HearingOutcome.of(HearingResolution.JURY_SEATED, seated, session);
+        }
+        return HearingOutcome.of(HearingResolution.REALM_HANDLED, seated, Optional.empty());
+    }
+
     public Optional<TrialJurySession> findSession(String kingdomId, UUID accusedId) {
         for (TrialJurySession session : sessionsByCaseId.values()) {
             if (session.kingdomId().equals(kingdomId) && session.accusedId().equals(accusedId)) {
@@ -105,6 +139,37 @@ public final class TrialJuryService {
             }
         }
         return Optional.empty();
+    }
+
+    public Optional<TrialJurySession> findSessionForJuror(UUID jurorId) {
+        if (jurorId == null) {
+            return Optional.empty();
+        }
+        for (TrialJurySession session : sessionsByCaseId.values()) {
+            if (session.isJuror(jurorId)) {
+                return Optional.of(session);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public List<TrialJurySession> listSessions() {
+        return List.copyOf(sessionsByCaseId.values());
+    }
+
+    /** Expires every timed-out jury session and applies realm-handled fallbacks. */
+    public List<PoliceResult> expireDueSessions(long nowMs) {
+        List<TrialJurySession> timedOut = new ArrayList<>();
+        for (TrialJurySession session : sessionsByCaseId.values()) {
+            if (session.isTimedOut(nowMs)) {
+                timedOut.add(session);
+            }
+        }
+        List<PoliceResult> results = new ArrayList<>();
+        for (TrialJurySession session : timedOut) {
+            results.add(expireIfTimedOut(session.kingdomId(), session.accusedId(), nowMs));
+        }
+        return results;
     }
 
     public PoliceResult castVote(String kingdomId, UUID accusedId, UUID jurorId, boolean guilty) {

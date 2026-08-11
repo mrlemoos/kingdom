@@ -19,6 +19,8 @@ import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceResult;
 import dev.mrlemoos.kingdom.police.PoliceService;
+import dev.mrlemoos.kingdom.police.PoliceTrialService;
+import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
@@ -50,6 +52,8 @@ public final class KingdomPoliceHandler {
     private final NoblePrefixDisplay nobleDisplay;
     private final ArrestRewardService arrestRewardService;
     private final PoliceConfig config;
+    private PoliceTrialService trialService;
+    private TrialJuryRuntime trialJuryRuntime;
 
     public KingdomPoliceHandler(
             PoliceService policeService,
@@ -75,6 +79,11 @@ public final class KingdomPoliceHandler {
         this.config = policeService.config();
     }
 
+    public void setTrialJuryRuntime(PoliceTrialService trialService, TrialJuryRuntime trialJuryRuntime) {
+        this.trialService = trialService;
+        this.trialJuryRuntime = trialJuryRuntime;
+    }
+
     public boolean handlePolice(CommandSender sender, String[] args) {
         if (args.length == 0) {
             sender.sendMessage(policeHelp());
@@ -92,6 +101,8 @@ public final class KingdomPoliceHandler {
             case "list" -> handleList(sender);
             case "reward" -> handleReward(sender, args);
             case "cancelwarrant" -> handleCancelWarrant(sender, args);
+            case "arrest" -> handleArrest(sender, args);
+            case "jury" -> handleJury(sender);
             default -> {
                 sender.sendMessage(policeHelp());
                 yield true;
@@ -523,6 +534,71 @@ public final class KingdomPoliceHandler {
         return true;
     }
 
+    private boolean handleArrest(CommandSender sender, String[] args) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        if (trialService == null || trialJuryRuntime == null) {
+            sender.sendMessage(error("Police trial services are not ready."));
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        if (!policeService.isConstable(kingdomId, player.get().getUniqueId())) {
+            sender.sendMessage(error("Only a constable may arrest."));
+            return true;
+        }
+        Optional<Player> suspect = resolveArrestTarget(player.get(), args);
+        if (suspect.isEmpty()) {
+            sender.sendMessage(error("Usage: /kingdom police arrest <player> (or aim at a player)"));
+            return true;
+        }
+        Location suspectLoc = suspect.get().getLocation();
+        if (suspectLoc == null || !isInOwnTerritory(suspectLoc, kingdomId)) {
+            sender.sendMessage(error("The suspect must be inside your kingdom's territory."));
+            return true;
+        }
+        PoliceResult arrested =
+                trialService.arrest(kingdomId, player.get().getUniqueId(), suspect.get().getUniqueId());
+        sender.sendMessage(formatPolice(arrested));
+        if (!(arrested instanceof PoliceResult.Success)) {
+            return true;
+        }
+        store.saveFrom(kingdomService);
+        economyStore.saveFrom(economyService);
+        trialJuryRuntime.resolveAfterArrest(kingdomId, suspect.get().getUniqueId());
+        return true;
+    }
+
+    private boolean handleJury(CommandSender sender) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        if (trialJuryRuntime == null) {
+            sender.sendMessage(error("Trial jury is not ready."));
+            return true;
+        }
+        trialJuryRuntime.openBallotFor(player.get());
+        return true;
+    }
+
+    private Optional<Player> resolveArrestTarget(Player constable, String[] args) {
+        if (args.length >= 2) {
+            Player named = Bukkit.getPlayerExact(args[1]);
+            return Optional.ofNullable(named);
+        }
+        var targetEntity = constable.getTargetEntity(6);
+        if (targetEntity instanceof Player aimed) {
+            return Optional.of(aimed);
+        }
+        return Optional.empty();
+    }
+
     private boolean isNearCourt(Player player, String kingdomId) {
         Optional<CourtLocation> court = policeService.court(kingdomId);
         if (court.isEmpty()) {
@@ -649,6 +725,8 @@ public final class KingdomPoliceHandler {
                 + "\n" + c("&e/kingdom police despawn") + c("&7 — remove aimed or nearest golem")
                 + "\n" + c("&e/kingdom police reward <player> <amount>") + c("&7 — post or top up arrest reward at court")
                 + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — Crown cancels active warrant")
+                + "\n" + c("&e/kingdom police arrest <player>") + c("&7 — constable arrest (seats jury if no Judge)")
+                + "\n" + c("&e/kingdom police jury") + c("&7 — reopen trial-jury ballot")
                 + "\n" + c("&e/kingdom police status")
                 + "\n" + c("&e/kingdom police list");
     }

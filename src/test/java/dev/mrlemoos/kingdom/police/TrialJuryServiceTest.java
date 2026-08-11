@@ -170,6 +170,109 @@ class TrialJuryServiceTest {
         assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
     }
 
+    @Test
+    void resolveHearingAwaitsJudgeWhenEligibleJudgeOnline() {
+        openApproveAndArrest();
+        Set<UUID> online = Set.of(JUDGE, MEMBER_A, MEMBER_B, MEMBER_C);
+
+        HearingOutcome outcome = juryService.resolveHearing("northmarch", SUSPECT, online);
+
+        assertEquals(HearingResolution.AWAITING_JUDGE, outcome.resolution());
+        assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isPresent());
+    }
+
+    @Test
+    void resolveHearingSeatsJuryWhenNoJudgeAndPoolEnough() {
+        openApproveAndArrest();
+        Set<UUID> online = Set.of(KING, SUSPECT, CONSTABLE, MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D);
+
+        HearingOutcome outcome = juryService.resolveHearing("northmarch", SUSPECT, online);
+
+        assertEquals(HearingResolution.JURY_SEATED, outcome.resolution());
+        assertTrue(outcome.session().isPresent());
+        assertEquals(3, outcome.session().get().jurorIds().size());
+    }
+
+    @Test
+    void resolveHearingRealmHandlesWhenPoolTooSmall() {
+        openApproveAndArrest();
+        Set<UUID> online = Set.of(KING, SUSPECT, CONSTABLE, MEMBER_A);
+
+        HearingOutcome outcome = juryService.resolveHearing("northmarch", SUSPECT, online);
+
+        assertEquals(HearingResolution.REALM_HANDLED, outcome.resolution());
+        assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isEmpty());
+    }
+
+    @Test
+    void judgeComingOnlineDoesNotAbortLiveJury() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        TrialJurySession session = juryService.findSession("northmarch", SUSPECT).orElseThrow();
+        List<UUID> jurors = List.copyOf(session.jurorIds());
+
+        // Judge is now online — resolveHearing must not be re-run to steal the case;
+        // castVote still completes the jury.
+        HearingOutcome mid = juryService.resolveHearing(
+                "northmarch", SUSPECT, Set.of(JUDGE, MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        assertEquals(HearingResolution.JURY_ALREADY_SEATED, mid.resolution());
+
+        juryService.castVote("northmarch", SUSPECT, jurors.get(0), false);
+        juryService.castVote("northmarch", SUSPECT, jurors.get(1), false);
+        PoliceResult third = juryService.castVote("northmarch", SUSPECT, jurors.get(2), false);
+        assertInstanceOf(PoliceResult.Success.class, third);
+        assertEquals(
+                SentenceType.ACQUITTAL,
+                trialService.lastClosedSentence("northmarch", SUSPECT).orElseThrow());
+    }
+
+    @Test
+    void expireDueSessionsSweepsTimedOutJuries() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        TrialJurySession session = juryService.findSession("northmarch", SUSPECT).orElseThrow();
+
+        List<PoliceResult> expired = juryService.expireDueSessions(
+                session.openedAtMs() + TrialJuryConfig.defaults().windowMs() + 1);
+
+        assertEquals(1, expired.size());
+        assertInstanceOf(PoliceResult.Success.class, expired.get(0));
+        assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isEmpty());
+    }
+
+    @Test
+    void findSessionForJurorReturnsLiveSeat() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        UUID juror = juryService.findSession("northmarch", SUSPECT).orElseThrow().jurorIds().iterator().next();
+
+        Optional<TrialJurySession> found = juryService.findSessionForJuror(juror);
+
+        assertTrue(found.isPresent());
+        assertTrue(found.get().isJuror(juror));
+    }
+
+    @Test
+    void playerJudgeCannotSentenceWhileJurySeated() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        trialService.setTrialJuryService(juryService);
+
+        PoliceResult result =
+                trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.WARNING, 0, 0);
+
+        assertInstanceOf(PoliceResult.Failure.class, result);
+        assertTrue(result.message().toLowerCase().contains("jury"));
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isPresent());
+    }
+
     private void openApproveAndArrest() {
         ActBreach breach = new ActBreach("northmarch", "northmarch-build", ConductKind.BUILD_BAN);
         justice.openFromActBreach(breach, SUSPECT);
