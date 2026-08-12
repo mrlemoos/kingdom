@@ -15,6 +15,8 @@ public final class MpSeat {
     private MpSeatLocation originLocation;
     private Integer returnCount;
     private CandidateDeclaration declaration;
+    /** True when an ordinary villager MP is at their profession during recess. */
+    private boolean recessed;
 
     public MpSeat(int index) {
         if (index < 1 || index > 8) {
@@ -87,6 +89,7 @@ public final class MpSeat {
         this.entityId = null;
         this.returnCount = null;
         this.declaration = null;
+        this.recessed = false;
     }
 
     public void assignVillager(String professionName, UUID entityId) {
@@ -97,6 +100,7 @@ public final class MpSeat {
         this.originLocation = null;
         this.returnCount = null;
         this.declaration = null;
+        this.recessed = false;
     }
 
     public void clear() {
@@ -107,6 +111,7 @@ public final class MpSeat {
         this.originLocation = null;
         this.returnCount = null;
         this.declaration = null;
+        this.recessed = false;
     }
 
     public void setEntityId(UUID entityId) {
@@ -115,5 +120,14 @@ public final class MpSeat {
 
     public void setOriginLocation(MpSeatLocation originLocation) {
         this.originLocation = originLocation;
+    }
+
+    /** True when this villager MP is working their profession on a recess day. */
+    public boolean isRecessed() {
+        return recessed;
+    }
+
+    public void setRecessed(boolean recessed) {
+        this.recessed = recessed;
     }
 }

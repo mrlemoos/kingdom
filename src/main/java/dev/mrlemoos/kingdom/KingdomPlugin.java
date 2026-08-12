@@ -3,7 +3,9 @@ package dev.mrlemoos.kingdom;
 import dev.mrlemoos.kingdom.command.CoronaCommand;
 import dev.mrlemoos.kingdom.command.ElectionHandler;
 import dev.mrlemoos.kingdom.city.CityService;
+import dev.mrlemoos.kingdom.city.GazetteService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
+import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.command.KingdomCityHandler;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.KingdomFiscalHandler;
@@ -12,6 +14,8 @@ import dev.mrlemoos.kingdom.command.KingdomWhitelistHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.display.PlayerPrefixComposer;
+import dev.mrlemoos.kingdom.feedback.DivisionBossBarService;
+import dev.mrlemoos.kingdom.feedback.TrialBossBarService;
 import dev.mrlemoos.kingdom.election.ElectionConfig;
 import dev.mrlemoos.kingdom.election.ElectionService;
 import dev.mrlemoos.kingdom.election.ProductiveVillagerScanner;
@@ -70,6 +74,8 @@ import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.police.TrialJuryConfig;
 import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
 import dev.mrlemoos.kingdom.police.TrialJuryService;
+import dev.mrlemoos.kingdom.police.CourtSummonService;
+import dev.mrlemoos.kingdom.police.VillagerJuryEntityService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
 import dev.mrlemoos.kingdom.listener.PoliceGolemListener;
@@ -116,6 +122,8 @@ import org.incendo.cloud.paper.LegacyPaperCommandManager;
 public final class KingdomPlugin extends JavaPlugin {
 
         private KingdomService kingdomService;
+        private DivisionBossBarService divisionBossBarService;
+        private TrialBossBarService trialBossBarService;
         private YamlKingdomStore store;
         private dev.mrlemoos.kingdom.calendar.RealmCalendarService realmCalendarService;
         private LoyaltyService loyaltyService;
@@ -305,10 +313,28 @@ public final class KingdomPlugin extends JavaPlugin {
                                 mechanicalJusticeService,
                                 trialJuryConfig,
                                 new java.util.Random());
+                CourtSummonService courtSummonService = new CourtSummonService(policeService);
+                VillagerJuryEntityService villagerJuryEntityService = new VillagerJuryEntityService(
+                                this,
+                                kingdomService,
+                                policeService,
+                                policeCourtService,
+                                villagerMpEntityService);
+                trialJuryService.setVillagerJurorProvider(villagerJuryEntityService::claimJurors);
                 TrialJuryRuntime trialJuryRuntime = new TrialJuryRuntime(
-                                trialJuryService, policeTrialService, kingdomService, trialJuryConfig);
+                                trialJuryService,
+                                policeTrialService,
+                                kingdomService,
+                                policeService,
+                                trialJuryConfig);
+                trialJuryRuntime.setCourtSummonService(courtSummonService);
+                trialJuryRuntime.setVillagerJuryEntityService(villagerJuryEntityService);
                 policeHandler.setTrialJuryRuntime(policeTrialService, trialJuryRuntime);
                 policeTrialService.setTrialJuryService(trialJuryService);
+                TrialBossBarService trialBossBarService = new TrialBossBarService(
+                                this, kingdomService, trialJuryService::listSessions);
+                trialBossBarService.start();
+                this.trialBossBarService = trialBossBarService;
                 policeGolemService.setPatrolDetainDeps(
                                 mechanicalJusticeService,
                                 jurisdictionPort,
@@ -326,10 +352,13 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService, policeTrialService::isUnderPrisonSentence);
                 policeTrialService.setBuildPermitRevoker(cityService::revokeAllPermits);
                 LordMayorService lordMayorService = new LordMayorService(this, kingdomService);
+                TownCrierService townCrierService = new TownCrierService(this, kingdomService);
+                GazetteService gazetteService = new GazetteService(kingdomService);
                 KingdomCityHandler cityHandler = new KingdomCityHandler(
                                 kingdomService,
                                 cityService,
                                 lordMayorService,
+                                townCrierService,
                                 territoryResolver,
                                 store);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
@@ -436,6 +465,24 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 lordMayorService, cityService, kingdomService, store,
                                                 economyService, realmWealthRates),
                                 this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.TownCrierGuiListener(
+                                                townCrierService,
+                                                gazetteService,
+                                                kingdomService,
+                                                store,
+                                                economyService,
+                                                mechanicalJusticeService,
+                                                realmCalendarService,
+                                                dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig())),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.CurfewEnforcementListener(
+                                                this,
+                                                kingdomService,
+                                                territoryResolver,
+                                                mechanicalJusticeService),
+                                this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
                 getServer().getPluginManager().registerEvents(
@@ -509,17 +556,24 @@ public final class KingdomPlugin extends JavaPlugin {
                                 realmCalendarService,
                                 dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig()));
                 electionTask.setStateOpeningCeremony(stateOpeningCeremony);
+                divisionBossBarService = new DivisionBossBarService(kingdomService);
+                electionTask.setDivisionBossBarService(divisionBossBarService);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
                 TerritoryVillagerDespawnTask territoryVillagerDespawnTask = new TerritoryVillagerDespawnTask(this,
                                 villagerMpEntityService);
-                territoryVillagerDespawnTask.setLordMayorService(lordMayorService, kingdomService, store);
+                territoryVillagerDespawnTask.setCityNpcServices(
+                                lordMayorService, townCrierService, kingdomService, store);
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
                 getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);
                 getServer().getScheduler().runTaskLater(this, () -> {
-                        if (lordMayorService.reconcileAll()) {
+                        boolean changed = lordMayorService.reconcileAll();
+                        if (townCrierService.reconcileAll()) {
+                                changed = true;
+                        }
+                        if (changed) {
                                 store.saveFrom(kingdomService);
                         }
                 }, 40L);
@@ -531,6 +585,12 @@ public final class KingdomPlugin extends JavaPlugin {
 
         @Override
         public void onDisable() {
+                if (trialBossBarService != null) {
+                        trialBossBarService.stop();
+                }
+                if (divisionBossBarService != null) {
+                        divisionBossBarService.clearAll();
+                }
                 if (store != null && kingdomService != null) {
                         store.saveFrom(kingdomService);
                 }

@@ -9,7 +9,7 @@ import java.util.Optional;
 
 /**
  * Evaluates movement against enacted curfew conduct provisions using world-time facts.
- * Inside the configured window → allowed; outside → optional Act breach.
+ * Inside the configured curfew window → optional Act breach; outside → allowed.
  */
 public final class CurfewEvaluator {
 
@@ -23,7 +23,7 @@ public final class CurfewEvaluator {
         if (!config.enabled() || facts == null || activeActs == null || activeActs.isEmpty()) {
             return Optional.empty();
         }
-        if (config.isInsideWindow(facts.worldTimeTick())) {
+        if (!config.isInsideWindow(facts.worldTimeTick())) {
             return Optional.empty();
         }
         for (AssentedAct act : activeActs) {

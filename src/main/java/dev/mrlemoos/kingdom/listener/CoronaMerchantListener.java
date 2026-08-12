@@ -152,7 +152,8 @@ public final class CoronaMerchantListener implements Listener {
                 kingdomId,
                 villagerMpEntityService.isTreasuryLordVillager(villager),
                 villagerMpEntityService.isSeatedMpVillager(villager),
-                villagerMpEntityService.isKingdomTaggedMpVillager(villager));
+                villagerMpEntityService.isKingdomTaggedMpVillager(villager),
+                villagerMpEntityService.isTownCrierVillager(villager));
     }
 
     private boolean isOnStrike(Villager villager) {

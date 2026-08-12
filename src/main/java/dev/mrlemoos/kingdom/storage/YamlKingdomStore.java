@@ -25,6 +25,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
+import dev.mrlemoos.kingdom.model.parliament.KingdomFlag;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
@@ -34,6 +35,10 @@ import dev.mrlemoos.kingdom.parliament.DivisionBlocKind;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
 import dev.mrlemoos.kingdom.model.city.CapitalLocation;
+import dev.mrlemoos.kingdom.model.city.GazettePost;
+import dev.mrlemoos.kingdom.model.city.GazettePost.GazetteCurfewWindow;
+import dev.mrlemoos.kingdom.model.city.GazettePostKind;
+import dev.mrlemoos.kingdom.police.CurfewEnforcementConfig;
 import dev.mrlemoos.kingdom.model.police.ArrestReward;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
@@ -428,6 +433,23 @@ public final class YamlKingdomStore {
         writeActs(config, path + ".acts", state.assentedActsView());
         writeHansard(config, path + ".hansard", state.hansardView());
         writeElection(config, path, kingdom);
+        writeFlag(config, path + ".flag", kingdom.getFlag());
+    }
+
+    static void writeFlag(FileConfiguration config, String path, Optional<KingdomFlag> flag) {
+        if (flag.isEmpty()) {
+            return;
+        }
+        KingdomFlag design = flag.get();
+        config.set(path + ".base", design.baseMaterial());
+        List<Map<String, Object>> layers = new ArrayList<>();
+        for (KingdomFlag.Layer layer : design.layers()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("pattern", layer.patternId());
+            entry.put("colour", layer.colour());
+            layers.add(entry);
+        }
+        config.set(path + ".layers", layers);
     }
 
     static void readParliament(ConfigurationSection section, Kingdom kingdom) {
@@ -479,6 +501,38 @@ public final class YamlKingdomStore {
         state.replaceAssentedActs(readActs(section.getConfigurationSection("acts")));
         state.replaceHansard(readHansard(section.getConfigurationSection("hansard")));
         readElection(section, kingdom);
+        readFlag(section.getConfigurationSection("flag")).ifPresent(kingdom::setFlag);
+    }
+
+    static Optional<KingdomFlag> readFlag(ConfigurationSection section) {
+        if (section == null) {
+            return Optional.empty();
+        }
+        String base = section.getString("base");
+        if (base == null || base.isBlank()) {
+            return Optional.empty();
+        }
+        List<KingdomFlag.Layer> layers = new ArrayList<>();
+        List<?> rawLayers = section.getList("layers");
+        if (rawLayers != null) {
+            for (Object raw : rawLayers) {
+                if (!(raw instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                Object pattern = map.get("pattern");
+                Object colour = map.get("colour");
+                if (pattern == null || colour == null) {
+                    continue;
+                }
+                String patternId = String.valueOf(pattern).trim();
+                String colourName = String.valueOf(colour).trim();
+                if (patternId.isEmpty() || colourName.isEmpty()) {
+                    continue;
+                }
+                layers.add(new KingdomFlag.Layer(patternId, colourName));
+            }
+        }
+        return Optional.of(new KingdomFlag(base.trim(), layers));
     }
 
     private static void writeElection(FileConfiguration config, String path, Kingdom kingdom) {
@@ -1260,8 +1314,34 @@ public final class YamlKingdomStore {
         if (mayor.isPresent()) {
             config.set(path + ".lord-mayor-entity", mayor.get().toString());
         }
+        Optional<UUID> crier = city.townCrierEntityId();
+        if (crier.isPresent()) {
+            config.set(path + ".town-crier-entity", crier.get().toString());
+        }
         for (var entry : city.permitsView().entrySet()) {
             config.set(path + ".permits." + entry.getKey(), entry.getValue());
+        }
+        List<GazettePost> posts = city.gazettePostsView();
+        for (int i = 0; i < posts.size(); i++) {
+            GazettePost post = posts.get(i);
+            String postPath = path + ".gazette." + i;
+            config.set(postPath + ".title", post.title());
+            config.set(postPath + ".body", post.body());
+            config.set(postPath + ".author", post.authorUuid().toString());
+            config.set(postPath + ".mc-day", post.mcDay());
+            config.set(postPath + ".kind", post.kind().name().toLowerCase(Locale.ROOT));
+            Optional<GazetteCurfewWindow> curfew = post.curfew();
+            if (curfew.isPresent()) {
+                config.set(postPath + ".curfew.start", curfew.get().startTick());
+                config.set(postPath + ".curfew.end", curfew.get().endTick());
+            }
+        }
+        Optional<CurfewEnforcementConfig> decreeCurfew = city.decreeCurfew();
+        if (decreeCurfew.isPresent()) {
+            CurfewEnforcementConfig window = decreeCurfew.get();
+            config.set(path + ".decree-curfew.enabled", window.enabled());
+            config.set(path + ".decree-curfew.start", window.windowStartTick());
+            config.set(path + ".decree-curfew.end", window.windowEndTick());
         }
     }
 
@@ -1289,6 +1369,11 @@ public final class YamlKingdomStore {
             city.setLordMayorEntityId(UUID.fromString(mayorEntity));
         }
 
+        String crierEntity = section.getString("town-crier-entity");
+        if (crierEntity != null && !crierEntity.isBlank()) {
+            city.setTownCrierEntityId(UUID.fromString(crierEntity));
+        }
+
         ConfigurationSection permitsSection = section.getConfigurationSection("permits");
         if (permitsSection != null) {
             Map<UUID, Long> permits = new LinkedHashMap<>();
@@ -1296,6 +1381,65 @@ public final class YamlKingdomStore {
                 permits.put(UUID.fromString(key), permitsSection.getLong(key));
             }
             city.replacePermits(permits);
+        }
+
+        ConfigurationSection gazetteSection = section.getConfigurationSection("gazette");
+        if (gazetteSection != null) {
+            List<String> keys = new ArrayList<>(gazetteSection.getKeys(false));
+            keys.sort(Comparator.comparingInt(key -> {
+                try {
+                    return Integer.parseInt(key);
+                } catch (NumberFormatException ignored) {
+                    return Integer.MAX_VALUE;
+                }
+            }));
+            List<GazettePost> posts = new ArrayList<>();
+            for (String key : keys) {
+                ConfigurationSection postSection = gazetteSection.getConfigurationSection(key);
+                if (postSection == null) {
+                    continue;
+                }
+                String author = postSection.getString("author");
+                if (author == null || author.isBlank()) {
+                    continue;
+                }
+                GazettePostKind kind = parseGazetteKind(postSection.getString("kind"));
+                Optional<GazetteCurfewWindow> curfew = Optional.empty();
+                ConfigurationSection curfewSection = postSection.getConfigurationSection("curfew");
+                if (curfewSection != null) {
+                    curfew = Optional.of(new GazetteCurfewWindow(
+                            curfewSection.getLong("start"), curfewSection.getLong("end")));
+                }
+                posts.add(new GazettePost(
+                        postSection.getString("title", ""),
+                        postSection.getString("body", ""),
+                        UUID.fromString(author),
+                        postSection.getLong("mc-day"),
+                        kind,
+                        curfew));
+            }
+            city.replaceGazettePosts(posts);
+        }
+
+        ConfigurationSection decreeCurfewSection = section.getConfigurationSection("decree-curfew");
+        if (decreeCurfewSection != null) {
+            boolean enabled = decreeCurfewSection.getBoolean("enabled", true);
+            long start = decreeCurfewSection.getLong("start", 13_000L);
+            long end = decreeCurfewSection.getLong("end", 23_000L);
+            city.setDecreeCurfew(enabled
+                    ? CurfewEnforcementConfig.enabled(start, end)
+                    : CurfewEnforcementConfig.disabled(start, end));
+        }
+    }
+
+    private static GazettePostKind parseGazetteKind(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return GazettePostKind.ANNOUNCEMENT;
+        }
+        try {
+            return GazettePostKind.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return GazettePostKind.ANNOUNCEMENT;
         }
     }
 

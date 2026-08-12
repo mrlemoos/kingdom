@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.model;
 import dev.mrlemoos.kingdom.calendar.KingdomReignHistory;
 import dev.mrlemoos.kingdom.model.city.KingdomCityState;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
+import dev.mrlemoos.kingdom.model.parliament.KingdomFlag;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentSites;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
@@ -19,6 +20,7 @@ public final class Kingdom {
     private final Map<String, TeleportPlace> teleports = new HashMap<>();
     private final ParliamentSites parliamentSites = new ParliamentSites();
     private final ParliamentState parliamentState = new ParliamentState();
+    private KingdomFlag flag;
     private final KingdomElectionState electionState = new KingdomElectionState();
     private final KingdomPoliceState policeState = new KingdomPoliceState();
     private final KingdomCityState cityState = new KingdomCityState();
@@ -95,6 +97,18 @@ public final class Kingdom {
 
     public ParliamentState getParliamentState() {
         return parliamentState;
+    }
+
+    public Optional<KingdomFlag> getFlag() {
+        return Optional.ofNullable(flag);
+    }
+
+    public void setFlag(KingdomFlag flag) {
+        this.flag = flag;
+    }
+
+    public void clearFlag() {
+        this.flag = null;
     }
 
     public KingdomElectionState getElectionState() {

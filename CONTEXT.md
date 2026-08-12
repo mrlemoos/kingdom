@@ -202,6 +202,10 @@ _Avoid_: NPC Speaker, speaker bot, acting Speaker
 The chamber where the King or Queen grants or withholds royal assent on bills passed by the Commons. Assent and rejection both require the monarch to be present in the Lords.
 _Avoid_: Upper house (in player-facing text), senate
 
+**Kingdom flag**:
+The banner that identifies the kingdom, flown as the Royal Standard one block east of the House of Lords. Set when the monarch runs `/kingdom parliament set lords` while holding a finished banner (consumed); otherwise the first raise defaults to Crown gold, and later empty-hand re-sets keep the stored design. Persisted with base colour and loom patterns; break is temporary until the next raise or Lords set; moving Lords clears the old banner block if it still holds a banner.
+_Avoid_: Faction banner, custom map art, coat of arms GUI
+
 **Act**:
 A bill that has passed the Commons and received royal assent. Enacts fiscal rates, a budget cap, or an authorised treasury spend. Recorded as a written book in the registrar.
 _Avoid_: Law, statute, decree
@@ -873,3 +877,35 @@ _Avoid_: Permit list, whitelist, roster
 **Unlicensed building**:
 An attempt to place or break a block inside linked territory without a **build permit**. The action is refused and the player told why, at most once in a short interval. It is not a crime: no **warrant** is opened and no **political loyalty** is lost, unlike a **build-ban Act** breach.
 _Avoid_: Griefing, trespass, illegal build, build offence
+
+**Town Crier**:
+The realm NPC that keeps the **Gazette** at the **capital**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned with the capital, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy. A text display above its head cycles the newest Crown posts when a player is nearby.
+_Avoid_: Herald, messenger, news NPC, bulletin board
+
+**Gazette**:
+The kingdom's notice board, read by right-clicking the **Town Crier**. It shows Crown-authored **announcements** and **decrees** (persisted) together with live realm state computed when the board is opened — open bills, the next election, the wanted list, permit count, and the treasury — never stored.
+_Avoid_: Newspaper, news feed, event log, bulletin
+
+**Announcement**:
+A Crown post to the **Gazette** that informs the realm. Cap of twenty; the oldest drops when a new one is pinned. It does not enter **Hansard**, does not broadcast, and carries no mechanics.
+_Avoid_: Notice, news item, proclamation (prefer **decree** for binding Crown acts)
+
+**Decree**:
+A binding Crown act published to the **Gazette**, entered in **Hansard**, and announced once to online members. A decree may set, change, or lift the kingdom's **curfew**; no other mechanical effects travel with it.
+_Avoid_: Proclamation, edict, executive order, Act of Parliament
+
+**Curfew**:
+The hours, in Minecraft day ticks, during which being abroad in a kingdom's linked territory is an offence. Set per kingdom by **decree** (with named presets), falling back to the plugin's `enforcement.curfew` defaults when no decree is in force. A lift decree turns enforcement off. Breach opens a **warrant** application through the ordinary Crown-approval pipeline. The **King or Queen** and **Princes or Princesses** of that kingdom are immune; operators are not.
+_Avoid_: Lockdown, night ban, movement ban, teleport home
+
+**Sitting day**:
+An even **realm day** on which the Commons sits. Divisions open only on sitting days. Ordinary **villager MPs** attend Parliament; the **Premier** villager and **villager Speaker** attend every day Parliament is in session.
+_Avoid_: Session day, sitting week, parliamentary day
+
+**Recess**:
+An odd **realm day** when the Commons does not sit. Ordinary **villager MPs** return to their professions (keeping the **[MP]** nametag and territory despawn protection). Bills tabled in recess wait on the order paper until the next sitting day. While Parliament is **prorogued** there are no sitting days: villager MPs work every day until State Opening.
+_Avoid_: Holiday, adjournment, vacation, break
+
+**Villager jury**:
+A trial jury of three territory villagers claimed when fewer than three eligible players are online. They are released to their stored origins when the trial ends. The verdict still comes from the realm-handled sentence table; the spectacle is bodies in seats, sound, and the trial bar. Excludes the accused (if a villager), seated MPs and the Premier, the Speaker, Treasury Lords, the villager judge, the **Town Crier**, and striking villagers. Fewer than three eligible villagers falls to the villager judge alone.
+_Avoid_: NPC jury, fake jury, auto jury

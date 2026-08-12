@@ -20,8 +20,9 @@ public final class TerritoryVillagerDespawnPolicy {
         return true;
     }
 
-    public static boolean shouldManage(boolean treasuryLord, boolean seatedMp, boolean kingdomTaggedMp) {
-        return !treasuryLord && !seatedMp && !kingdomTaggedMp;
+    public static boolean shouldManage(
+            boolean treasuryLord, boolean seatedMp, boolean kingdomTaggedMp, boolean townCrier) {
+        return !treasuryLord && !seatedMp && !kingdomTaggedMp && !townCrier;
     }
 
     public static boolean shouldApplyProtection(boolean inTerritory, boolean shouldManage) {

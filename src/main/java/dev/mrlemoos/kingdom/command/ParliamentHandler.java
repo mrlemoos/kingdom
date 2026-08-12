@@ -20,6 +20,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.parliament.AssentedEnactmentResult;
 import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionTally;
@@ -302,13 +303,28 @@ public final class ParliamentHandler {
                 yield finish(sender, result);
             }
             case "lords" -> {
+                Optional<Kingdom> kingdomOpt = kingdomService.getKingdom(kingdomId);
+                Optional<ChamberSite> previousLords = kingdomOpt.flatMap(k -> k.getParliamentSites().lords());
+                Optional<dev.mrlemoos.kingdom.model.parliament.KingdomFlag> held =
+                        kingdomFlagFromHand(player.get());
                 ParliamentResult result = parliamentService.setLords(
                         kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
                                 location.getZ()));
+                if (result instanceof ParliamentResult.Success) {
+                    Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+                    if (kingdom.isPresent()) {
+                        var resolved = dev.mrlemoos.kingdom.parliament.KingdomFlagResolver.resolve(
+                                kingdom.get().getFlag(), held);
+                        kingdom.get().setFlag(resolved);
+                        if (held.isPresent()) {
+                            consumeOneFromMainHand(player.get());
+                        }
+                    }
+                }
                 boolean done = finish(sender, result);
                 if (result instanceof ParliamentResult.Success && royalStandardPlacer != null
-                        && royalStandardPlacer.raiseFor(kingdomId)) {
-                    sender.sendMessage(success("The Royal Standard flies over the Lords."));
+                        && royalStandardPlacer.moveAndRaise(kingdomId, previousLords)) {
+                    sender.sendMessage(success("The kingdom flag flies over the Lords."));
                 }
                 yield done;
             }
@@ -391,6 +407,7 @@ public final class ParliamentHandler {
         player.sendMessage(success(
                 ((AssentedEnactmentResult.Success) enacted).message() + " Act archived in the registrar."));
         broadcastParliament(kingdomId, c("&aRoyal assent granted: ")+ draft.get().title());
+        RealmFeedback.royalAssent(kingdomService, kingdomId);
         return true;
     }
 
@@ -523,6 +540,7 @@ public final class ParliamentHandler {
             player.sendMessage(success(success.message()));
             if (motion) {
                 broadcastParliament(kingdomId, c("&c" + success.message()));
+                RealmFeedback.billFailed(kingdomService, kingdomId);
                 broadcastDivisionBlocs(kingdomId);
                 kingdomStore.saveFrom(kingdomService);
                 return result;
@@ -531,8 +549,10 @@ public final class ParliamentHandler {
                 broadcastParliament(
                         kingdomId,
                         c("&aA bill passed the Commons: ")+ parliamentService.currentBill(kingdomId).map(Bill::title).orElse("bill"));
+                RealmFeedback.billPassed(kingdomService, kingdomId);
             } else if (success.message().contains("failed")) {
                 broadcastParliament(kingdomId, c("&cA bill failed the Commons division."));
+                RealmFeedback.billFailed(kingdomService, kingdomId);
             }
             broadcastDivisionBlocs(kingdomId);
             kingdomStore.saveFrom(kingdomService);
@@ -560,6 +580,7 @@ public final class ParliamentHandler {
             player.sendMessage(success(success.message()));
             villagerPremierInauguralService.clearPendingBudgetOnBillFailure(kingdomId);
             broadcastParliament(kingdomId, c("&cRoyal assent withheld. Bill rejected."));
+            RealmFeedback.billFailed(kingdomService, kingdomId);
             kingdomStore.saveFrom(kingdomService);
             return result;
         }
@@ -647,6 +668,19 @@ public final class ParliamentHandler {
         return null;
     }
 
+    private static Optional<dev.mrlemoos.kingdom.model.parliament.KingdomFlag> kingdomFlagFromHand(Player player) {
+        return dev.mrlemoos.kingdom.parliament.KingdomFlagItems.fromItem(player.getInventory().getItemInMainHand());
+    }
+
+    private static void consumeOneFromMainHand(Player player) {
+        org.bukkit.inventory.ItemStack hand = player.getInventory().getItemInMainHand();
+        if (hand.getAmount() <= 1) {
+            player.getInventory().setItemInMainHand(null);
+        } else {
+            hand.setAmount(hand.getAmount() - 1);
+        }
+    }
+
     Optional<Player> requirePlayer(CommandSender sender) {
         if (sender instanceof Player player) {
             return Optional.of(player);
@@ -670,7 +704,7 @@ public final class ParliamentHandler {
 
     public String help() {
         return info("Parliament:")
-                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")+ c("&7 — set chamber sites (monarch)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
+                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")+ c("&7 — set chamber sites (monarch; hold a banner when setting lords to define the kingdom flag)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
     }
 
     public String success(String message) {

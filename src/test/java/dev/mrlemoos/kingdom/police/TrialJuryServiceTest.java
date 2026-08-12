@@ -141,7 +141,7 @@ class TrialJuryServiceTest {
     }
 
     @Test
-    void timeoutWithoutFullVotesAbortsToRealmHandled() {
+    void timeoutDecidesOnBallotsCastSoFar() {
         openApproveAndArrest();
         juryService.trySeatJury(
                 "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
@@ -153,9 +153,47 @@ class TrialJuryServiceTest {
                 "northmarch", SUSPECT, session.openedAtMs() + TrialJuryConfig.defaults().windowMs() + 1);
 
         assertInstanceOf(PoliceResult.Success.class, expired);
+        assertTrue(expired.message().toLowerCase().contains("guilty"));
+        assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
+        assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isEmpty());
+    }
+
+    @Test
+    void timeoutWithNoVotesFallsToRealmHandled() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        TrialJurySession session = juryService.findSession("northmarch", SUSPECT).orElseThrow();
+
+        PoliceResult expired = juryService.expireIfTimedOut(
+                "northmarch", SUSPECT, session.openedAtMs() + TrialJuryConfig.defaults().windowMs() + 1);
+
+        assertInstanceOf(PoliceResult.Success.class, expired);
         assertTrue(expired.message().toLowerCase().contains("realm"));
         assertTrue(juryService.findSession("northmarch", SUSPECT).isEmpty());
         assertTrue(trialService.findOpenCase("northmarch", SUSPECT).isEmpty());
+    }
+
+    @Test
+    void abstentionThenTwoNotGuiltyAcquits() {
+        openApproveAndArrest();
+        juryService.trySeatJury(
+                "northmarch", SUSPECT, Set.of(MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D));
+        TrialJurySession session = juryService.findSession("northmarch", SUSPECT).orElseThrow();
+        List<UUID> jurors = List.copyOf(session.jurorIds());
+
+        assertInstanceOf(
+                PoliceResult.Success.class,
+                juryService.recordAbstention("northmarch", SUSPECT, jurors.get(0)));
+        assertInstanceOf(
+                PoliceResult.Success.class,
+                juryService.castVote("northmarch", SUSPECT, jurors.get(1), false));
+        PoliceResult third = juryService.castVote("northmarch", SUSPECT, jurors.get(2), false);
+
+        assertInstanceOf(PoliceResult.Success.class, third);
+        assertEquals(
+                SentenceType.ACQUITTAL,
+                trialService.lastClosedSentence("northmarch", SUSPECT).orElseThrow());
     }
 
     @Test

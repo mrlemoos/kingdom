@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.command;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
@@ -511,6 +512,7 @@ public final class KingdomCommand {
                 reconcileReignOf(target.getUniqueId());
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
+                RealmFeedback.titleChanged(target.getUniqueId(), null);
             }
             return;
         }
@@ -532,6 +534,7 @@ public final class KingdomCommand {
                 reconcileReignOf(target.getUniqueId());
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
+                RealmFeedback.titleChanged(target.getUniqueId(), rank.displayTitle(style));
                 if (coronationCeremony != null) {
                     coronationCeremony.crownIfDue(target.getUniqueId(), rank, throneWasVacant);
                 }

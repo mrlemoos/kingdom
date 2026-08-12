@@ -28,6 +28,7 @@ import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
 import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionTally;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
+import dev.mrlemoos.kingdom.parliament.SittingCalendar;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
@@ -659,6 +660,11 @@ public final class ParliamentService {
         }
     }
 
+    /** How many in-game days a division stays open under a villager Speaker. */
+    public int divisionWindowMcDays() {
+        return divisionWindowMcDays;
+    }
+
     public void setDivisionWindowMcDays(int divisionWindowMcDays) {
         this.divisionWindowMcDays = Math.max(divisionWindowMcDays, 0);
     }
@@ -702,10 +708,15 @@ public final class ParliamentService {
 
     /**
      * Moves Commons business along under a villager Speaker: opens the division on the bill before the
-     * House, then closes it once the division window has run—or at once when no player MP is seated to
-     * vote. Empty when nothing was due.
+     * House on a sitting day, then closes it once the division window has run—or at once when neither
+     * player nor villager MPs are seated to vote. Empty when nothing was due.
      */
     public Optional<ParliamentResult> conductVillagerSpeakerDivision(String kingdomId, long currentMcDay) {
+        return conductVillagerSpeakerDivision(kingdomId, currentMcDay, currentMcDay);
+    }
+
+    public Optional<ParliamentResult> conductVillagerSpeakerDivision(
+            String kingdomId, long currentMcDay, long realmDay) {
         if (!needsVillagerSpeaker(kingdomId) || !isSessionOpen(kingdomId)) {
             return Optional.empty();
         }
@@ -721,25 +732,51 @@ public final class ParliamentService {
         boolean playerMpsSeated = kingdomService.getKingdom(kingdomId)
                 .map(k -> hasSeatedPlayerMps(k.getElectionState()))
                 .orElse(false);
+        boolean villagerMpsSeated = kingdomService.getKingdom(kingdomId)
+                .map(k -> hasSeatedVillagerMps(k.getElectionState()))
+                .orElse(false);
 
         if (bill.state() == BillState.TABLED) {
+            if (!SittingCalendar.allowsDivision(realmDay, false)) {
+                return Optional.empty();
+            }
             bill.setState(BillState.DIVISION_OPEN);
             bill.setDivisionClosesOnMcDay(currentMcDay + divisionWindowMcDays);
-            if (stillSitting(bill, playerMpsSeated, currentMcDay)) {
+            if (stillSitting(bill, playerMpsSeated, villagerMpsSeated, currentMcDay)) {
                 return Optional.of(ParliamentResult.ok("The Speaker has opened a division on " + bill.title() + "."));
             }
             return Optional.of(closeVillagerSpeakerDivision(kingdomId, bill, currentMcDay));
         }
 
-        if (bill.state() != BillState.DIVISION_OPEN || stillSitting(bill, playerMpsSeated, currentMcDay)) {
+        if (bill.state() != BillState.DIVISION_OPEN
+                || stillSitting(bill, playerMpsSeated, villagerMpsSeated, currentMcDay)) {
+            return Optional.empty();
+        }
+        boolean emptyHouse = !playerMpsSeated && !villagerMpsSeated;
+        if (emptyHouse && !SittingCalendar.allowsDivision(realmDay, false)) {
+            // Recess with the benches away: do not decide the bill on the Speaker's nay alone.
             return Optional.empty();
         }
         return Optional.of(closeVillagerSpeakerDivision(kingdomId, bill, currentMcDay));
     }
 
-    /** A division stays open only while player MPs have time left to vote in it. */
-    private static boolean stillSitting(Bill bill, boolean playerMpsSeated, long currentMcDay) {
-        return playerMpsSeated && currentMcDay < bill.divisionClosesOnMcDay().orElse(currentMcDay);
+    /** A division stays open while anyone seated has time left to vote in it. */
+    private static boolean stillSitting(
+            Bill bill, boolean playerMpsSeated, boolean villagerMpsSeated, long currentMcDay) {
+        boolean anyoneSeated = playerMpsSeated || villagerMpsSeated;
+        return anyoneSeated && currentMcDay < bill.divisionClosesOnMcDay().orElse(currentMcDay);
+    }
+
+    private static boolean hasSeatedVillagerMps(
+            dev.mrlemoos.kingdom.model.election.KingdomElectionState electionState) {
+        for (dev.mrlemoos.kingdom.model.election.MpSeat seat : electionState.seatsView().values()) {
+            if (seat.kind() == dev.mrlemoos.kingdom.model.election.MpSeatKind.VILLAGER
+                    && seat.entityId().isPresent()
+                    && !seat.isRecessed()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ParliamentResult closeVillagerSpeakerDivision(String kingdomId, Bill bill, long currentMcDay) {

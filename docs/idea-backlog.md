@@ -48,7 +48,7 @@ on the WorldGuard capture spike.
 | Idea | Sketch | Rides on |
 |---|---|---|
 | **Coronation** | ~~Same ceremony machinery as the State Opening, fired when a King or Queen is first assigned.~~ **Done** — `CoronationDecision` fires only on a vacant throne via `/kingdom title`; `CoronationCeremony` summons, crowns, proclaims, auto-returns; no Lords site → proclamation only, never blocks the title. | State Opening ceremony, `SafeChamberLanding` |
-| **Royal Standard** | ~~Banner auto-placed at the Lords in the kingdom's colour.~~ **Done** — `RoyalStandardPlacer` raises a banner beside the Lords point on `parliament set lords` and startup sync. No per-kingdom colour exists, so it flies Crown gold. | Lords site, rank colours |
+| **Royal Standard** | ~~Banner auto-placed at the Lords in the kingdom's colour.~~ **Done** — kingdom flag beside Lords; hold banner on `parliament set lords` to set design (else Crown gold / keep stored); persist patterns in `data.yml`. | Lords site, kingdom flag |
 | **Titles in death messages** | ~~"LORD Bob was slain" — one listener.~~ **Done** — `DeathMessageTitleListener` splices the full coloured prefix into the vanilla message; citizens unaffected. | Rank prefixes |
 
 ## Suggested first three

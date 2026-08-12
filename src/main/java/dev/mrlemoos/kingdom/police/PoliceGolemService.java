@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.police;
 
 import dev.mrlemoos.kingdom.model.police.GolemOfficerKind;
 import dev.mrlemoos.kingdom.model.police.GolemOrder;
+import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.HashSet;
 import java.util.Objects;
@@ -223,6 +224,73 @@ public final class PoliceGolemService {
 
     public void removeGolem(Entity entity) {
         entity.remove();
+    }
+
+    /**
+     * Teleports guard golems posted at the old court to the new court site.
+     */
+    public void relocateCourtGuards(String kingdomId, CourtLocation from, CourtLocation to) {
+        if (from == null || to == null) {
+            return;
+        }
+        World fromWorld = Bukkit.getWorld(from.worldName());
+        World toWorld = Bukkit.getWorld(to.worldName());
+        if (fromWorld == null || toWorld == null) {
+            return;
+        }
+        Location destination = new Location(toWorld, to.x() + 0.5, to.y(), to.z() + 0.5);
+        Location origin = new Location(fromWorld, from.x() + 0.5, from.y(), from.z() + 0.5);
+        double rangeSq = CourtProximity.BALLOT_RANGE_BLOCKS * CourtProximity.BALLOT_RANGE_BLOCKS;
+        Optional<dev.mrlemoos.kingdom.model.Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return;
+        }
+        for (UUID golemId : kingdom.get().getPoliceState().guardGolemsView()) {
+            Optional<IronGolem> golem = findGolemById(golemId).filter(g -> isValidGolem(g, kingdomId));
+            if (golem.isEmpty()) {
+                continue;
+            }
+            IronGolem guard = golem.get();
+            if (!guard.getWorld().equals(fromWorld)) {
+                continue;
+            }
+            if (guard.getLocation().distanceSquared(origin) > rangeSq) {
+                continue;
+            }
+            guard.teleport(destination);
+        }
+    }
+
+    /** Removes guard golems posted at the court and deregisters them. */
+    public void despawnCourtGuards(String kingdomId, CourtLocation court) {
+        if (court == null) {
+            return;
+        }
+        World world = Bukkit.getWorld(court.worldName());
+        if (world == null) {
+            return;
+        }
+        Location origin = new Location(world, court.x() + 0.5, court.y(), court.z() + 0.5);
+        double rangeSq = CourtProximity.BALLOT_RANGE_BLOCKS * CourtProximity.BALLOT_RANGE_BLOCKS;
+        Optional<dev.mrlemoos.kingdom.model.Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return;
+        }
+        for (UUID golemId : Set.copyOf(kingdom.get().getPoliceState().guardGolemsView())) {
+            Optional<IronGolem> golem = findGolemById(golemId).filter(g -> isValidGolem(g, kingdomId));
+            if (golem.isEmpty()) {
+                continue;
+            }
+            IronGolem guard = golem.get();
+            if (!guard.getWorld().equals(world)) {
+                continue;
+            }
+            if (guard.getLocation().distanceSquared(origin) > rangeSq) {
+                continue;
+            }
+            policeService.deregisterGolem(kingdomId, golemId);
+            removeGolem(guard);
+        }
     }
 
     public void pruneStaleGolems() {

@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.command;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
@@ -313,6 +314,7 @@ public final class ElectionHandler {
                 villagerMpEntityService.syncKingdom(kingdomId);
                 store.saveFrom(kingdomService);
                 refreshMpDisplays(kingdomId);
+                announceResult(kingdomId);
                 Bukkit.broadcastMessage(c("&6The general election in ")+ kingdom.getDisplayName() + " has closed.");
                 ElectionResult premierResult =
                         villagerPremierInauguralService.resolveAfterGeneralElection(kingdomId, professionCounts);
@@ -334,6 +336,7 @@ public final class ElectionHandler {
             if (premier) {
                 store.saveFrom(kingdomService);
                 refreshMpDisplays(kingdomId);
+                announceResult(kingdomId);
                 if (outcome.premierWinner() != null) {
                     Player online = Bukkit.getPlayer(outcome.premierWinner());
                     if (online != null) {
@@ -347,6 +350,7 @@ public final class ElectionHandler {
             villagerMpEntityService.syncKingdom(kingdomId);
             store.saveFrom(kingdomService);
             refreshMpDisplays(kingdomId);
+            announceResult(kingdomId);
             Bukkit.broadcastMessage(c("&6The election in ")+ kingdom.getDisplayName() + " has closed.");
             if (commonsReturnAnnouncer != null && byElectionSeat != null) {
                 commonsReturnAnnouncer.announceSeatReturn(kingdomId, byElectionSeat);
@@ -418,6 +422,23 @@ public final class ElectionHandler {
                 if (online != null) {
                     nobleDisplay.refresh(online);
                 }
+            }
+        }
+    }
+
+    /**
+     * The result heard by the whole realm, and told again to each member returned to office.
+     */
+    private void announceResult(String kingdomId) {
+        RealmFeedback.electionResult(kingdomService, kingdomId);
+        for (PlayerMembership membership : kingdomService.getMembershipsView().values()) {
+            if (!kingdomId.equals(membership.getKingdomId())) {
+                continue;
+            }
+            if (membership.getRank() == NobleRank.MP) {
+                RealmFeedback.tookOffice(membership.getPlayerId(), "a Member of Parliament");
+            } else if (membership.getRank() == NobleRank.PREMIER) {
+                RealmFeedback.tookOffice(membership.getPlayerId(), "Premier");
             }
         }
     }

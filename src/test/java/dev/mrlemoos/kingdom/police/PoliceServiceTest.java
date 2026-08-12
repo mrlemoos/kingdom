@@ -253,4 +253,36 @@ class PoliceServiceTest {
 
         assertTrue(policeService.hasCourt("northmarch"));
     }
+
+    @Test
+    void setCourtAcceptsStandingPositionWithoutLectern() {
+        CourtLocation standing = new CourtLocation("world", 12, 70, -4);
+
+        PoliceResult result = policeService.setCourt("northmarch", NobleRank.KING, false, standing);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertEquals(standing, policeService.court("northmarch").orElseThrow());
+    }
+
+    @Test
+    void clearCourtRemovesCourtAndJudgeEntity() {
+        policeService.setCourt("northmarch", NobleRank.KING, false, new CourtLocation("world", 5, 64, 5));
+        policeService.setJudgeEntityId("northmarch", GUARD_GOLEM);
+
+        PoliceResult result = policeService.clearCourt("northmarch", NobleRank.KING, false);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertFalse(policeService.hasCourt("northmarch"));
+        assertTrue(policeService.judgeEntityId("northmarch").isEmpty());
+    }
+
+    @Test
+    void nonCrownCannotClearCourt() {
+        policeService.setCourt("northmarch", NobleRank.KING, false, new CourtLocation("world", 5, 64, 5));
+
+        PoliceResult result = policeService.clearCourt("northmarch", NobleRank.KNIGHT, false);
+
+        assertInstanceOf(PoliceResult.Failure.class, result);
+        assertTrue(policeService.hasCourt("northmarch"));
+    }
 }

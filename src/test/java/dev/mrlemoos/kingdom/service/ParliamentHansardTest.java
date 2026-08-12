@@ -104,8 +104,8 @@ class ParliamentHansardTest {
         kingdomService.clearTitle(SPEAKER);
         parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 50, "Budget Act 2026");
 
-        parliamentService.conductVillagerSpeakerDivision("northmarch", 7L);
-        parliamentService.conductVillagerSpeakerDivision("northmarch", 9L);
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 7L, 0L);
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 9L, 0L);
 
         assertEquals(1, hansard().size());
         assertEquals(9L, hansard().get(0).decidedOnMcDay());

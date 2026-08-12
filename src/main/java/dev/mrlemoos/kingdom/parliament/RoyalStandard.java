@@ -5,12 +5,13 @@ import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import java.util.Optional;
 
 /**
- * The Royal Standard: the banner that marks the House of Lords as the Crown's chamber.
+ * The Royal Standard: the kingdom flag flown beside the House of Lords.
  *
  * <p>
- * A kingdom carries no colour of its own, so the standard flies the Crown's own rank colour rather
- * than a newly invented persisted field. Its position is derived from the stored Lords point, one
- * block to the east so it never stands where a peer lands.
+ * Position is derived from the stored Lords point, one block to the east so it never stands where a
+ * peer lands. The design is the persisted {@linkplain
+ * dev.mrlemoos.kingdom.model.parliament.KingdomFlag kingdom flag}; when none is stored yet, Crown
+ * gold is used.
  */
 public final class RoyalStandard {
 

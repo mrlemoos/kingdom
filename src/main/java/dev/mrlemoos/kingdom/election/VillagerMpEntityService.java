@@ -12,6 +12,7 @@ import dev.mrlemoos.kingdom.model.election.MpSeatLocation;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
+import dev.mrlemoos.kingdom.parliament.SittingCalendar;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,6 +47,7 @@ public final class VillagerMpEntityService {
     private final NamespacedKey mpKingdomTagKey;
     private final NamespacedKey mpOriginKey;
     private final NamespacedKey treasuryLordTagKey;
+    private final NamespacedKey townCrierTagKey;
     private EconomyService economyService;
     private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
 
@@ -61,6 +63,7 @@ public final class VillagerMpEntityService {
         this.mpKingdomTagKey = new NamespacedKey(plugin, "kingdom_mp");
         this.mpOriginKey = new NamespacedKey(plugin, "kingdom_mp_origin");
         this.treasuryLordTagKey = new NamespacedKey(plugin, "treasury_lord");
+        this.townCrierTagKey = new NamespacedKey(plugin, "town_crier");
     }
 
     public void setVillagerStrikeSource(EconomyService economyService, VillagerEconomyConfig villagerEconomyConfig) {
@@ -70,11 +73,23 @@ public final class VillagerMpEntityService {
     }
 
     public void syncKingdom(String kingdomId) {
+        syncKingdom(kingdomId, 0L, false);
+    }
+
+    /**
+     * Syncs villager MPs for the sitting calendar: ordinary villager MPs work professions on recess
+     * (and while prorogued); Premier villager and Speaker stay at Parliament.
+     */
+    public void syncKingdom(String kingdomId, long realmDay, boolean prorogued) {
         kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
             releaseOrphanedMpVillagers(kingdomId);
             reconcileStrandedMpVillagers(kingdom);
             syncSpeaker(kingdom);
-            syncSeats(kingdom);
+            if (SittingCalendar.villagerMpsAtProfession(realmDay, prorogued)) {
+                releaseOrdinaryVillagerMpsForRecess(kingdom);
+            } else {
+                syncSeatsWithSubstitution(kingdom);
+            }
             refreshTerritoryVillagerNametags(kingdom);
             reconcileKingdomWorldTerritoryVillagerDespawn(kingdom);
         });
@@ -174,7 +189,8 @@ public final class VillagerMpEntityService {
         boolean treasuryLord = isTreasuryLord(villager);
         boolean seatedMp = isSeatedMpVillager(villager.getUniqueId());
         boolean kingdomTaggedMp = isMpVillager(villager);
-        if (!TerritoryVillagerDespawnPolicy.shouldManage(treasuryLord, seatedMp, kingdomTaggedMp)) {
+        boolean townCrier = isTownCrier(villager);
+        if (!TerritoryVillagerDespawnPolicy.shouldManage(treasuryLord, seatedMp, kingdomTaggedMp, townCrier)) {
             return;
         }
 
@@ -313,7 +329,7 @@ public final class VillagerMpEntityService {
         return world == null ? Optional.empty() : Optional.of(new Location(world, site.x(), site.y(), site.z()));
     }
 
-    private void syncSeats(Kingdom kingdom) {
+    private void syncSeatsWithSubstitution(Kingdom kingdom) {
         Set<UUID> reserved = seatedVillagerEntityIds(kingdom);
         for (MpSeat seat : kingdom.getElectionState().seatsView().values()) {
             if (seat.kind() != MpSeatKind.VILLAGER || seat.profession().isEmpty()) {
@@ -327,16 +343,139 @@ public final class VillagerMpEntityService {
             if (presence == VillagerMpEntityLookup.EntityPresence.PRESENT) {
                 seat.entityId().flatMap(this::findEntity).ifPresent(entity -> {
                     if (entity instanceof Villager villager) {
+                        Optional<MpSeatLocation> commons = location;
+                        if (seat.isRecessed() && commons.isPresent()) {
+                            villager.teleport(toBukkitLocation(commons.get()));
+                        }
+                        seat.setRecessed(false);
                         configureMpBehaviour(villager, seat, kingdom.getId());
                     }
                 });
                 continue;
             }
-            if (!VillagerMpEntityLookup.shouldReplaceSeatedEntity(presence)) {
+            if (presence == VillagerMpEntityLookup.EntityPresence.UNKNOWN) {
+                // Merely absent / unloaded — leave the seat empty for this sitting day.
                 continue;
             }
-            seatVillagerEntity(kingdom, seat, location.get(), reserved);
+            if (presence == VillagerMpEntityLookup.EntityPresence.ABSENT_NO_ID) {
+                seatVillagerEntity(kingdom, seat, location.get(), reserved);
+                seat.entityId().ifPresent(reserved::add);
+                continue;
+            }
+            if (presence != VillagerMpEntityLookup.EntityPresence.ABSENT_CONFIRMED) {
+                continue;
+            }
+            String preferred = seat.profession().orElse("none");
+            Optional<Villager> substitute = findSubstitutionCandidate(kingdom, preferred, reserved);
+            if (substitute.isPresent()) {
+                claimExistingVillager(kingdom, seat, location.get(), substitute.get());
+                reserved.add(substitute.get().getUniqueId());
+                String label = ProfessionConstituencyResolver.displayLabel(preferred);
+                Bukkit.broadcastMessage(dev.mrlemoos.kingdom.helpers.ColourEncoder.c(
+                        "&6The member for " + label + " has been replaced."));
+                continue;
+            }
+            // No eligible substitute — empty seat for the sitting day.
+            seat.setEntityId(null);
         }
+    }
+
+    private Optional<Villager> findSubstitutionCandidate(
+            Kingdom kingdom, String preferredProfession, Set<UUID> reservedEntityIds) {
+        List<MpSubstitutionSelector.Candidate> pool = new ArrayList<>();
+        List<Villager> byId = new ArrayList<>();
+        String worldName = kingdomService.resolveWorldName(kingdom);
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return Optional.empty();
+        }
+        for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+            if (reservedEntityIds.contains(villager.getUniqueId())) {
+                continue;
+            }
+            if (isTreasuryLord(villager) || isMpVillager(villager) || isTownCrier(villager)) {
+                continue;
+            }
+            String profession = VillagerMpProfessionMatcher.professionName(villager);
+            pool.add(new MpSubstitutionSelector.Candidate(villager.getUniqueId().toString(), profession));
+            byId.add(villager);
+        }
+        Optional<MpSubstitutionSelector.Candidate> chosen =
+                MpSubstitutionSelector.select(preferredProfession, pool);
+        if (chosen.isEmpty()) {
+            return Optional.empty();
+        }
+        String id = chosen.get().id();
+        for (Villager villager : byId) {
+            if (villager.getUniqueId().toString().equals(id)) {
+                return Optional.of(villager);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Sends ordinary villager MPs back to their professions for recess: teleport to origin, restore
+     * AI and vanilla despawn, keep the [MP] nametag and kingdom MP tag for territory protection.
+     * Seat keeps entityId for re-claim by UUID; {@link MpSeat#isRecessed()} marks them not sitting.
+     */
+    private void releaseOrdinaryVillagerMpsForRecess(Kingdom kingdom) {
+        for (MpSeat seat : kingdom.getElectionState().seatsView().values()) {
+            if (seat.kind() != MpSeatKind.VILLAGER || seat.profession().isEmpty()) {
+                continue;
+            }
+            if (kingdom.getElectionState().isPremierVillagerSeat(seat.index())) {
+                Optional<MpSeatLocation> location = kingdom.getElectionState().seatLocation(seat.index());
+                if (location.isPresent()) {
+                    VillagerMpEntityLookup.EntityPresence presence = locateSeatedEntity(kingdom, seat);
+                    if (presence == VillagerMpEntityLookup.EntityPresence.PRESENT) {
+                        seat.entityId().flatMap(this::findEntity).ifPresent(entity -> {
+                            if (entity instanceof Villager villager) {
+                                seat.setRecessed(false);
+                                configureMpBehaviour(villager, seat, kingdom.getId());
+                            }
+                        });
+                    } else if (VillagerMpEntityLookup.shouldReplaceSeatedEntity(presence)) {
+                        Set<UUID> reserved = seatedVillagerEntityIds(kingdom);
+                        seatVillagerEntity(kingdom, seat, location.get(), reserved);
+                    }
+                }
+                continue;
+            }
+            if (seat.isRecessed()) {
+                seat.entityId().flatMap(this::findEntity).ifPresent(entity -> {
+                    if (entity instanceof Villager villager) {
+                        refreshSeatNametag(villager, seat, kingdom.getId());
+                    }
+                });
+                continue;
+            }
+            seat.entityId().ifPresent(entityId -> releaseEntityForRecess(seat, entityId, kingdom.getId()));
+        }
+    }
+
+    private void releaseEntityForRecess(MpSeat seat, UUID entityId, String kingdomId) {
+        findEntity(entityId).ifPresent(entity -> {
+            if (!(entity instanceof Villager villager)) {
+                return;
+            }
+            Optional<MpSeatLocation> origin = seat.originLocation();
+            if (origin.isEmpty()) {
+                origin = readOriginFromEntity(villager);
+            }
+            origin.ifPresent(stored -> villager.teleport(toBukkitLocation(stored)));
+            villager.setAI(true);
+            villager.setInvulnerable(false);
+            villager.setPersistent(VillagerMpDespawnPolicy.persistentAfterRelease());
+            villager.setRemoveWhenFarAway(VillagerMpDespawnPolicy.removeWhenFarAwayAfterRelease());
+            villager.setSilent(false);
+            refreshSeatNametag(villager, seat, kingdomId);
+            villager.getPersistentDataContainer().set(mpKingdomTagKey, PersistentDataType.STRING, kingdomId);
+            seat.setRecessed(true);
+            if (isInAnyKingdomTerritory(villager)) {
+                applyTerritoryDespawnProtection(villager);
+            }
+        });
     }
 
     private void seatVillagerEntity(
@@ -362,6 +501,7 @@ public final class VillagerMpEntityService {
         villager.teleport(destination);
         configureMpBehaviour(villager, seat, kingdom.getId());
         seat.setEntityId(villager.getUniqueId());
+        seat.setRecessed(false);
     }
 
     private void spawnFallbackVillager(String kingdomId, MpSeat seat, MpSeatLocation seatLocation) {
@@ -594,6 +734,7 @@ public final class VillagerMpEntityService {
                 isTreasuryLord(villager),
                 isMpVillager(villager),
                 isSeatedMpVillager(villager.getUniqueId()),
+                isTownCrier(villager),
                 isInAnyKingdomTerritory(villager));
     }
 
@@ -726,10 +867,27 @@ public final class VillagerMpEntityService {
         return tag != null && tag == 1;
     }
 
+    private boolean isTownCrier(Villager villager) {
+        Byte tag = villager.getPersistentDataContainer().get(townCrierTagKey, PersistentDataType.BYTE);
+        return tag != null && tag == 1;
+    }
+
+    public boolean isTownCrierVillager(Villager villager) {
+        return isTownCrier(villager);
+    }
+
     private boolean isSeatedMpVillager(UUID entityId) {
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
-            if (seatedVillagerEntityIds(kingdom).contains(entityId)) {
+            if (kingdom.getParliamentState().speakerVillagerEntityId().filter(entityId::equals).isPresent()) {
                 return true;
+            }
+            for (MpSeat seat : kingdom.getElectionState().seatsView().values()) {
+                if (seat.kind() != MpSeatKind.VILLAGER || seat.isRecessed()) {
+                    continue;
+                }
+                if (seat.entityId().filter(entityId::equals).isPresent()) {
+                    return true;
+                }
             }
         }
         return false;

@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.police.ArrestRewardService;
+import dev.mrlemoos.kingdom.police.CourtProximity;
 import dev.mrlemoos.kingdom.police.PoliceAuthority;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
@@ -32,9 +33,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.Player;
@@ -94,7 +93,8 @@ public final class KingdomPoliceHandler {
             case "dismiss" -> handleDismiss(sender, args);
             case "setcell" -> handleSetCell(sender, args);
             case "clearcell" -> handleClearCell(sender, args);
-            case "placecourt" -> handlePlaceCourt(sender);
+            case "court" -> handleCourt(sender, args);
+            case "placecourt" -> handleCourt(sender, new String[] {"court", "set"});
             case "deploy" -> handleDeploy(sender, args);
             case "despawn" -> handleDespawn(sender);
             case "status" -> handleStatus(sender);
@@ -264,7 +264,22 @@ public final class KingdomPoliceHandler {
         return true;
     }
 
-    private boolean handlePlaceCourt(CommandSender sender) {
+    private boolean handleCourt(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(error("Usage: /kingdom police court <set|clear>"));
+            return true;
+        }
+        return switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "set" -> handleCourtSet(sender);
+            case "clear" -> handleCourtClear(sender);
+            default -> {
+                sender.sendMessage(error("Usage: /kingdom police court <set|clear>"));
+                yield true;
+            }
+        };
+    }
+
+    private boolean handleCourtSet(CommandSender sender) {
         Optional<Player> player = requirePlayer(sender);
         if (player.isEmpty()) {
             return true;
@@ -274,27 +289,32 @@ public final class KingdomPoliceHandler {
             return true;
         }
         if (!PoliceAuthority.canConfigureSites(membership.get().getRank(), sender.isOp())) {
-            sender.sendMessage(error("Only the King, Queen, or an operator may place the court."));
-            return true;
-        }
-
-        Block lectern = findLecternBlock(player.get());
-        if (lectern == null) {
-            sender.sendMessage(error("Stand at or look at a lectern to place the court."));
+            sender.sendMessage(error("Only the King, Queen, or an operator may set the court."));
             return true;
         }
 
         String kingdomId = membership.get().getKingdomId();
-        if (!isLecternInTerritory(lectern, kingdomId)) {
-            sender.sendMessage(error(territoryError(kingdomId, lectern.getLocation())));
+        Location standing = player.get().getLocation();
+        if (standing.getWorld() == null) {
+            sender.sendMessage(error("You must be in a loaded world to set the court."));
+            return true;
+        }
+        if (!isInOwnTerritory(standing, kingdomId)) {
+            sender.sendMessage(error(territoryError(kingdomId, standing)));
             return true;
         }
 
+        boolean moving = policeService.hasCourt(kingdomId);
+        Optional<CourtLocation> previous = policeService.court(kingdomId);
+        if (moving) {
+            courtService.despawnJudge(kingdomId);
+        }
+
         CourtLocation court = new CourtLocation(
-                lectern.getWorld().getName(),
-                lectern.getX(),
-                lectern.getY(),
-                lectern.getZ());
+                standing.getWorld().getName(),
+                standing.getBlockX(),
+                standing.getBlockY(),
+                standing.getBlockZ());
         PoliceResult result = policeService.setCourt(
                 kingdomId,
                 membership.get().getRank(),
@@ -306,8 +326,38 @@ public final class KingdomPoliceHandler {
         }
 
         courtService.ensureJudge(kingdomId);
+        if (moving && previous.isPresent()) {
+            golemService.relocateCourtGuards(kingdomId, previous.get(), court);
+        }
         store.saveFrom(kingdomService);
-        sender.sendMessage(success("Magistrate seated at court lectern."));
+        sender.sendMessage(success(moving ? "Court moved. Magistrate reseated." : "Court set. Magistrate seated."));
+        return true;
+    }
+
+    private boolean handleCourtClear(CommandSender sender) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        if (!PoliceAuthority.canConfigureSites(membership.get().getRank(), sender.isOp())) {
+            sender.sendMessage(error("Only the King, Queen, or an operator may clear the court."));
+            return true;
+        }
+
+        String kingdomId = membership.get().getKingdomId();
+        Optional<CourtLocation> court = policeService.court(kingdomId);
+        courtService.despawnJudge(kingdomId);
+        court.ifPresent(location -> golemService.despawnCourtGuards(kingdomId, location));
+        PoliceResult result = policeService.clearCourt(
+                kingdomId, membership.get().getRank(), sender.isOp());
+        sender.sendMessage(formatPolice(result));
+        if (result instanceof PoliceResult.Success) {
+            store.saveFrom(kingdomService);
+        }
         return true;
     }
 
@@ -487,7 +537,7 @@ public final class KingdomPoliceHandler {
         }
         String kingdomId = membership.get().getKingdomId();
         if (!isNearCourt(player.get(), kingdomId)) {
-            sender.sendMessage(error("Post arrest rewards at the court lectern."));
+            sender.sendMessage(error("Post arrest rewards at the court."));
             return true;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
@@ -613,10 +663,10 @@ public final class KingdomPoliceHandler {
         if (world == null || !world.getName().equals(location.worldName())) {
             return false;
         }
-        double dx = playerLoc.getX() - location.x();
+        double dx = playerLoc.getX() - (location.x() + 0.5);
         double dy = playerLoc.getY() - location.y();
-        double dz = playerLoc.getZ() - location.z();
-        return (dx * dx + dy * dy + dz * dz) <= 64.0;
+        double dz = playerLoc.getZ() - (location.z() + 0.5);
+        return CourtProximity.isWithinBallotRange(dx, dy, dz);
     }
 
     private void listSwornRole(CommandSender sender, String label, java.util.Set<UUID> playerIds) {
@@ -630,10 +680,6 @@ public final class KingdomPoliceHandler {
             String name = member.getName() != null ? member.getName() : playerId.toString();
             sender.sendMessage(c("&7 - ")+ c("&f" + name));
         }
-    }
-
-    private boolean isLecternInTerritory(Block lectern, String kingdomId) {
-        return isInOwnTerritory(lectern.getLocation(), kingdomId);
     }
 
     private boolean isInOwnTerritory(Location location, String kingdomId) {
@@ -666,25 +712,11 @@ public final class KingdomPoliceHandler {
             return "That location is in " + other + "'s territory, not yours.";
         }
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
-        String linked = kingdom.flatMap(kingdomService::territoryLabel).orElse("not set");
+        String linked = kingdom.isPresent()
+                ? kingdomService.territoryLabel(kingdom.get()).orElse("not set")
+                : "not set";
         return "WorldGuard region '" + regions.get(0) + "' is not linked to your kingdom ("
                 + linked + "). Ask an admin to run /kingdom setregion.";
-    }
-
-    private Block findLecternBlock(Player player) {
-        Block atFeet = player.getLocation().getBlock();
-        if (atFeet.getType() == Material.LECTERN) {
-            return atFeet;
-        }
-        Block below = atFeet.getRelative(0, -1, 0);
-        if (below.getType() == Material.LECTERN) {
-            return below;
-        }
-        Block target = player.getTargetBlockExact(5);
-        if (target != null && target.getType() == Material.LECTERN) {
-            return target;
-        }
-        return null;
     }
 
     private void refreshDisplayIfOnline(UUID playerId) {
@@ -719,7 +751,8 @@ public final class KingdomPoliceHandler {
                 + "\n" + c("&e/kingdom police dismiss judge <player>")
                 + "\n" + c("&e/kingdom police setcell <slot>") + c("&7 — mark prison cell in territory")
                 + "\n" + c("&e/kingdom police clearcell <slot>")
-                + "\n" + c("&e/kingdom police placecourt") + c("&7 — court lectern in territory")
+                + "\n" + c("&e/kingdom police court set") + c("&7 — set court at your feet in territory")
+                + "\n" + c("&e/kingdom police court clear") + c("&7 — remove court, judge, and court guards")
                 + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — spawn patrol golem")
                 + "\n" + c("&e/kingdom police deploy guard") + c("&7 — spawn guard golem")
                 + "\n" + c("&e/kingdom police despawn") + c("&7 — remove aimed or nearest golem")

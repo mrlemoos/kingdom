@@ -159,6 +159,7 @@ public final class CoronationCeremony {
             Bukkit.broadcastMessage(c("&e" + calendarService.formatFor(kingdom.getId())));
         }
         Bukkit.broadcastMessage(c("&eLong live the " + crownTitle(monarch.getUniqueId()) + "!"));
+        dev.mrlemoos.kingdom.feedback.RealmFeedback.coronation(monarch);
     }
 
     private String crownTitle(UUID playerId) {

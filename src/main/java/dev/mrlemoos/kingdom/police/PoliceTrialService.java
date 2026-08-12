@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.police;
 
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -154,6 +155,7 @@ public final class PoliceTrialService {
                 warrant.get().actBillId(),
                 System.currentTimeMillis());
         cases.add(policeCase);
+        RealmFeedback.arrested(suspectId);
         return PoliceResult.ok("Suspect arrested. Pending trial opened.");
     }
 
@@ -192,6 +194,7 @@ public final class PoliceTrialService {
                 warrant.get().actBillId(),
                 System.currentTimeMillis());
         cases.add(policeCase);
+        RealmFeedback.arrested(suspectId);
         return PoliceResult.ok("Suspect detained by patrol. Pending trial opened.");
     }
 
@@ -217,12 +220,12 @@ public final class PoliceTrialService {
         }
         PoliceCase policeCase = open.get();
 
-        return switch (sentenceType) {
+        return announceSentence(accusedId, sentenceType, switch (sentenceType) {
             case WARNING -> applyWarning(policeCase);
             case FINE -> applyFine(policeCase, fineAmount);
             case PRISON -> applyPrison(policeCase, prisonMinutes);
             case ACQUITTAL -> applyAcquittal(policeCase);
-        };
+        });
     }
 
     /**
@@ -242,12 +245,46 @@ public final class PoliceTrialService {
             return PoliceResult.fail("No pending trial for that accused.");
         }
         PoliceCase policeCase = open.get();
-        return switch (sentenceType) {
+        return announceSentence(accusedId, sentenceType, switch (sentenceType) {
             case WARNING -> applyWarning(policeCase);
             case FINE -> applyFine(policeCase, fineAmount);
             case PRISON -> applyPrison(policeCase, prisonMinutes);
             case ACQUITTAL -> applyAcquittal(policeCase);
-        };
+        });
+    }
+
+    /** Tells the convict what the court has decided, over and above the chat line. */
+    private PoliceResult announceSentence(
+            UUID accusedId, SentenceType sentenceType, PoliceResult outcome) {
+        if (outcome instanceof PoliceResult.Success) {
+            if (sentenceType == SentenceType.ACQUITTAL) {
+                Optional<PoliceCase> closed = findLatestCase(accusedId);
+                if (closed.isPresent()) {
+                    RealmFeedback.verdictAcquittal(
+                            kingdomService, closed.get().kingdomId(), accusedId.toString());
+                }
+            } else {
+                Optional<PoliceCase> closed = findLatestCase(accusedId);
+                if (closed.isPresent()) {
+                    RealmFeedback.verdictGuilty(
+                            kingdomService, closed.get().kingdomId(), accusedId.toString());
+                }
+            }
+            RealmFeedback.sentenced(
+                    accusedId, sentenceType.name().charAt(0)
+                            + sentenceType.name().substring(1).toLowerCase(java.util.Locale.ROOT));
+        }
+        return outcome;
+    }
+
+    private Optional<PoliceCase> findLatestCase(UUID accusedId) {
+        for (int index = cases.size() - 1; index >= 0; index--) {
+            PoliceCase policeCase = cases.get(index);
+            if (policeCase.accusedId().equals(accusedId)) {
+                return Optional.of(policeCase);
+            }
+        }
+        return Optional.empty();
     }
 
     public Optional<PoliceCase> findOpenCase(String kingdomId, UUID accusedId) {
@@ -334,6 +371,7 @@ public final class PoliceTrialService {
         teleportBlocked.remove(convictId);
         prisonCellByAccused.remove(convictId);
         confinements.remove(convictId);
+        RealmFeedback.released(convictId);
         return PoliceResult.ok("Prison sentence completed. Release effected.");
     }
 

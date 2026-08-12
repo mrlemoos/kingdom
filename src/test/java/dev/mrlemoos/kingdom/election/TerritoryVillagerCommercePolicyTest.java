@@ -24,5 +24,7 @@ class TerritoryVillagerCommercePolicyTest {
                 Optional.of("northmarch"), false, true, false));
         assertFalse(TerritoryVillagerCommercePolicy.shouldSettleEmeraldCommerce(
                 Optional.of("northmarch"), false, false, true));
+        assertFalse(TerritoryVillagerCommercePolicy.shouldSettleEmeraldCommerce(
+                Optional.of("northmarch"), false, false, false, true));
     }
 }

@@ -26,18 +26,18 @@ class CurfewEvaluatorTest {
     }
 
     @Test
-    void insideCurfewWindowAllowsMovement() {
+    void outsideCurfewWindowAllowsMovement() {
         Optional<ActBreach> breach = evaluator.evaluate(
-                MovementFacts.inJurisdiction("northmarch", 15_000L),
+                MovementFacts.inJurisdiction("northmarch", 6_000L),
                 curfewActs);
 
         assertTrue(breach.isEmpty());
     }
 
     @Test
-    void outsideCurfewWindowFlagsBreach() {
+    void insideCurfewWindowFlagsBreach() {
         Optional<ActBreach> breach = evaluator.evaluate(
-                MovementFacts.inJurisdiction("northmarch", 6_000L),
+                MovementFacts.inJurisdiction("northmarch", 15_000L),
                 curfewActs);
 
         assertTrue(breach.isPresent());
@@ -58,18 +58,18 @@ class CurfewEvaluatorTest {
         CurfewEvaluator disabled = new CurfewEvaluator(CurfewEnforcementConfig.disabled(13_000L, 23_000L));
 
         assertTrue(disabled
-                .evaluate(MovementFacts.inJurisdiction("northmarch", 6_000L), curfewActs)
+                .evaluate(MovementFacts.inJurisdiction("northmarch", 15_000L), curfewActs)
                 .isEmpty());
     }
 
     @Test
     void windowWrappingMidnightUsesInclusiveBounds() {
-        // Window 22000–2000 wraps midnight: 23000 inside, 1000 inside, 12000 outside.
+        // Window 22000–2000 wraps midnight: 23000 inside (breach), 1000 inside (breach), 12000 outside.
         CurfewEvaluator wrapping = new CurfewEvaluator(CurfewEnforcementConfig.enabled(22_000L, 2_000L));
 
-        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 23_000L), curfewActs).isEmpty());
-        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 1_000L), curfewActs).isEmpty());
-        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 12_000L), curfewActs).isPresent());
+        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 23_000L), curfewActs).isPresent());
+        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 1_000L), curfewActs).isPresent());
+        assertTrue(wrapping.evaluate(MovementFacts.inJurisdiction("northmarch", 12_000L), curfewActs).isEmpty());
     }
 
     private static AssentedAct act(List<ConductProvision> provisions) {

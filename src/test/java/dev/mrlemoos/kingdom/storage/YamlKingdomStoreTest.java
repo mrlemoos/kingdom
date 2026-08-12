@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.KingdomFlag;
 import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.parliament.DivisionBloc;
@@ -83,6 +84,30 @@ class YamlKingdomStoreTest {
         assertEquals(10, loaded.getParliamentSites().commons().orElseThrow().x(), 1e-9);
         assertEquals(30, loaded.getParliamentSites().lords().orElseThrow().x(), 1e-9);
         assertEquals(5, loaded.getParliamentSites().registrar().orElseThrow().blockX());
+    }
+
+    @Test
+    void roundTripPreservesKingdomFlagWithPatterns() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.setFlag(new KingdomFlag(
+                "RED_BANNER",
+                java.util.List.of(
+                        new KingdomFlag.Layer("minecraft:stripe_middle", "WHITE"),
+                        new KingdomFlag.Layer("minecraft:border", "BLACK"))));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlKingdomStore.writeParliament(config, "kingdoms.northmarch.parliament", kingdom);
+
+        Kingdom loaded = new Kingdom("northmarch", "Northmarch");
+        YamlKingdomStore.readParliament(config.getConfigurationSection("kingdoms.northmarch.parliament"), loaded);
+
+        KingdomFlag flag = loaded.getFlag().orElseThrow();
+        assertEquals("RED_BANNER", flag.baseMaterial());
+        assertEquals(2, flag.layers().size());
+        assertEquals("minecraft:stripe_middle", flag.layers().get(0).patternId());
+        assertEquals("WHITE", flag.layers().get(0).colour());
+        assertEquals("minecraft:border", flag.layers().get(1).patternId());
+        assertEquals("BLACK", flag.layers().get(1).colour());
     }
 
     @Test

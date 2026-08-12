@@ -170,19 +170,66 @@ class ParliamentServiceTest {
     }
 
     @Test
-    void villagerSpeakerClosesDivisionAtOnceWhenNoPlayerMpsAreSeated() {
+    void villagerSpeakerHoldsDivisionWhenOnlyVillagerMpsAreSeated() {
         clearPlayerMpTitles();
         kingdomService.clearTitle(SPEAKER);
         fillVillagerParliament();
-        kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().setPremierVillagerSeatIndex(1);
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        for (int i = 1; i <= 8; i++) {
+            electionState.seat(i).orElseThrow().setEntityId(UUID.randomUUID());
+        }
+        electionState.setPremierVillagerSeatIndex(1);
 
         assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudgetForVillagerPremier(
                 "northmarch", 1, 40, null));
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 100);
+
+        assertEquals(BillState.DIVISION_OPEN, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerSpeakerClosesDivisionAtOnceWhenNoMpsAreSeated() {
+        clearPlayerMpTitles();
+        kingdomService.clearTitle(SPEAKER);
+        kingdomService.assignTitle(PREMIER, NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudget(
+                "northmarch", NobleRank.PREMIER, PREMIER, 40, null));
         assertInstanceOf(
                 ParliamentResult.Success.class,
                 parliamentService.conductVillagerSpeakerDivision("northmarch", 100).orElseThrow());
 
-        assertEquals(BillState.AWAITING_ASSENT, parliamentService.currentBill("northmarch").orElseThrow().state());
+        // Empty House: Speaker's nay decides at once; the bill leaves the order paper.
+        assertTrue(parliamentService.currentBill("northmarch").isEmpty());
+    }
+
+    @Test
+    void villagerSpeakerDoesNotOpenDivisionOnRecessDay() {
+        kingdomService.clearTitle(SPEAKER);
+        seatPlayerMps();
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 40, null);
+
+        assertTrue(parliamentService.conductVillagerSpeakerDivision("northmarch", 100, 1L).isEmpty());
+        assertEquals(BillState.TABLED, parliamentService.currentBill("northmarch").orElseThrow().state());
+    }
+
+    @Test
+    void villagerSpeakerDoesNotCloseEmptyHouseDivisionOnRecessDay() {
+        clearPlayerMpTitles();
+        kingdomService.clearTitle(SPEAKER);
+        kingdomService.assignTitle(PREMIER, NobleRank.PREMIER, TitleStyle.MASCULINE);
+
+        parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 40, null);
+        var election = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        election.seat(1).orElseThrow().assignVillager(
+                "farmer", UUID.fromString("00000000-0000-0000-0000-0000000000aa"));
+
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 100, 0L);
+        assertEquals(BillState.DIVISION_OPEN, parliamentService.currentBill("northmarch").orElseThrow().state());
+
+        election.seat(1).orElseThrow().setRecessed(true);
+        assertTrue(parliamentService.conductVillagerSpeakerDivision("northmarch", 100, 1L).isEmpty());
+        assertEquals(BillState.DIVISION_OPEN, parliamentService.currentBill("northmarch").orElseThrow().state());
     }
 
     @Test

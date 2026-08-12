@@ -93,9 +93,12 @@ loyalty:
 police:
   mechanical-act-breach:
     enabled: true
+  trial:
+    # Real-time seconds for the trial window (jury ballots or villager spectacle) before lapse.
+    window-seconds: 120
   trial-jury:
-    # Real-time seconds for jurors to cast all votes before a realm-handled fallback.
-    window-seconds: 300
+    # Legacy key — prefer police.trial.window-seconds.
+    window-seconds: 120
 
 enforcement:
   build:

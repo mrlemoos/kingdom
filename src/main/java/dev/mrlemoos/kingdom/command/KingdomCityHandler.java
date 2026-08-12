@@ -7,6 +7,7 @@ import dev.mrlemoos.kingdom.city.CapitalSitingPolicy.Verdict;
 import dev.mrlemoos.kingdom.city.CityResult;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
+import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -29,6 +30,7 @@ public final class KingdomCityHandler {
     private final KingdomService kingdomService;
     private final CityService cityService;
     private final LordMayorService lordMayorService;
+    private final TownCrierService townCrierService;
     private final KingdomTerritoryResolver territoryResolver;
     private final YamlKingdomStore store;
 
@@ -36,11 +38,13 @@ public final class KingdomCityHandler {
             KingdomService kingdomService,
             CityService cityService,
             LordMayorService lordMayorService,
+            TownCrierService townCrierService,
             KingdomTerritoryResolver territoryResolver,
             YamlKingdomStore store) {
         this.kingdomService = kingdomService;
         this.cityService = cityService;
         this.lordMayorService = lordMayorService;
+        this.townCrierService = townCrierService;
         this.territoryResolver = territoryResolver;
         this.store = store;
     }
@@ -119,11 +123,15 @@ public final class KingdomCityHandler {
         }
 
         Optional<Wolf> mayor = lordMayorService.spawn(kingdom.get(), capital);
+        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawn(kingdom.get(), capital);
         save();
         sender.sendMessage(success(result.message()));
         sender.sendMessage(mayor.isPresent()
                 ? info("The Lord Mayor has taken up office at the city hall.")
                 : error("The Lord Mayor could not be stood up; the capital's world is not loaded."));
+        sender.sendMessage(crier.isPresent()
+                ? info("The Town Crier has taken up the Gazette at the capital.")
+                : error("The Town Crier could not be stood up; the capital's world is not loaded."));
         return true;
     }
 
@@ -140,6 +148,7 @@ public final class KingdomCityHandler {
         }
 
         lordMayorService.despawn(kingdom.get());
+        townCrierService.despawn(kingdom.get());
         CityResult result = cityService.clearCapital(kingdomId, membership.get().getRank());
         if (result instanceof CityResult.Failure failure) {
             sender.sendMessage(error(failure.message()));

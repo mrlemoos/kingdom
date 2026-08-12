@@ -2,14 +2,14 @@ package dev.mrlemoos.kingdom.parliament;
 
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.KingdomFlag;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Optional;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 
-/** Raises the Royal Standard beside each kingdom's House of Lords. */
+/** Raises the kingdom flag (Royal Standard) beside each kingdom's House of Lords. */
 public final class RoyalStandardPlacer {
 
     private final KingdomService kingdomService;
@@ -34,6 +34,34 @@ public final class RoyalStandardPlacer {
         return raiseFor(kingdom.get());
     }
 
+    /**
+     * Clears a prior standard when Lords moves, then raises the stored (or Crown-default) flag at
+     * the new spot.
+     */
+    public boolean moveAndRaise(String kingdomId, Optional<ChamberSite> previousLords) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return false;
+        }
+        if (previousLords.isPresent()) {
+            clearAt(previousLords.get());
+        }
+        return raiseFor(kingdom.get());
+    }
+
+    public void clearAt(ChamberSite lords) {
+        Optional<RoyalStandard.StandardPosition> position = RoyalStandard.positionFor(lords);
+        if (position.isEmpty()) {
+            return;
+        }
+        RoyalStandard.StandardPosition standard = position.get();
+        World world = Bukkit.getWorld(standard.worldName());
+        if (world == null) {
+            return;
+        }
+        KingdomFlagItems.clearIfBanner(world.getBlockAt(standard.x(), standard.y(), standard.z()));
+    }
+
     private boolean raiseFor(Kingdom kingdom) {
         Optional<ChamberSite> lords = kingdom.getParliamentSites().lords();
         if (lords.isEmpty()) {
@@ -48,23 +76,8 @@ public final class RoyalStandardPlacer {
         if (world == null) {
             return false;
         }
-        Material banner = Material.matchMaterial(RoyalStandard.crownBannerMaterial());
-        if (banner == null) {
-            return false;
-        }
+        KingdomFlag flag = kingdom.getFlag().orElseGet(KingdomFlag::crownDefault);
         Block block = world.getBlockAt(standard.x(), standard.y(), standard.z());
-        if (block.getType() == banner) {
-            return true;
-        }
-        // Never overwrite a peer's own building work: only air or a standard already flying.
-        if (!block.isEmpty() && !isBanner(block.getType())) {
-            return false;
-        }
-        block.setType(banner, false);
-        return true;
-    }
-
-    private static boolean isBanner(Material material) {
-        return material.name().endsWith("_BANNER");
+        return KingdomFlagItems.placeOn(block, flag);
     }
 }

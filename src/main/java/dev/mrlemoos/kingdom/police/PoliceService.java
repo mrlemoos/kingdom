@@ -181,6 +181,21 @@ public final class PoliceService {
         return PoliceResult.ok("Court site configured.");
     }
 
+    public PoliceResult clearCourt(String kingdomId, NobleRank actorRank, boolean operator) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return PoliceResult.fail("Unknown kingdom.");
+        }
+        if (!PoliceAuthority.canConfigureSites(actorRank, operator)) {
+            return PoliceResult.fail("Only the King, Queen, or an operator may clear the court site.");
+        }
+        if (!kingdom.get().getPoliceState().hasCourt()) {
+            return PoliceResult.fail("No court is configured.");
+        }
+        kingdom.get().getPoliceState().clearCourt();
+        return PoliceResult.ok("Court site cleared.");
+    }
+
     public boolean hasCourt(String kingdomId) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {

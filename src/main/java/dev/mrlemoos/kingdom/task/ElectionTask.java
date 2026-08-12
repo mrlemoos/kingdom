@@ -34,6 +34,7 @@ public final class ElectionTask implements Runnable {
     private final ParliamentService parliamentService;
     private final VillagerMpEntityService villagerMpEntityService;
     private StateOpeningCeremony stateOpeningCeremony;
+    private dev.mrlemoos.kingdom.feedback.DivisionBossBarService divisionBossBarService;
     private dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService;
     private dev.mrlemoos.kingdom.calendar.PollingDay pollingDay;
 
@@ -70,6 +71,12 @@ public final class ElectionTask implements Runnable {
         this.stateOpeningCeremony = stateOpeningCeremony;
     }
 
+    /** Hangs the division bar over each kingdom; without it the sweep simply raises no bar. */
+    public void setDivisionBossBarService(
+            dev.mrlemoos.kingdom.feedback.DivisionBossBarService divisionBossBarService) {
+        this.divisionBossBarService = divisionBossBarService;
+    }
+
     public void schedule(long intervalTicks) {
         long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
@@ -84,6 +91,26 @@ public final class ElectionTask implements Runnable {
         conductVillagerSpeakerDivisions();
         closeDuePollingWindows();
         scheduleGeneralElections();
+        syncDivisionBars();
+    }
+
+    /** Keeps the division bar over each kingdom in step with the bill before its House. */
+    private void syncDivisionBars() {
+        if (divisionBossBarService == null) {
+            return;
+        }
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+            if (world == null) {
+                divisionBossBarService.clear(kingdom.getId());
+                continue;
+            }
+            divisionBossBarService.sync(
+                    kingdom.getId(),
+                    parliamentService.currentBill(kingdom.getId()),
+                    world.getFullTime() / 24000L,
+                    parliamentService.divisionWindowMcDays());
+        }
     }
 
     /** Closes any referendum whose polling window has run and proclaims the realm's answer. */
@@ -150,7 +177,11 @@ public final class ElectionTask implements Runnable {
 
     /** Seats or dismisses each villager Speaker, then lets it move the business of the House along. */
     private void conductVillagerSpeakerDivisions() {
+        long realmDay = calendarService != null ? calendarService.currentRealmDay() : 0L;
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            boolean prorogued = !kingdom.getParliamentState().isSessionOpen();
+            villagerMpEntityService.syncKingdom(kingdom.getId(), realmDay, prorogued);
+
             boolean seated = kingdom.getParliamentState().speakerVillagerEntityId().isPresent();
             boolean needed = parliamentService.needsVillagerSpeaker(kingdom.getId());
             if (!needed && !seated) {
@@ -172,7 +203,7 @@ public final class ElectionTask implements Runnable {
                 }
             });
             parliamentService
-                    .conductVillagerSpeakerDivision(kingdom.getId(), currentMcDay)
+                    .conductVillagerSpeakerDivision(kingdom.getId(), currentMcDay, realmDay)
                     .ifPresent(result -> {
                         store.saveFrom(kingdomService);
                         if (result instanceof ParliamentResult.Success success) {
@@ -182,6 +213,13 @@ public final class ElectionTask implements Runnable {
                             Bukkit.broadcastMessage(
                                     c("&6" + success.message() + " (" + kingdom.getDisplayName() + ")"));
                             if (!success.message().contains("opened a division")) {
+                                if (success.message().contains("failed")) {
+                                    dev.mrlemoos.kingdom.feedback.RealmFeedback.billFailed(
+                                            kingdomService, kingdom.getId());
+                                } else {
+                                    dev.mrlemoos.kingdom.feedback.RealmFeedback.billPassed(
+                                            kingdomService, kingdom.getId());
+                                }
                                 for (String line : DivisionTally.renderLines(
                                         parliamentService.lastDivisionBlocs(kingdom.getId()))) {
                                     Bukkit.broadcastMessage(c("&7 " + line));

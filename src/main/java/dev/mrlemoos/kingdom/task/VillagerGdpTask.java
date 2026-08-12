@@ -1,11 +1,14 @@
 package dev.mrlemoos.kingdom.task;
 
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
+import dev.mrlemoos.kingdom.feedback.DailyRealmReport;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipant;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipants;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
+import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyDayResult;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyProcessor;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
@@ -90,7 +93,9 @@ public final class VillagerGdpTask implements Runnable {
                     VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
 
             long epochDay = world.getFullTime() / 24000L;
-            processor.processKingdomDay(
+            double treasuryBefore = economyService.getTreasuryBalance(kingdom.getId());
+            double taxBefore = economyService.getTotalTaxRevenue(kingdom.getId());
+            VillagerEconomyDayResult day = processor.processKingdomDay(
                     kingdom.getId(),
                     participants,
                     economyService,
@@ -98,12 +103,51 @@ public final class VillagerGdpTask implements Runnable {
                     villagerEconomyConfig,
                     epochDay,
                     random);
+            readTheDayToTheRealm(kingdom, participants, economyService, day, treasuryBefore, taxBefore);
             dirty = true;
         }
 
         if (dirty) {
             economyStore.saveFrom(economyService);
         }
+    }
+
+    /**
+     * Reads the day's account to the realm. Every figure is one the processor has just settled — the
+     * treasury's movement, the tax it took, the villagers' output, and the richest wallet among them.
+     */
+    private void readTheDayToTheRealm(
+            Kingdom kingdom,
+            List<VillagerEconomicParticipant> participants,
+            EconomyService economyService,
+            VillagerEconomyDayResult day,
+            double treasuryBefore,
+            double taxBefore) {
+        VillagerEconomicParticipant richest = null;
+        double richestBalance = 0.0;
+        for (VillagerEconomicParticipant participant : participants) {
+            double balance = economyService.getVillagerWalletBalance(kingdom.getId(), participant.villagerId());
+            if (richest == null || balance > richestBalance) {
+                richest = participant;
+                richestBalance = balance;
+            }
+        }
+        DailyRealmReport report = new DailyRealmReport(
+                kingdom.getDisplayName(),
+                DailyRealmReport.delta(economyService.getTreasuryBalance(kingdom.getId()), treasuryBefore),
+                DailyRealmReport.delta(economyService.getTotalTaxRevenue(kingdom.getId()), taxBefore),
+                day.totalGdpCredited(),
+                richest == null ? null : professionLabel(richest.profession()),
+                richestBalance);
+        RealmFeedback.kingdomMessage(kingdomService, kingdom.getId(), report.line());
+    }
+
+    /** A profession as the realm hears it: {@code weaponsmith} becomes {@code Weaponsmith}. */
+    private static String professionLabel(String profession) {
+        if (profession == null || profession.isBlank()) {
+            return "Commoner";
+        }
+        return Character.toUpperCase(profession.charAt(0)) + profession.substring(1);
     }
 
     private List<VillagerEconomicParticipant> collectProductiveParticipants(

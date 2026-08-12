@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.task;
 
 import dev.mrlemoos.kingdom.city.LordMayorService;
+import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
@@ -14,6 +15,7 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     private final JavaPlugin plugin;
     private final VillagerMpEntityService villagerMpEntityService;
     private LordMayorService lordMayorService;
+    private TownCrierService townCrierService;
     private KingdomService kingdomService;
     private YamlKingdomStore store;
 
@@ -22,10 +24,14 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
         this.villagerMpEntityService = Objects.requireNonNull(villagerMpEntityService, "villagerMpEntityService");
     }
 
-    /** The same sweep also stands a Lord Mayor back up whenever one has gone missing. */
-    public void setLordMayorService(
-            LordMayorService lordMayorService, KingdomService kingdomService, YamlKingdomStore store) {
+    /** The same sweep also stands a Lord Mayor and Town Crier back up whenever one has gone missing. */
+    public void setCityNpcServices(
+            LordMayorService lordMayorService,
+            TownCrierService townCrierService,
+            KingdomService kingdomService,
+            YamlKingdomStore store) {
         this.lordMayorService = lordMayorService;
+        this.townCrierService = townCrierService;
         this.kingdomService = kingdomService;
         this.store = store;
     }
@@ -39,7 +45,14 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     public void run() {
         villagerMpEntityService.reconcileAllTerritoryVillagerDespawn();
         villagerMpEntityService.reconcileAllTerritoryVillagerNametags();
-        if (lordMayorService != null && lordMayorService.reconcileAll() && store != null && kingdomService != null) {
+        boolean changed = false;
+        if (lordMayorService != null && lordMayorService.reconcileAll()) {
+            changed = true;
+        }
+        if (townCrierService != null && townCrierService.reconcileAll()) {
+            changed = true;
+        }
+        if (changed && store != null && kingdomService != null) {
             store.saveFrom(kingdomService);
         }
     }

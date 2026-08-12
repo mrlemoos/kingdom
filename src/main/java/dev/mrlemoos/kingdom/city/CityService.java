@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.city;
 
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -130,6 +131,7 @@ public final class CityService {
         if (!city.grantPermit(playerId, grantedAtMs)) {
             return CityResult.ok("That player already holds a build permit.");
         }
+        RealmFeedback.permitGranted(playerId);
         return CityResult.ok("Build permit granted.");
     }
 
@@ -142,6 +144,7 @@ public final class CityService {
         if (!kingdom.get().getCityState().revokePermit(playerId)) {
             return CityResult.fail("That player holds no build permit.");
         }
+        RealmFeedback.permitRevoked(playerId);
         return CityResult.ok("Build permit revoked.");
     }
 

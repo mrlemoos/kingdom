@@ -21,10 +21,11 @@ class TerritoryVillagerDespawnPolicyTest {
 
     @Test
     void managesOrdinaryVillagersOnly() {
-        assertTrue(TerritoryVillagerDespawnPolicy.shouldManage(false, false, false));
-        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(true, false, false));
-        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(false, true, false));
-        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(false, false, true));
+        assertTrue(TerritoryVillagerDespawnPolicy.shouldManage(false, false, false, false));
+        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(true, false, false, false));
+        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(false, true, false, false));
+        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(false, false, true, false));
+        assertFalse(TerritoryVillagerDespawnPolicy.shouldManage(false, false, false, true));
     }
 
     @Test

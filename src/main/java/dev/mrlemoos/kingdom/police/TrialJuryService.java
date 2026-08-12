@@ -23,6 +23,11 @@ import java.util.UUID;
  */
 public final class TrialJuryService {
 
+    @FunctionalInterface
+    public interface VillagerJurorProvider {
+        Set<UUID> claimJurors(String kingdomId, UUID accusedId, int count);
+    }
+
     private final KingdomService kingdomService;
     private final PoliceService policeService;
     private final PoliceTrialService trialService;
@@ -30,6 +35,7 @@ public final class TrialJuryService {
     private final TrialJuryConfig config;
     private final Random random;
     private final Map<String, TrialJurySession> sessionsByCaseId = new HashMap<>();
+    private VillagerJurorProvider villagerJurorProvider;
 
     public TrialJuryService(
             KingdomService kingdomService,
@@ -61,6 +67,10 @@ public final class TrialJuryService {
         this.random = Objects.requireNonNull(random, "random");
     }
 
+    public void setVillagerJurorProvider(VillagerJurorProvider villagerJurorProvider) {
+        this.villagerJurorProvider = villagerJurorProvider;
+    }
+
     public PoliceResult trySeatJury(String kingdomId, UUID accusedId, Set<UUID> onlineMemberIds) {
         if (kingdomService.getKingdom(kingdomId).isEmpty()) {
             return PoliceResult.fail("Unknown kingdom.");
@@ -80,22 +90,63 @@ public final class TrialJuryService {
         }
 
         List<UUID> pool = eligiblePool(kingdomId, onlineMemberIds, exclusions);
-        if (pool.size() < 3) {
-            return applyRealmHandled(policeCase, "Fewer than three eligible jurors online. Realm-handled trial conducted.");
+        if (pool.size() >= 3) {
+            Collections.shuffle(pool, random);
+            Set<UUID> jurors = new HashSet<>(pool.subList(0, 3));
+            return seatSession(policeCase, jurors, false);
         }
 
-        Collections.shuffle(pool, random);
-        Set<UUID> jurors = new HashSet<>(pool.subList(0, 3));
+        if (villagerJurorProvider != null) {
+            Set<UUID> villagers = villagerJurorProvider.claimJurors(kingdomId, accusedId, 3);
+            if (villagers != null && villagers.size() >= 3) {
+                return seatSession(policeCase, new HashSet<>(villagers), true);
+            }
+        }
+
+        return applyRealmHandled(policeCase, "Fewer than three eligible jurors online. Realm-handled trial conducted.");
+    }
+
+    public PoliceResult trySeatVillagerJury(String kingdomId, UUID accusedId, Set<UUID> villagerJurorIds) {
+        Optional<PoliceCase> open = trialService.findOpenCase(kingdomId, accusedId);
+        if (open.isEmpty()) {
+            return PoliceResult.fail("No pending trial for that accused.");
+        }
+        if (findSession(kingdomId, accusedId).isPresent()) {
+            return PoliceResult.fail("A trial jury is already seated for that case.");
+        }
+        if (villagerJurorIds == null || villagerJurorIds.size() < 3) {
+            return applyRealmHandled(
+                    open.get(), "Fewer than three eligible jurors online. Realm-handled trial conducted.");
+        }
+        Set<UUID> jurors = new HashSet<>();
+        for (UUID id : villagerJurorIds) {
+            if (id != null) {
+                jurors.add(id);
+            }
+            if (jurors.size() == 3) {
+                break;
+            }
+        }
+        if (jurors.size() < 3) {
+            return applyRealmHandled(
+                    open.get(), "Fewer than three eligible jurors online. Realm-handled trial conducted.");
+        }
+        return seatSession(open.get(), jurors, true);
+    }
+
+    private PoliceResult seatSession(PoliceCase policeCase, Set<UUID> jurors, boolean villagerJury) {
         long now = System.currentTimeMillis();
         TrialJurySession session = new TrialJurySession(
-                kingdomId,
-                accusedId,
+                policeCase.kingdomId(),
+                policeCase.accusedId(),
                 policeCase.id(),
                 jurors,
                 now,
-                now + config.windowMs());
+                now + config.windowMs(),
+                villagerJury);
         sessionsByCaseId.put(policeCase.id(), session);
-        return PoliceResult.ok("Trial jury of three seated.");
+        return PoliceResult.ok(
+                villagerJury ? "Villager trial jury of three seated." : "Trial jury of three seated.");
     }
 
     /**
@@ -185,15 +236,23 @@ public final class TrialJuryService {
         if (!session.isComplete()) {
             return recorded;
         }
-        Optional<Boolean> majority = session.majorityGuilty();
-        sessionsByCaseId.remove(session.caseId());
-        if (majority.isEmpty()) {
-            return PoliceResult.fail("Jury vote incomplete.");
+        return concludeSession(session);
+    }
+
+    public PoliceResult recordAbstention(String kingdomId, UUID accusedId, UUID jurorId) {
+        Optional<TrialJurySession> found = findSession(kingdomId, accusedId);
+        if (found.isEmpty()) {
+            return PoliceResult.fail("No trial jury is seated for that case.");
         }
-        if (!majority.get()) {
-            return trialService.sentenceAsRealm(kingdomId, accusedId, SentenceType.ACQUITTAL, 0, 0);
+        TrialJurySession session = found.get();
+        PoliceResult recorded = session.recordAbstention(jurorId);
+        if (recorded instanceof PoliceResult.Failure) {
+            return recorded;
         }
-        return applyDrawnSentence(kingdomId, accusedId, "Jury finds guilty. ");
+        if (!session.isComplete()) {
+            return recorded;
+        }
+        return concludeSession(session);
     }
 
     public PoliceResult expireIfTimedOut(String kingdomId, UUID accusedId, long nowMs) {
@@ -206,12 +265,42 @@ public final class TrialJuryService {
             return PoliceResult.fail("Jury window is still open.");
         }
         Optional<PoliceCase> open = trialService.findOpenCase(kingdomId, accusedId);
-        sessionsByCaseId.remove(session.caseId());
         if (open.isEmpty()) {
+            sessionsByCaseId.remove(session.caseId());
             return PoliceResult.ok("Jury window expired; case already closed.");
         }
-        return applyRealmHandled(
-                open.get(), "Jury window expired without a full vote. Realm-handled trial conducted.");
+        if (session.villagerJury()) {
+            sessionsByCaseId.remove(session.caseId());
+            return applyRealmHandled(
+                    open.get(), "Villager jury spectacle concluded. Realm-handled trial conducted.");
+        }
+        // Decide on ballots cast so far; mark unresolved seats as abstentions.
+        for (UUID jurorId : session.jurorIds()) {
+            if (!session.hasResolvedSeat(jurorId)) {
+                session.recordAbstention(jurorId);
+            }
+        }
+        return concludeSession(session);
+    }
+
+    private PoliceResult concludeSession(TrialJurySession session) {
+        sessionsByCaseId.remove(session.caseId());
+        JuryDecision decision = session.decision();
+        return switch (decision) {
+            case NOT_GUILTY -> trialService.sentenceAsRealm(
+                    session.kingdomId(), session.accusedId(), SentenceType.ACQUITTAL, 0, 0);
+            case GUILTY -> applyDrawnSentence(session.kingdomId(), session.accusedId(), "Jury finds guilty. ");
+            case ALL_ABSTAIN -> {
+                Optional<PoliceCase> open =
+                        trialService.findOpenCase(session.kingdomId(), session.accusedId());
+                if (open.isEmpty()) {
+                    yield PoliceResult.ok("Jury concluded; case already closed.");
+                }
+                yield applyRealmHandled(
+                        open.get(),
+                        "Jury reached no majority. Realm-handled trial conducted.");
+            }
+        };
     }
 
     private PoliceResult applyRealmHandled(PoliceCase policeCase, String preface) {

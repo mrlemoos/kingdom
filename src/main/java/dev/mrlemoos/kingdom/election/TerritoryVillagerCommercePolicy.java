@@ -8,7 +8,17 @@ public final class TerritoryVillagerCommercePolicy {
 
     public static boolean shouldSettleEmeraldCommerce(
             Optional<String> kingdomId, boolean treasuryLord, boolean seatedMp, boolean kingdomTaggedMp) {
+        return shouldSettleEmeraldCommerce(kingdomId, treasuryLord, seatedMp, kingdomTaggedMp, false);
+    }
+
+    public static boolean shouldSettleEmeraldCommerce(
+            Optional<String> kingdomId,
+            boolean treasuryLord,
+            boolean seatedMp,
+            boolean kingdomTaggedMp,
+            boolean townCrier) {
         return kingdomId.isPresent()
-                && TerritoryVillagerDespawnPolicy.shouldManage(treasuryLord, seatedMp, kingdomTaggedMp);
+                && TerritoryVillagerDespawnPolicy.shouldManage(
+                        treasuryLord, seatedMp, kingdomTaggedMp, townCrier);
     }
 }
