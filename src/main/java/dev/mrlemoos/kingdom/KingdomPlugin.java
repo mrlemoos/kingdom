@@ -25,6 +25,7 @@ import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.listener.BuildConductListener;
 import dev.mrlemoos.kingdom.listener.ChatPrefixListener;
+import dev.mrlemoos.kingdom.listener.DeathMessageTitleListener;
 import dev.mrlemoos.kingdom.listener.TrialJuryGuiListener;
 import dev.mrlemoos.kingdom.listener.WantedNametagListener;
 import dev.mrlemoos.kingdom.listener.CoronaMerchantListener;
@@ -332,11 +333,18 @@ public final class KingdomPlugin extends JavaPlugin {
                                 resignCommand);
                 parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
                 parliamentHandler.setReferendumBallotOpener(parliamentGuiListener::openReferendumBallotGui);
+                dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer =
+                                new dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer(kingdomService);
+                parliamentHandler.setRoyalStandardPlacer(royalStandardPlacer);
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,
                                 electionHandler, realmWealthRates, policeHandler, whitelistHandler,
                                 warService, loyaltyService);
+                dev.mrlemoos.kingdom.parliament.CoronationCeremony coronationCeremony =
+                                new dev.mrlemoos.kingdom.parliament.CoronationCeremony(this, kingdomService);
+                coronationCeremony.setPoliceTrialService(policeTrialService);
+                kingdomCommand.setCoronationCeremony(coronationCeremony);
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -357,6 +365,8 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 getServer().getPluginManager().registerEvents(new ChatPrefixListener(prefixComposer),
                                 this);
+                getServer().getPluginManager().registerEvents(
+                                new DeathMessageTitleListener(prefixComposer), this);
                 getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
                 getServer().getPluginManager().registerEvents(
                                 new WantedNametagListener(nobleDisplay, jurisdictionPort), this);
@@ -413,6 +423,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(
                                 new StateOpeningListener(speechFromThroneItem, stateOpeningCeremony), this);
                 getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.CoronationListener(coronationCeremony), this);
+                getServer().getPluginManager().registerEvents(
                                 new MintPrepareListener(parliamentHandler, parliamentGuiListener),
                                 this);
                 getServer().getPluginManager().registerEvents(
@@ -461,6 +473,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
+                getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);
 
                 nobleDisplay.refreshAllOnline();
 

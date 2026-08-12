@@ -358,21 +358,11 @@ public final class StateOpeningCeremony {
     }
 
     private Location landingFor(World world, Location anchor, int[] offset) {
-        return landingAt(
-                world,
-                (int) Math.floor(anchor.getX()) + offset[0],
-                (int) Math.floor(anchor.getY()),
-                (int) Math.floor(anchor.getZ()) + offset[1],
-                anchor);
+        return ChamberSummons.landingFor(world, anchor, offset);
     }
 
     private Location landingFor(World world, ChamberSite lords, int[] offset, Location fallbackFacing) {
-        return landingAt(
-                world,
-                (int) Math.floor(lords.x()) + offset[0],
-                (int) Math.floor(lords.y()),
-                (int) Math.floor(lords.z()) + offset[1],
-                fallbackFacing);
+        return ChamberSummons.landingFor(world, lords, offset, fallbackFacing);
     }
 
     /**
@@ -388,37 +378,12 @@ public final class StateOpeningCeremony {
         return facing(landingFor(world, throne, offsets.get(0)), throne);
     }
 
-    /** Turns a landing to look at the throne, so the House faces the Crown it was summoned by. */
     private static Location facing(Location landing, Location throne) {
-        double dx = throne.getX() - landing.getX();
-        double dz = throne.getZ() - landing.getZ();
-        landing.setYaw((float) (Math.toDegrees(Math.atan2(-dx, dz))));
-        landing.setPitch(0f);
-        return landing;
-    }
-
-    private Location landingAt(World world, int x, int startY, int z, Location fallbackFacing) {
-        OptionalInt feetY = SafeChamberLanding.findFeetY(
-                (bx, by, bz) -> world.getBlockAt(bx, by, bz).isPassable(),
-                x,
-                startY,
-                z,
-                world.getMinHeight(),
-                world.getMaxHeight());
-        int y = feetY.orElseGet(() -> world.getHighestBlockYAt(x, z) + 1);
-        return new Location(world, x + 0.5, y, z + 0.5, fallbackFacing.getYaw(), fallbackFacing.getPitch());
+        return ChamberSummons.facing(landing, throne);
     }
 
     private List<Player> onlineMembers(String kingdomId) {
-        List<Player> members = new ArrayList<>();
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            kingdomService.getMembership(online.getUniqueId()).ifPresent(membership -> {
-                if (kingdomId.equals(membership.getKingdomId())) {
-                    members.add(online);
-                }
-            });
-        }
-        return members;
+        return ChamberSummons.onlineMembers(kingdomService, kingdomId);
     }
 
     private void giveSpeech(Player player, String kingdomId) {

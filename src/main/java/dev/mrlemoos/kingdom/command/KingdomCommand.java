@@ -11,6 +11,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
+import dev.mrlemoos.kingdom.parliament.CoronationCeremony;
 import dev.mrlemoos.kingdom.service.KingdomResult;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
@@ -41,6 +42,7 @@ public final class KingdomCommand {
     private final KingdomWhitelistHandler whitelistHandler;
     private final WarService warService;
     private final LoyaltyService loyaltyService;
+    private CoronationCeremony coronationCeremony;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this(service, store, nobleDisplay, null, null, null, null, null, null, null, null, null);
@@ -153,6 +155,10 @@ public final class KingdomCommand {
         this.whitelistHandler = whitelistHandler;
         this.warService = warService;
         this.loyaltyService = loyaltyService;
+    }
+
+    public void setCoronationCeremony(CoronationCeremony coronationCeremony) {
+        this.coronationCeremony = coronationCeremony;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -414,11 +420,16 @@ public final class KingdomCommand {
             } else if (rank == NobleRank.QUEEN || "princess".equalsIgnoreCase(rankArg)) {
                 style = TitleStyle.FEMININE;
             }
+            boolean throneWasVacant =
+                    coronationCeremony != null && coronationCeremony.throneVacantFor(target.getUniqueId());
             KingdomResult result = service.assignTitle(target.getUniqueId(), rank, style);
             sender.sendMessage(format(result));
             if (result instanceof KingdomResult.Success) {
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
+                if (coronationCeremony != null) {
+                    coronationCeremony.crownIfDue(target.getUniqueId(), rank, throneWasVacant);
+                }
             }
         } catch (IllegalArgumentException ex) {
             sender.sendMessage(error(ex.getMessage()));

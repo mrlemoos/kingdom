@@ -61,6 +61,7 @@ public final class ParliamentHandler {
     private final VillagerPremierInauguralService villagerPremierInauguralService;
     private final WarService warService;
     private final DemobilisationService demobilisationService;
+    private dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer;
     private Consumer<Player> hubGuiOpener;
     private java.util.function.BiConsumer<Player, String> referendumBallotOpener;
 
@@ -111,6 +112,11 @@ public final class ParliamentHandler {
         this.villagerPremierInauguralService = villagerPremierInauguralService;
         this.warService = warService;
         this.demobilisationService = demobilisationService;
+    }
+
+    /** Who raises the Royal Standard when the Lords point moves. */
+    public void setRoyalStandardPlacer(dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer) {
+        this.royalStandardPlacer = royalStandardPlacer;
     }
 
     public void setHubGuiOpener(Consumer<Player> hubGuiOpener) {
@@ -299,7 +305,12 @@ public final class ParliamentHandler {
                 ParliamentResult result = parliamentService.setLords(
                         kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
                                 location.getZ()));
-                yield finish(sender, result);
+                boolean done = finish(sender, result);
+                if (result instanceof ParliamentResult.Success && royalStandardPlacer != null
+                        && royalStandardPlacer.raiseFor(kingdomId)) {
+                    sender.sendMessage(success("The Royal Standard flies over the Lords."));
+                }
+                yield done;
             }
             case "registrar" -> {
                 Block target = player.get().getTargetBlockExact(6);
