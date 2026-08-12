@@ -20,12 +20,12 @@ import org.bukkit.entity.Player;
  */
 public final class CourtSummonService {
 
-    private static final int STAND_OFF = 3;
-
     private final PoliceService policeService;
+    private final PoliceCourtService courtService;
 
-    public CourtSummonService(PoliceService policeService) {
+    public CourtSummonService(PoliceService policeService, PoliceCourtService courtService) {
         this.policeService = Objects.requireNonNull(policeService, "policeService");
+        this.courtService = Objects.requireNonNull(courtService, "courtService");
     }
 
     public void summonHearing(String kingdomId, UUID accusedId, List<UUID> hearingPartyIds) {
@@ -38,7 +38,12 @@ public final class CourtSummonService {
             return;
         }
         Location focus = new Location(
-                world, court.get().x() + 0.5, court.get().y(), court.get().z() + 0.5);
+                world,
+                court.get().x() + 0.5,
+                court.get().y(),
+                court.get().z() + 0.5,
+                CourtBench.normaliseYaw(court.get().yaw()),
+                0f);
         List<UUID> party = new ArrayList<>();
         if (accusedId != null) {
             party.add(accusedId);
@@ -50,10 +55,23 @@ public final class CourtSummonService {
                 }
             }
         }
-        List<int[]> offsets = SafeChamberLanding.frontOffsets(party.size(), focus.getYaw(), STAND_OFF);
+        // The accused leads the party, so they take the centre of the first rank: the dock,
+        // directly in front of the bench, with the hearing party ranked behind them.
+        List<int[]> offsets =
+                SafeChamberLanding.frontOffsets(party.size(), focus.getYaw(), CourtBench.DOCK_STAND_OFF);
         for (int i = 0; i < party.size(); i++) {
             teleportTo(world, focus, offsets.get(i), party.get(i));
         }
+        if (accusedId != null && !offsets.isEmpty()) {
+            int[] dock = offsets.get(0);
+            courtService.faceJudgeTowards(
+                    kingdomId, focus.getX() + dock[0], focus.getZ() + dock[1]);
+        }
+    }
+
+    /** Returns the magistrate to the sited yaw once the hearing is over. */
+    public void riseCourt(String kingdomId) {
+        courtService.restoreJudgeFacing(kingdomId);
     }
 
     private static void teleportTo(World world, Location focus, int[] offset, UUID entityId) {

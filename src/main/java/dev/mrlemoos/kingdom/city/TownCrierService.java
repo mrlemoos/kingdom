@@ -301,7 +301,9 @@ public final class TownCrierService {
         crier.setPersistent(true);
         crier.setRemoveWhenFarAway(false);
         crier.setSilent(true);
-        crier.setProfession(Villager.Profession.NONE);
+        // A nitwit can never be employed by a nearby job block; an unemployed villager can, and a
+        // Crier that takes a trade becomes a shop.
+        crier.setProfession(Villager.Profession.NITWIT);
         crier.setVillagerLevel(1);
         crier.setCustomName(NAMETAG);
         crier.setCustomNameVisible(true);

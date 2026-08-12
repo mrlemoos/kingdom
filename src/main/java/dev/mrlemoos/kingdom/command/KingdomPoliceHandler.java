@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.police.ArrestRewardService;
+import dev.mrlemoos.kingdom.police.CourtBench;
 import dev.mrlemoos.kingdom.police.CourtProximity;
 import dev.mrlemoos.kingdom.police.PoliceAuthority;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
@@ -314,7 +315,8 @@ public final class KingdomPoliceHandler {
                 standing.getWorld().getName(),
                 standing.getBlockX(),
                 standing.getBlockY(),
-                standing.getBlockZ());
+                standing.getBlockZ(),
+                CourtBench.normaliseYaw(standing.getYaw()));
         PoliceResult result = policeService.setCourt(
                 kingdomId,
                 membership.get().getRank(),

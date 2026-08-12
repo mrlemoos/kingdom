@@ -44,7 +44,9 @@ public final class PoliceCourtService {
         if (canonicalId.isPresent()) {
             Optional<Villager> canonical = findVillagerById(canonicalId.get());
             if (canonical.isPresent() && isValidJudge(canonical.get(), kingdomId)) {
-                configureJudge(canonical.get(), kingdomId);
+                // Heal in place: an existing magistrate may predate the nitwit bench, or have
+                // drifted back into a profession with trades.
+                configureJudge(canonical.get(), kingdomId, court.get());
                 removeJudgesAtCourt(kingdomId, court.get(), canonicalId);
                 if (storedId.isEmpty() || !storedId.get().equals(canonicalId.get())) {
                     policeService.setJudgeEntityId(kingdomId, canonicalId.get());
@@ -157,11 +159,11 @@ public final class PoliceCourtService {
             throw new IllegalStateException("World not loaded: " + court.worldName());
         }
 
-        Location location = judgeLocation(world, court).add(0.5, 0.0, 0.5);
-        return world.spawn(location, Villager.class, spawned -> configureJudge(spawned, kingdomId));
+        Location location = judgeLocation(world, court);
+        return world.spawn(location, Villager.class, spawned -> configureJudge(spawned, kingdomId, court));
     }
 
-    private void configureJudge(Villager villager, String kingdomId) {
+    private void configureJudge(Villager villager, String kingdomId, CourtLocation court) {
         villager.setAI(false);
         villager.setSilent(true);
         villager.setInvulnerable(true);
@@ -169,11 +171,41 @@ public final class PoliceCourtService {
         villager.setRemoveWhenFarAway(false);
         villager.setCustomName(PoliceAppearance.judgeVillagerNametag());
         villager.setCustomNameVisible(true);
-        villager.setProfession(Villager.Profession.LIBRARIAN);
+        // A nitwit can never take a job from a nearby block; an unemployed villager can, and a
+        // librarian magistrate restocks real trades players can use.
+        villager.setProfession(Villager.Profession.NITWIT);
         villager.setVillagerType(Villager.Type.PLAINS);
         villager.setRecipes(new ArrayList<>());
+        villager.setRotation(CourtBench.normaliseYaw(court.yaw()), 0f);
         villager.getPersistentDataContainer().set(judgeTagKey, PersistentDataType.BYTE, (byte) 1);
         villager.getPersistentDataContainer().set(kingdomTagKey, PersistentDataType.STRING, kingdomId);
+    }
+
+    /** Turns the magistrate to face a point, holding the sited yaw when the point is the bench itself. */
+    public void faceJudgeTowards(String kingdomId, double targetX, double targetZ) {
+        Optional<CourtLocation> court = policeService.court(kingdomId);
+        if (court.isEmpty()) {
+            return;
+        }
+        Optional<Villager> judge = policeService.judgeEntityId(kingdomId).flatMap(this::findVillagerById);
+        if (judge.isEmpty() || !isValidJudge(judge.get(), kingdomId)) {
+            return;
+        }
+        float yaw = CourtBench.yawTowards(
+                court.get().x() + 0.5, court.get().z() + 0.5, targetX, targetZ, court.get().yaw());
+        judge.get().setRotation(yaw, 0f);
+    }
+
+    /** Returns the magistrate to the yaw the court was sited with. */
+    public void restoreJudgeFacing(String kingdomId) {
+        Optional<CourtLocation> court = policeService.court(kingdomId);
+        if (court.isEmpty()) {
+            return;
+        }
+        Optional<Villager> judge = policeService.judgeEntityId(kingdomId).flatMap(this::findVillagerById);
+        if (judge.isPresent() && isValidJudge(judge.get(), kingdomId)) {
+            judge.get().setRotation(CourtBench.normaliseYaw(court.get().yaw()), 0f);
+        }
     }
 
     private boolean isValidJudge(Villager villager, String kingdomId) {
@@ -184,7 +216,13 @@ public final class PoliceCourtService {
     }
 
     private static Location judgeLocation(World world, CourtLocation court) {
-        return new Location(world, court.x(), court.y(), court.z() - 1);
+        return new Location(
+                world,
+                court.x() + 0.5,
+                court.y(),
+                court.z() + 0.5,
+                CourtBench.normaliseYaw(court.yaw()),
+                0f);
     }
 
     private Optional<Villager> findVillagerById(UUID entityId) {

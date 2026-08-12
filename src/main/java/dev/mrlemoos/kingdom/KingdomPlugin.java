@@ -313,7 +313,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 mechanicalJusticeService,
                                 trialJuryConfig,
                                 new java.util.Random());
-                CourtSummonService courtSummonService = new CourtSummonService(policeService);
+                CourtSummonService courtSummonService =
+                                new CourtSummonService(policeService, policeCourtService);
                 VillagerJuryEntityService villagerJuryEntityService = new VillagerJuryEntityService(
                                 this,
                                 kingdomService,

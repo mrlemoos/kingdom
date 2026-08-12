@@ -241,6 +241,11 @@ public final class TrialJuryRuntime {
         if (villagerJuryEntityService != null) {
             villagerJuryEntityService.releaseJurors(kingdomId);
         }
+        // Every close path routes through here, so the magistrate turns back to the bench once,
+        // wherever the hearing ended.
+        if (courtSummonService != null) {
+            courtSummonService.riseCourt(kingdomId);
+        }
     }
 
     private boolean isNearCourt(Player player, String kingdomId) {

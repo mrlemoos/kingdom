@@ -45,4 +45,33 @@ class YamlKingdomStorePoliceTest {
                 UUID.fromString("00000000-0000-0000-0000-000000000012"),
                 loadedPolice.judgeEntityId().orElseThrow());
     }
+
+    @Test
+    void roundTripPreservesTheBenchYaw() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.getPoliceState().setCourt(new CourtLocation("world", 5, 64, 5, -90f));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlKingdomStore.writePolice(config, "kingdoms.northmarch.police", kingdom);
+
+        Kingdom loaded = new Kingdom("northmarch", "Northmarch");
+        YamlKingdomStore.readPolice(config.getConfigurationSection("kingdoms.northmarch.police"), loaded);
+
+        assertEquals(-90f, loaded.getPoliceState().court().orElseThrow().yaw(), 0.001f);
+    }
+
+    @Test
+    void aCourtSitedBeforeTheBenchHadAYawLooksDueSouth() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.getPoliceState().setCourt(new CourtLocation("world", 5, 64, 5));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlKingdomStore.writePolice(config, "kingdoms.northmarch.police", kingdom);
+        config.set("kingdoms.northmarch.police.court.yaw", null);
+
+        Kingdom loaded = new Kingdom("northmarch", "Northmarch");
+        YamlKingdomStore.readPolice(config.getConfigurationSection("kingdoms.northmarch.police"), loaded);
+
+        assertEquals(0f, loaded.getPoliceState().court().orElseThrow().yaw(), 0.001f);
+    }
 }

@@ -1218,6 +1218,7 @@ public final class YamlKingdomStore {
             config.set(path + ".court.x", court.x());
             config.set(path + ".court.y", court.y());
             config.set(path + ".court.z", court.z());
+            config.set(path + ".court.yaw", (double) court.yaw());
         });
         police.judgeEntityId().ifPresent(id -> config.set(path + ".judge-entity", id.toString()));
         if (!police.patrolGolemsView().isEmpty()) {
@@ -1276,7 +1277,8 @@ public final class YamlKingdomStore {
                         world,
                         courtSection.getInt("x"),
                         courtSection.getInt("y"),
-                        courtSection.getInt("z")));
+                        courtSection.getInt("z"),
+                        (float) courtSection.getDouble("yaw")));
             }
         }
 
