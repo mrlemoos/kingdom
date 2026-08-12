@@ -39,9 +39,6 @@ import dev.mrlemoos.kingdom.listener.CoronaMerchantListener;
 import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
 import dev.mrlemoos.kingdom.listener.JoinReminderListener;
 import dev.mrlemoos.kingdom.listener.LifeEventListener;
-import dev.mrlemoos.kingdom.listener.MintInteractListener;
-import dev.mrlemoos.kingdom.listener.MintLecternGuardListener;
-import dev.mrlemoos.kingdom.listener.MintPrepareListener;
 import dev.mrlemoos.kingdom.listener.ParliamentGuiListener;
 import dev.mrlemoos.kingdom.listener.TreasuryBriefingListener;
 import dev.mrlemoos.kingdom.listener.TerritoryVillagerDespawnListener;
@@ -386,6 +383,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 resignCommand);
                 parliamentHandler.setHubGuiOpener(parliamentGuiListener::openHubGui);
                 parliamentHandler.setReferendumBallotOpener(parliamentGuiListener::openReferendumBallotGui);
+                fiscalHandler.setMintPrepareGuiOpener(parliamentGuiListener::openMintPrepareGui);
                 dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer =
                                 new dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer(kingdomService);
                 parliamentHandler.setRoyalStandardPlacer(royalStandardPlacer);
@@ -485,10 +483,6 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 mechanicalJusticeService),
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
-                getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
-                getServer().getPluginManager().registerEvents(
-                                new MintLecternGuardListener(this, economyCoordinator, treasuryLordService),
-                                this);
                 getServer().getPluginManager().registerEvents(
                                 new TreasuryBriefingListener(kingdomService, economyService, territoryResolver, this),
                                 this);
@@ -506,9 +500,6 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new StateOpeningListener(speechFromThroneItem, stateOpeningCeremony), this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.CoronationListener(coronationCeremony), this);
-                getServer().getPluginManager().registerEvents(
-                                new MintPrepareListener(parliamentHandler, parliamentGuiListener),
-                                this);
                 getServer().getPluginManager().registerEvents(
                                 new VillagerProfessionNametagListener(villagerMpEntityService), this);
                 getServer().getPluginManager().registerEvents(

@@ -19,7 +19,19 @@ public final class TreasuryLordPlacement {
     }
 
     public static int lordBlockZ(MintLocation mint) {
-        return mint.z() - 1;
+        return mint.z();
+    }
+
+    /** The yaw the mint was sited with, wrapped into the range Bukkit hands back. */
+    public static float lordYaw(MintLocation mint) {
+        float wrapped = mint.yaw() % 360f;
+        if (wrapped > 180f) {
+            wrapped -= 360f;
+        }
+        if (wrapped < -180f) {
+            wrapped += 360f;
+        }
+        return wrapped;
     }
 
     public static boolean isTreasuryLordDisplayName(String displayName) {

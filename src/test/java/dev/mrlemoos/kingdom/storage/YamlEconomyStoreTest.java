@@ -89,6 +89,47 @@ class YamlEconomyStoreTest {
     }
 
     @Test
+    void roundTripPreservesTheMintYaw() {
+        List<MintLocation> mints = List.of(new MintLocation("world", 10, 64, 10, -90f, null));
+        KingdomEconomy economy = new KingdomEconomy(0.0, FiscalRates.defaults(), null, new TreasuryBudget(), mints);
+
+        EconomyService source = new EconomyService();
+        source.replaceState(Map.of(), Map.of(), Map.of("northmarch", economy));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        assertEquals(
+                -90f,
+                loaded.kingdomEconomies().get("northmarch").mintLocations().getFirst().yaw(),
+                0.001f);
+    }
+
+    @Test
+    void aMintSitedBeforeTheYawExistedLoadsFacingDueSouth() {
+        List<MintLocation> mints = List.of(new MintLocation("world", 10, 64, 10, 45f, null));
+        KingdomEconomy economy = new KingdomEconomy(0.0, FiscalRates.defaults(), null, new TreasuryBudget(), mints);
+
+        EconomyService source = new EconomyService();
+        source.replaceState(Map.of(), Map.of(), Map.of("northmarch", economy));
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+        config.set("kingdoms.northmarch.mints.0.yaw", null);
+
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        assertEquals(
+                0f,
+                loaded.kingdomEconomies().get("northmarch").mintLocations().getFirst().yaw(),
+                0.001f);
+    }
+
+    @Test
     void roundTripPreservesTerritoryWealthCounts() {
         TerritoryWealthCounts counts = new TerritoryWealthCounts();
         counts.set(WealthBlockType.GOLD_BLOCK, 3);

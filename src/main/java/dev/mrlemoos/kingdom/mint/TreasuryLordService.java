@@ -41,7 +41,13 @@ public final class TreasuryLordService {
         if (canonicalId.isPresent()) {
             Optional<Villager> canonical = findVillagerById(canonicalId.get());
             if (canonical.isPresent() && isValidLord(canonical.get(), kingdomId)) {
-                TreasuryLordAppearance.apply(canonical.get());
+                // Heal in place: a Lord sited before the mint carried a yaw stands beside the
+                // mint looking due south, so put it back on its post facing the right way.
+                configureLord(canonical.get(), kingdomId, mint);
+                World mintWorld = Bukkit.getWorld(mint.worldName());
+                if (mintWorld != null) {
+                    canonical.get().teleport(lordLocation(mintWorld, mint));
+                }
                 removeLordsAtMint(kingdomId, mint, canonicalId);
                 MintLocation updated = mint.lordEntityId()
                                 .filter(canonicalId.get()::equals)
@@ -178,11 +184,11 @@ public final class TreasuryLordService {
             throw new IllegalStateException("World not loaded: " + mint.worldName());
         }
 
-        Location location = lordLocation(world, mint).add(0.5, 0.0, 0.5);
-        return world.spawn(location, Villager.class, spawned -> configureLord(spawned, kingdomId));
+        Location location = lordLocation(world, mint);
+        return world.spawn(location, Villager.class, spawned -> configureLord(spawned, kingdomId, mint));
     }
 
-    private void configureLord(Villager villager, String kingdomId) {
+    private void configureLord(Villager villager, String kingdomId, MintLocation mint) {
         villager.setAI(false);
         villager.setSilent(true);
         villager.setInvulnerable(true);
@@ -191,6 +197,7 @@ public final class TreasuryLordService {
         villager.setCustomName(TreasuryLordPlacement.LORD_DISPLAY_NAME);
         villager.setCustomNameVisible(true);
         TreasuryLordAppearance.apply(villager);
+        villager.setRotation(TreasuryLordPlacement.lordYaw(mint), 0f);
         villager.getPersistentDataContainer().set(lordTagKey, PersistentDataType.BYTE, (byte) 1);
         villager.getPersistentDataContainer().set(kingdomTagKey, PersistentDataType.STRING, kingdomId);
     }
@@ -205,9 +212,11 @@ public final class TreasuryLordService {
     private static Location lordLocation(World world, MintLocation mint) {
         Location location = new Location(
                 world,
-                TreasuryLordPlacement.lordBlockX(mint),
+                TreasuryLordPlacement.lordBlockX(mint) + 0.5,
                 TreasuryLordPlacement.lordBlockY(mint),
-                TreasuryLordPlacement.lordBlockZ(mint));
+                TreasuryLordPlacement.lordBlockZ(mint) + 0.5,
+                TreasuryLordPlacement.lordYaw(mint),
+                0f);
         // ponytail: force the mint chunk loaded so a restart scan sees the existing lord
         // instead of spawning a duplicate and orphaning the old one.
         world.getChunkAt(location);

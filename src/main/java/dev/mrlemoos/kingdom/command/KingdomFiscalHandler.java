@@ -47,6 +47,17 @@ public final class KingdomFiscalHandler {
     private final TerritoryResolver territoryResolver;
     private final TreasuryLordService treasuryLordService;
     private final JavaPlugin plugin;
+    private MintPrepareGuiOpener mintPrepareGuiOpener;
+
+    /** Opens the mint prepare board; supplied by the parliament GUI listener after construction. */
+    @FunctionalInterface
+    public interface MintPrepareGuiOpener {
+        void open(Player player, String kingdomId, MintLocation location);
+    }
+
+    public void setMintPrepareGuiOpener(MintPrepareGuiOpener mintPrepareGuiOpener) {
+        this.mintPrepareGuiOpener = mintPrepareGuiOpener;
+    }
 
     public KingdomFiscalHandler(
             EconomyService economyService,
@@ -103,6 +114,7 @@ public final class KingdomFiscalHandler {
         }
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "place" -> handleMintPlace(sender);
+            case "prepare" -> handleMintPrepare(sender);
             case "list" -> handleMintList(sender);
             case "remove" -> handleMintRemove(sender);
             case "despawn" -> handleMintDespawn(sender);
@@ -214,6 +226,61 @@ public final class KingdomFiscalHandler {
         return true;
     }
 
+    /** The mint stands where the sender stands, facing the way they face. Empty when refused. */
+    private Optional<MintLocation> siteMintWhereStanding(Player player, String kingdomId) {
+        Location standing = player.getLocation();
+        if (standing.getWorld() == null) {
+            player.sendMessage(error("You must be in a loaded world to site a mint."));
+            return Optional.empty();
+        }
+        if (!isInOwnTerritory(standing, kingdomId)) {
+            TerritoryLocation territory = territoryResolver.resolve(
+                    standing.getWorld().getName(),
+                    standing.getBlockX(),
+                    standing.getBlockY(),
+                    standing.getBlockZ(),
+                    kingdomId);
+            player.sendMessage(error(mintTerritoryError(kingdomId, standing, territory)));
+            return Optional.empty();
+        }
+        return Optional.of(new MintLocation(
+                standing.getWorld().getName(),
+                standing.getBlockX(),
+                standing.getBlockY(),
+                standing.getBlockZ(),
+                standing.getYaw(),
+                null));
+    }
+
+    /** Premier or Crown sites a mint for a SPEND_MINT bill, then the prepare GUI tables it. */
+    private boolean handleMintPrepare(CommandSender sender) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) {
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) {
+            return true;
+        }
+        NobleRank rank = membership.get().getRank();
+        if (rank != NobleRank.PREMIER && !RoyalMintPlacementPolicy.canPlace(rank)) {
+            sender.sendMessage(error("Only the Premier, King, or Queen may prepare a mint."));
+            return true;
+        }
+
+        String kingdomId = membership.get().getKingdomId();
+        Optional<MintLocation> sited = siteMintWhereStanding(player.get(), kingdomId);
+        if (sited.isEmpty()) {
+            return true;
+        }
+        if (mintPrepareGuiOpener == null) {
+            sender.sendMessage(error("The mint prepare board is unavailable."));
+            return true;
+        }
+        mintPrepareGuiOpener.open(player.get(), kingdomId, sited.get());
+        return true;
+    }
+
     private boolean handleMintPlace(CommandSender sender) {
         Optional<Player> player = requirePlayer(sender);
         if (player.isEmpty()) {
@@ -228,29 +295,13 @@ public final class KingdomFiscalHandler {
             return true;
         }
 
-        Block lectern = findLecternBlock(player.get());
-        if (lectern == null) {
-            sender.sendMessage(error("Stand at or look at a lectern to place a mint."));
+        Optional<MintLocation> sited = siteMintWhereStanding(player.get(), membership.get().getKingdomId());
+        if (sited.isEmpty()) {
             return true;
         }
 
         String kingdomId = membership.get().getKingdomId();
-        if (!isLecternInTerritory(lectern, kingdomId)) {
-            TerritoryLocation territory = territoryResolver.resolve(
-                    lectern.getWorld().getName(),
-                    lectern.getX(),
-                    lectern.getY(),
-                    lectern.getZ(),
-                    kingdomId);
-            sender.sendMessage(error(mintTerritoryError(kingdomId, lectern.getLocation(), territory)));
-            return true;
-        }
-
-        MintLocation location = new MintLocation(
-                lectern.getWorld().getName(),
-                lectern.getX(),
-                lectern.getY(),
-                lectern.getZ());
+        MintLocation location = sited.get();
         int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
         EconomyResult result = economyService.placeRoyalMint(kingdomId, location, maxMints);
         sender.sendMessage(formatEconomy(result));
@@ -265,12 +316,15 @@ public final class KingdomFiscalHandler {
         return true;
     }
 
-    private boolean isLecternInTerritory(Block lectern, String kingdomId) {
+    private boolean isInOwnTerritory(Location location, String kingdomId) {
+        if (location.getWorld() == null) {
+            return false;
+        }
         TerritoryLocation territory = territoryResolver.resolve(
-                lectern.getWorld().getName(),
-                lectern.getX(),
-                lectern.getY(),
-                lectern.getZ(),
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ(),
                 kingdomId);
         return territory.type() == TerritoryLocation.IncomeLocation.OWN_KINGDOM;
     }
@@ -481,32 +535,16 @@ public final class KingdomFiscalHandler {
                 location.getBlockY(),
                 location.getBlockZ());
         if (regions.isEmpty()) {
-            return "No WorldGuard region at this lectern. Stand inside your kingdom's /rg region.";
+            return "No WorldGuard region where you stand. Stand inside your kingdom's /rg region.";
         }
         if (territory.type() == TerritoryLocation.IncomeLocation.FOREIGN_KINGDOM) {
             String other = territory.kingdomId().orElse("another kingdom");
-            return "This lectern is in " + other + "'s territory, not yours.";
+            return "Where you stand is in " + other + "'s territory, not yours.";
         }
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         String linked = kingdom.flatMap(kingdomService::territoryLabel).orElse("not set");
         return "WorldGuard region '" + regions.get(0) + "' is not linked to your kingdom ("
                 + linked + "). Ask an admin to run /kingdom setregion.";
-    }
-
-    private Block findLecternBlock(Player player) {
-        Block atFeet = player.getLocation().getBlock();
-        if (atFeet.getType() == Material.LECTERN) {
-            return atFeet;
-        }
-        Block below = atFeet.getRelative(0, -1, 0);
-        if (below.getType() == Material.LECTERN) {
-            return below;
-        }
-        Block target = player.getTargetBlockExact(5);
-        if (target != null && target.getType() == Material.LECTERN) {
-            return target;
-        }
-        return null;
     }
 
     private KingdomEconomy kingdomEconomy(String kingdomId) {
@@ -562,7 +600,7 @@ public final class KingdomFiscalHandler {
 
     private String mintHelp() {
         return info("Mint commands:")
-                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint at a lectern in your territory (King or Queen)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint")+ "\n" + c("&7 — Premier mint placement via /kingdom parliament");
+                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint where you stand in your territory (King or Queen)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint")+ "\n" + c("&7 — /kingdom mint prepare — site a mint for a bill (Premier, King, or Queen)");
     }
 
     private String rateLine(String label, double rate) {

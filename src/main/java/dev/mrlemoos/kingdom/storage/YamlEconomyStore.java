@@ -263,6 +263,7 @@ public final class YamlEconomyStore {
             config.set(mintPath + ".x", location.x());
             config.set(mintPath + ".y", location.y());
             config.set(mintPath + ".z", location.z());
+            config.set(mintPath + ".yaw", (double) location.yaw());
             if (location.treasuryLordUuid() != null) {
                 config.set(mintPath + ".treasury-lord-uuid", location.treasuryLordUuid());
             }
@@ -289,6 +290,7 @@ public final class YamlEconomyStore {
                     entry.getInt("x"),
                     entry.getInt("y"),
                     entry.getInt("z"),
+                    (float) entry.getDouble("yaw"),
                     entry.getString("treasury-lord-uuid")));
         }
         return locations;

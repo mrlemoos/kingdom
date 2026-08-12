@@ -420,6 +420,7 @@ public final class YamlKingdomStore {
             config.set(mintPath + ".x", mint.x());
             config.set(mintPath + ".y", mint.y());
             config.set(mintPath + ".z", mint.z());
+            config.set(mintPath + ".yaw", (double) mint.yaw());
         });
         state.preparedPublicWork().ifPresent(work -> {
             String workPath = path + ".prepared-public-work";
@@ -821,7 +822,9 @@ public final class YamlKingdomStore {
                 world,
                 section.getInt("x"),
                 section.getInt("y"),
-                section.getInt("z")));
+                section.getInt("z"),
+                (float) section.getDouble("yaw"),
+                null));
     }
 
     private static Optional<PreparedPublicWork> readPreparedPublicWork(ConfigurationSection section) {
@@ -924,6 +927,7 @@ public final class YamlKingdomStore {
                 config.set(path + ".x", mint.mintLocation().x());
                 config.set(path + ".y", mint.mintLocation().y());
                 config.set(path + ".z", mint.mintLocation().z());
+                config.set(path + ".yaw", (double) mint.mintLocation().yaw());
                 config.set(path + ".cost", mint.cost());
             }
             case BillPayload.SpendPublicWork work -> {
@@ -973,7 +977,9 @@ public final class YamlKingdomStore {
                             section.getString("world"),
                             section.getInt("x"),
                             section.getInt("y"),
-                            section.getInt("z")),
+                            section.getInt("z"),
+                            (float) section.getDouble("yaw"),
+                            null),
                     section.getDouble("cost"));
             case SPEND_PUBLIC_WORK -> {
                 Optional<WealthBlockType> estateType =

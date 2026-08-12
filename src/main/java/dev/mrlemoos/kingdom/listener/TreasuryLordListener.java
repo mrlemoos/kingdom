@@ -77,7 +77,27 @@ public final class TreasuryLordListener implements Listener {
             return;
         }
 
+        sendMintBriefing(player, mintKingdomId.get());
         openWithdrawGui(player, mintKingdomId.get());
+    }
+
+    /** The balances the mint lectern used to print, now read out by the Lord itself. */
+    private void sendMintBriefing(Player player, String kingdomId) {
+        double walletBalance = economyService.getWalletBalance(player.getUniqueId());
+        double treasuryBalance = economyService.getTreasuryBalance(kingdomId);
+        player.sendMessage("              ");
+        player.sendMessage(c("&6Kingdom Mint"));
+        player.sendMessage(c("&eYour wallet: ") + c("&f" + formatCorona(walletBalance)));
+        player.sendMessage(c("&eTreasury: ") + c("&f" + formatCorona(treasuryBalance)));
+        player.sendMessage(c("&7Use ") + c("&e/corona deposit") + c("&7 to convert gold ingots."));
+        player.sendMessage("              ");
+    }
+
+    private static String formatCorona(double amount) {
+        if (Math.abs(amount - Math.rint(amount)) < 1e-9) {
+            return String.format("%.0f Corona", amount);
+        }
+        return String.format("%.2f Corona", amount);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
