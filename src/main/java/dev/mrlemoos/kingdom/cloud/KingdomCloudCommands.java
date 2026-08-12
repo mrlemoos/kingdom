@@ -137,6 +137,17 @@ public final class KingdomCloudCommands {
         }
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("crier")
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "crier" })));
+
+        for (String action : new String[] { "set", "clear" }) {
+            manager.command(manager.commandBuilder("kingdom", "kdm")
+                    .literal("crier")
+                    .literal(action)
+                    .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "crier", action })));
+        }
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("permit")
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "permit" })));
 

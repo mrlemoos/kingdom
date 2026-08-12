@@ -879,7 +879,7 @@ An attempt to place or break a block inside linked territory without a **build p
 _Avoid_: Griefing, trespass, illegal build, build offence
 
 **Town Crier**:
-The realm NPC that keeps the **Gazette** at the **capital**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned with the capital, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy. A text display above its head cycles the newest Crown posts when a player is nearby.
+The realm NPC that keeps the **Gazette**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned when the **capital** is set (defaulting to the capital block), may be stood elsewhere in the kingdom's territory with `/kingdom crier set`, returned to the capital with `/kingdom crier clear`, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy. A text display above its head cycles the newest Crown posts when a player is nearby.
 _Avoid_: Herald, messenger, news NPC, bulletin board
 
 **Gazette**:

@@ -15,6 +15,7 @@ import java.util.UUID;
 public final class KingdomCityState {
 
     private CapitalLocation capital;
+    private CapitalLocation townCrierStand;
     private UUID lordMayorEntityId;
     private UUID townCrierEntityId;
     private final Map<UUID, Long> permits = new LinkedHashMap<>();
@@ -36,8 +37,36 @@ public final class KingdomCityState {
 
     public void clearCapital() {
         capital = null;
+        townCrierStand = null;
         lordMayorEntityId = null;
         townCrierEntityId = null;
+    }
+
+    /**
+     * Where the Town Crier stands: a Crown-sited stand when set, otherwise the capital. Empty when
+     * there is no capital.
+     */
+    public Optional<CapitalLocation> crierStand() {
+        if (townCrierStand != null) {
+            return Optional.of(townCrierStand);
+        }
+        return Optional.ofNullable(capital);
+    }
+
+    public Optional<CapitalLocation> townCrierStand() {
+        return Optional.ofNullable(townCrierStand);
+    }
+
+    public boolean hasSeparateCrierStand() {
+        return townCrierStand != null;
+    }
+
+    public void setTownCrierStand(CapitalLocation location) {
+        townCrierStand = location;
+    }
+
+    public void clearTownCrierStand() {
+        townCrierStand = null;
     }
 
     public Optional<UUID> lordMayorEntityId() {

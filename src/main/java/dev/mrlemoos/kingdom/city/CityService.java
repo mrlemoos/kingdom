@@ -93,6 +93,63 @@ public final class CityService {
         return CityResult.ok("The capital has been dissolved. Build permits are no longer required.");
     }
 
+    // --- town crier stand ------------------------------------------------
+
+    /** Where the Town Crier should stand: separate site if set, otherwise the capital. */
+    public Optional<CapitalLocation> crierStand(String kingdomId) {
+        Optional<KingdomCityState> city = cityState(kingdomId);
+        if (city.isEmpty()) {
+            return Optional.empty();
+        }
+        return city.get().crierStand();
+    }
+
+    public boolean hasSeparateCrierStand(String kingdomId) {
+        Optional<KingdomCityState> city = cityState(kingdomId);
+        return city.isPresent() && city.get().hasSeparateCrierStand();
+    }
+
+    public CityResult setTownCrierStand(String kingdomId, NobleRank actorRank, CapitalLocation location) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return CityResult.fail("Unknown kingdom.");
+        }
+        if (!isRoyalExempt(actorRank)) {
+            return CityResult.fail("Only the King, Queen or a Prince may site the Town Crier.");
+        }
+        KingdomCityState city = kingdom.get().getCityState();
+        if (!city.hasCapital()) {
+            return CityResult.fail("Site a capital before placing the Town Crier.");
+        }
+        if (location == null) {
+            return CityResult.fail("The Town Crier needs a place to stand.");
+        }
+        boolean moved = city.hasSeparateCrierStand();
+        city.setTownCrierStand(location);
+        return CityResult.ok(moved
+                ? "The Town Crier has been moved."
+                : "The Town Crier has been stood apart from the city hall.");
+    }
+
+    public CityResult clearTownCrierStand(String kingdomId, NobleRank actorRank) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return CityResult.fail("Unknown kingdom.");
+        }
+        if (!isRoyalExempt(actorRank)) {
+            return CityResult.fail("Only the King, Queen or a Prince may clear the Town Crier's stand.");
+        }
+        KingdomCityState city = kingdom.get().getCityState();
+        if (!city.hasCapital()) {
+            return CityResult.fail("This kingdom has no capital.");
+        }
+        if (!city.hasSeparateCrierStand()) {
+            return CityResult.fail("The Town Crier already stands at the capital.");
+        }
+        city.clearTownCrierStand();
+        return CityResult.ok("The Town Crier returns to the capital.");
+    }
+
     // --- permits ---------------------------------------------------------
 
     public boolean hasPermit(String kingdomId, UUID playerId) {

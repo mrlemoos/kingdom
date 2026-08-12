@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.city;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -152,5 +153,59 @@ class CityServiceTest {
         assertFalse(cityService.hasPermit("northmarch", CITIZEN));
         assertFalse(cityService.mayBuild("northmarch", CITIZEN));
         assertInstanceOf(CityResult.Failure.class, cityService.revokePermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void crierStandFallsBackToCapitalUntilMoved() {
+        setCapital();
+
+        assertEquals(CAPITAL, cityService.crierStand("northmarch").orElseThrow());
+        assertFalse(cityService.hasSeparateCrierStand("northmarch"));
+    }
+
+    @Test
+    void crownMaySiteTheCrierAwayFromTheCapital() {
+        setCapital();
+        CapitalLocation stand = new CapitalLocation("world", 20.0, 65.0, -30.0, 180.0f, 0.0f);
+
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.setTownCrierStand("northmarch", NobleRank.KING, stand));
+        assertTrue(cityService.hasSeparateCrierStand("northmarch"));
+        assertEquals(stand, cityService.crierStand("northmarch").orElseThrow());
+        assertEquals(CAPITAL, cityService.capital("northmarch").orElseThrow());
+    }
+
+    @Test
+    void clearingTheCrierStandReturnsItToTheCapital() {
+        setCapital();
+        CapitalLocation stand = new CapitalLocation("world", 20.0, 65.0, -30.0, 180.0f, 0.0f);
+        cityService.setTownCrierStand("northmarch", NobleRank.KING, stand);
+
+        assertInstanceOf(
+                CityResult.Success.class, cityService.clearTownCrierStand("northmarch", NobleRank.KING));
+        assertFalse(cityService.hasSeparateCrierStand("northmarch"));
+        assertEquals(CAPITAL, cityService.crierStand("northmarch").orElseThrow());
+    }
+
+    @Test
+    void crierStandNeedsACapitalFirst() {
+        CapitalLocation stand = new CapitalLocation("world", 20.0, 65.0, -30.0, 180.0f, 0.0f);
+
+        assertInstanceOf(
+                CityResult.Failure.class,
+                cityService.setTownCrierStand("northmarch", NobleRank.KING, stand));
+    }
+
+    @Test
+    void dissolvingTheCapitalClearsTheCrierStand() {
+        setCapital();
+        cityService.setTownCrierStand(
+                "northmarch", NobleRank.KING, new CapitalLocation("world", 20.0, 65.0, -30.0, 0f, 0f));
+
+        cityService.clearCapital("northmarch", NobleRank.KING);
+
+        assertTrue(cityService.crierStand("northmarch").isEmpty());
+        assertFalse(cityService.hasSeparateCrierStand("northmarch"));
     }
 }

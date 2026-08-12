@@ -31,8 +31,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * The Town Crier: a nitwit villager at the capital who holds the Gazette. Outside the economy,
- * elections and the constabulary. A {@link TextDisplay} above its head cycles the newest posts.
+ * The Town Crier: a nitwit villager who holds the Gazette. Stands at a Crown-sited pitch when set,
+ * otherwise at the capital. Outside the economy, elections and the constabulary. A
+ * {@link TextDisplay} above its head cycles the newest posts.
  */
 public final class TownCrierService {
 
@@ -94,13 +95,13 @@ public final class TownCrierService {
         return Optional.empty();
     }
 
-    public Optional<Villager> spawn(Kingdom kingdom, CapitalLocation capital) {
-        if (kingdom == null || capital == null) {
+    public Optional<Villager> spawn(Kingdom kingdom, CapitalLocation stand) {
+        if (kingdom == null || stand == null) {
             return Optional.empty();
         }
         despawn(kingdom);
 
-        Optional<Location> site = toBukkitLocation(capital);
+        Optional<Location> site = toBukkitLocation(stand);
         if (site.isEmpty()) {
             return Optional.empty();
         }
@@ -117,6 +118,18 @@ public final class TownCrierService {
         ensureDisplay(kingdom, crier);
         ensureTickerRunning();
         return Optional.of(crier);
+    }
+
+    /** Spawns or moves the Town Crier to the kingdom's resolved stand (custom site or capital). */
+    public Optional<Villager> spawnAtStand(Kingdom kingdom) {
+        if (kingdom == null) {
+            return Optional.empty();
+        }
+        Optional<CapitalLocation> stand = kingdom.getCityState().crierStand();
+        if (stand.isEmpty()) {
+            return Optional.empty();
+        }
+        return spawn(kingdom, stand.get());
     }
 
     public void despawn(Kingdom kingdom) {
@@ -142,8 +155,8 @@ public final class TownCrierService {
             return false;
         }
         KingdomCityState city = kingdom.getCityState();
-        Optional<CapitalLocation> capital = city.capital();
-        if (capital.isEmpty()) {
+        Optional<CapitalLocation> stand = city.crierStand();
+        if (stand.isEmpty()) {
             if (city.townCrierEntityId().isEmpty() && !displayEntityIds.containsKey(kingdom.getId())) {
                 return false;
             }
@@ -157,7 +170,7 @@ public final class TownCrierService {
             ensureTickerRunning();
             return false;
         }
-        return spawn(kingdom, capital.get()).isPresent();
+        return spawn(kingdom, stand.get()).isPresent();
     }
 
     public boolean reconcileAll() {

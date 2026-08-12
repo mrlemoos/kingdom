@@ -31,6 +31,7 @@ class YamlKingdomStoreCityTest {
         city.grantPermit(holder, 1_700_000_000_000L);
         city.setLordMayorEntityId(mayor);
         city.setTownCrierEntityId(crier);
+        city.setTownCrierStand(new CapitalLocation("world", 22.0, 65.0, -8.0, 45.0f, 0.0f));
         city.addGazettePost(new GazettePost(
                 "Market",
                 "Open stalls.",
@@ -66,6 +67,11 @@ class YamlKingdomStoreCityTest {
         assertEquals(1_700_000_000_000L, loadedCity.permitsView().get(holder));
         assertEquals(mayor, loadedCity.lordMayorEntityId().orElseThrow());
         assertEquals(crier, loadedCity.townCrierEntityId().orElseThrow());
+        CapitalLocation crierStand = loadedCity.townCrierStand().orElseThrow();
+        assertEquals(22.0, crierStand.x());
+        assertEquals(65.0, crierStand.y());
+        assertEquals(-8.0, crierStand.z());
+        assertEquals(45.0f, crierStand.yaw());
 
         assertEquals(2, loadedCity.gazettePostsView().size());
         GazettePost newest = loadedCity.gazettePostsView().get(0);

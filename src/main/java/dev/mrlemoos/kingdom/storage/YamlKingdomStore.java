@@ -1318,6 +1318,16 @@ public final class YamlKingdomStore {
         if (crier.isPresent()) {
             config.set(path + ".town-crier-entity", crier.get().toString());
         }
+        Optional<CapitalLocation> crierStand = city.townCrierStand();
+        if (crierStand.isPresent()) {
+            CapitalLocation stand = crierStand.get();
+            config.set(path + ".town-crier.world", stand.worldName());
+            config.set(path + ".town-crier.x", stand.x());
+            config.set(path + ".town-crier.y", stand.y());
+            config.set(path + ".town-crier.z", stand.z());
+            config.set(path + ".town-crier.yaw", (double) stand.yaw());
+            config.set(path + ".town-crier.pitch", (double) stand.pitch());
+        }
         for (var entry : city.permitsView().entrySet()) {
             config.set(path + ".permits." + entry.getKey(), entry.getValue());
         }
@@ -1372,6 +1382,20 @@ public final class YamlKingdomStore {
         String crierEntity = section.getString("town-crier-entity");
         if (crierEntity != null && !crierEntity.isBlank()) {
             city.setTownCrierEntityId(UUID.fromString(crierEntity));
+        }
+
+        ConfigurationSection crierStandSection = section.getConfigurationSection("town-crier");
+        if (crierStandSection != null) {
+            String world = crierStandSection.getString("world");
+            if (world != null) {
+                city.setTownCrierStand(new CapitalLocation(
+                        world,
+                        crierStandSection.getDouble("x"),
+                        crierStandSection.getDouble("y"),
+                        crierStandSection.getDouble("z"),
+                        (float) crierStandSection.getDouble("yaw"),
+                        (float) crierStandSection.getDouble("pitch")));
+            }
         }
 
         ConfigurationSection permitsSection = section.getConfigurationSection("permits");

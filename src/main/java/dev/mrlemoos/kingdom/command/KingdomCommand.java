@@ -210,6 +210,7 @@ public final class KingdomCommand {
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
             case "capital" -> handleCapital(sender, args);
+            case "crier" -> handleCrier(sender, args);
             case "permit" -> handlePermit(sender, args);
             case "date" -> handleDate(sender, args);
             case "almanac" -> handleAlmanac(sender);
@@ -683,6 +684,15 @@ public final class KingdomCommand {
         cityHandler.handleCapital(sender, subArgs);
     }
 
+    private void handleCrier(CommandSender sender, String[] args) {
+        if (cityHandler == null) {
+            sender.sendMessage(error("City commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        cityHandler.handleCrier(sender, subArgs);
+    }
+
     private void handlePermit(CommandSender sender, String[] args) {
         if (cityHandler == null) {
             sender.sendMessage(error("City commands are not enabled."));
@@ -756,6 +766,8 @@ public final class KingdomCommand {
         if (cityHandler != null) {
             builder.append("\n").append(c("&e")).append("/kingdom capital set|clear");
             builder.append(c("&7")).append(" — site the capital and its Lord Mayor");
+            builder.append("\n").append(c("&e")).append("/kingdom crier set|clear");
+            builder.append(c("&7")).append(" — site the Town Crier apart from city hall");
             builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
             builder.append(c("&7")).append(" — build permits");
         }

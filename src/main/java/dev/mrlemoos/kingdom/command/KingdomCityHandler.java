@@ -123,14 +123,114 @@ public final class KingdomCityHandler {
         }
 
         Optional<Wolf> mayor = lordMayorService.spawn(kingdom.get(), capital);
-        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawn(kingdom.get(), capital);
+        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawnAtStand(kingdom.get());
         save();
         sender.sendMessage(success(result.message()));
         sender.sendMessage(mayor.isPresent()
                 ? info("The Lord Mayor has taken up office at the city hall.")
                 : error("The Lord Mayor could not be stood up; the capital's world is not loaded."));
         sender.sendMessage(crier.isPresent()
-                ? info("The Town Crier has taken up the Gazette at the capital.")
+                ? info("The Town Crier has taken up the Gazette.")
+                : error("The Town Crier could not be stood up; the capital's world is not loaded."));
+        return true;
+    }
+
+    public boolean handleCrier(CommandSender sender, String[] args) {
+        if (args.length == 0) {
+            sender.sendMessage(crierHelp());
+            return true;
+        }
+        return switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "set" -> handleCrierSet(sender);
+            case "clear" -> handleCrierClear(sender);
+            default -> {
+                sender.sendMessage(crierHelp());
+                yield true;
+            }
+        };
+    }
+
+    private boolean handleCrierSet(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(error("Only players can site the Town Crier."));
+            return true;
+        }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty()) {
+            sender.sendMessage(error("You must join a kingdom first."));
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        Location location = player.getLocation();
+        Optional<String> owner = territoryResolver.owningKingdomId(
+                location.getWorld() == null ? "" : location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ());
+
+        Verdict verdict = CapitalSitingPolicy.evaluate(membership.get().getRank(), kingdomId, owner);
+        if (verdict != Verdict.ALLOWED) {
+            String refusal = switch (verdict) {
+                case NOT_THE_CROWN -> "Only the King or Queen may site the Town Crier.";
+                case NO_KINGDOM -> "You must join a kingdom first.";
+                case UNCLAIMED_LAND -> "The Town Crier must stand inside your kingdom's territory.";
+                case FOREIGN_TERRITORY -> "You may not site the Town Crier in another realm's territory.";
+                case ALLOWED -> "";
+            };
+            sender.sendMessage(error(refusal));
+            return true;
+        }
+
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return true;
+        }
+
+        CapitalLocation stand = CapitalLocation.of(
+                location.getWorld() == null ? "" : location.getWorld().getName(),
+                location.getX(),
+                location.getY(),
+                location.getZ(),
+                location.getYaw(),
+                location.getPitch());
+        CityResult result = cityService.setTownCrierStand(kingdomId, membership.get().getRank(), stand);
+        if (result instanceof CityResult.Failure failure) {
+            sender.sendMessage(error(failure.message()));
+            return true;
+        }
+
+        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawnAtStand(kingdom.get());
+        save();
+        sender.sendMessage(success(result.message()));
+        sender.sendMessage(crier.isPresent()
+                ? info("The Town Crier now cries from here.")
+                : error("The Town Crier could not be stood up; this world's chunks are not loaded."));
+        return true;
+    }
+
+    private boolean handleCrierClear(CommandSender sender) {
+        Optional<PlayerMembership> membership = requireCrown(sender);
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return true;
+        }
+
+        CityResult result = cityService.clearTownCrierStand(kingdomId, membership.get().getRank());
+        if (result instanceof CityResult.Failure failure) {
+            sender.sendMessage(error(failure.message()));
+            return true;
+        }
+        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawnAtStand(kingdom.get());
+        save();
+        sender.sendMessage(success(result.message()));
+        sender.sendMessage(crier.isPresent()
+                ? info("The Town Crier stands again at the capital.")
                 : error("The Town Crier could not be stood up; the capital's world is not loaded."));
         return true;
     }
@@ -248,6 +348,12 @@ public final class KingdomCityHandler {
         return info("Capital commands:")
                 + "\n" + c("&e/kingdom capital set") + c("&7 — King or Queen, inside your territory")
                 + "\n" + c("&e/kingdom capital clear") + c("&7 — dissolve the capital");
+    }
+
+    private String crierHelp() {
+        return info("Town Crier commands:")
+                + "\n" + c("&e/kingdom crier set") + c("&7 — stand the Crier where you are")
+                + "\n" + c("&e/kingdom crier clear") + c("&7 — return the Crier to the capital");
     }
 
     private String permitHelp() {
