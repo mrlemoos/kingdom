@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.model;
 
+import dev.mrlemoos.kingdom.calendar.KingdomReignHistory;
 import dev.mrlemoos.kingdom.model.election.KingdomElectionState;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentSites;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
@@ -19,6 +20,7 @@ public final class Kingdom {
     private final ParliamentState parliamentState = new ParliamentState();
     private final KingdomElectionState electionState = new KingdomElectionState();
     private final KingdomPoliceState policeState = new KingdomPoliceState();
+    private final KingdomReignHistory reignHistory = new KingdomReignHistory();
 
     public Kingdom(String id, String displayName) {
         this.id = normaliseId(id);
@@ -99,5 +101,9 @@ public final class Kingdom {
 
     public KingdomPoliceState getPoliceState() {
         return policeState;
+    }
+
+    public KingdomReignHistory getReignHistory() {
+        return reignHistory;
     }
 }

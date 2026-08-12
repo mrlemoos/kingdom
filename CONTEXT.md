@@ -789,3 +789,53 @@ _Avoid_: Reparations fine, loot pool, war reparations command
 **War debt**:
 The unpaid remainder of an enacted **war tribute** after **decisive victory**. Owed by the defeated kingdom's treasury to the victor; persists across peace until paid or superseded by a later Act.
 _Avoid_: Loan plugin, interest tick, credit score
+
+## Calendar
+
+**Realm calendar**:
+The realm's own reckoning of time: twelve months of thirty days, three hundred and sixty days to the year, derived from the world clock rather than kept as a separate counter. Read with `/kingdom date` and bound into the **almanac**.
+_Avoid_: Real-world date, server uptime, Minecraft day number
+
+**Realm day**:
+The canonical unit of realm time: the in-game day counted from the **calendar epoch**. Never runs backwards, so records keep their order even where an operator sets the world clock back.
+_Avoid_: Tick, in-game day, world full time
+
+**Calendar epoch**:
+The world day the realm calendar was first pinned, stored once in `data.yml`. Every **realm day** is the world day less this epoch.
+_Avoid_: Server start date, world seed date
+
+**Realm Year**:
+The server-wide year of the realm calendar, counted from the **calendar epoch** and shared by every kingdom. All scheduling and all sorting of records run on it.
+_Avoid_: Regnal year, season, calendar year
+
+**Month**:
+One twelfth of the realm year, thirty days long. The twelve are Frostwane, Thawtide, Seedfall, Blossoming, Highmead, Sunwake, Harvest, Goldfall, Emberwane, Hallowtide, Longnight and Yulewatch. Fixed realm vocabulary, never configurable.
+_Avoid_: Real-world month names, week, fortnight
+
+**Regnal year**:
+The ceremonial year of a monarch's reign, beginning at their coronation and turning on each **accession anniversary**. Runs out of phase with the **Realm Year**, which alone governs scheduling.
+_Avoid_: Realm Year, term of office, session
+
+**Accession anniversary**:
+The realm day three hundred and sixty days after a monarch's accession, and every three hundred and sixty days thereafter. The realm is told that the kingdom enters the next **regnal year** of that reign.
+_Avoid_: Coronation day, jubilee, birthday
+
+**Reign record**:
+One monarch's entry in a kingdom's **roll of monarchs**: who reigned, under what style and ordinal, and between which realm days. At most one reign is left open at a time.
+_Avoid_: Title assignment, membership record
+
+**Roll of monarchs**:
+A kingdom's ordered reign records, oldest first. The source of a monarch's regnal ordinal — the second King Leo of that kingdom reigns as King Leo II.
+_Avoid_: Member list, noble roster
+
+**Interregnum**:
+Any stretch of realm days with no monarch seated in a kingdom. Dates fall back to the **Realm Year** alone and the regnal style is suspended; the gap is left unattributed rather than assigned to the late monarch.
+_Avoid_: Regency, vacancy, caretaker reign
+
+**Polling day**:
+The realm date each realm year on which the writ for a general election is issued. Set in config by month and day; the writ still issues on the first day after it should the server have been down when it came round, but never twice in one realm year.
+_Avoid_: Election interval, term length, dissolution date
+
+**Almanac**:
+A written book drawn up by `/kingdom almanac` recording the realm date, the twelve months, the next **polling day** and the kingdom's **roll of monarchs**.
+_Avoid_: Hansard, order paper, register

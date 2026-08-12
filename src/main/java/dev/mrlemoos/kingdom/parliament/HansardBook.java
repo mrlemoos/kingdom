@@ -24,8 +24,18 @@ public final class HansardBook {
 
     private HansardBook() {}
 
-    /** Binds the session's record, in the order the House decided it. Empty when nothing was decided. */
+    /** Binds the session's record, dated by raw in-game day. */
     public static List<HansardVolume> render(String kingdomName, List<HansardRecord> records) {
+        return render(kingdomName, records, day -> "Day " + day);
+    }
+
+    /**
+     * Binds the session's record, in the order the House decided it. Empty when nothing was decided.
+     *
+     * @param dateStamp renders the in-game day a piece of business was decided as a realm date
+     */
+    public static List<HansardVolume> render(
+            String kingdomName, List<HansardRecord> records, java.util.function.LongFunction<String> dateStamp) {
         if (records == null || records.isEmpty()) {
             return List.of();
         }
@@ -34,7 +44,7 @@ public final class HansardBook {
             if (!lines.isEmpty()) {
                 lines.add("");
             }
-            lines.addAll(entryLines(record));
+            lines.addAll(entryLines(record, dateStamp));
         }
         List<String> pages = paginate(lines);
 
@@ -55,8 +65,12 @@ public final class HansardBook {
 
     /** The plain-text lines one decided piece of business contributes to the record. */
     static List<String> entryLines(HansardRecord record) {
+        return entryLines(record, day -> "Day " + day);
+    }
+
+    static List<String> entryLines(HansardRecord record, java.util.function.LongFunction<String> dateStamp) {
         List<String> lines = new ArrayList<>();
-        lines.add("Day " + record.decidedOnMcDay());
+        lines.add(dateStamp.apply(record.decidedOnMcDay()));
         lines.add(strip(record.title()));
         lines.add(businessLabel(record.business()) + " - " + (record.carried() ? "carried" : "not carried"));
         lines.add("Ayes " + record.aye() + ", Noes " + record.nay() + ", Abstentions " + record.abstain());

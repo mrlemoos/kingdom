@@ -81,6 +81,7 @@ import dev.mrlemoos.kingdom.whitelist.WhitelistService;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterDelivery;
 import dev.mrlemoos.kingdom.resignation.ResignationLetterItem;
 import dev.mrlemoos.kingdom.resignation.ResignationService;
+import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
@@ -113,6 +114,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
         private KingdomService kingdomService;
         private YamlKingdomStore store;
+        private dev.mrlemoos.kingdom.calendar.RealmCalendarService realmCalendarService;
         private LoyaltyService loyaltyService;
         private MoraleService moraleService;
         private LoyaltyGateService loyaltyGateService;
@@ -145,6 +147,17 @@ public final class KingdomPlugin extends JavaPlugin {
                 warService.setStandingRosterService(standingRosterService);
                 store.setStandingRosterStore(standingRosterStore);
                 store.loadInto(kingdomService);
+                java.util.function.LongSupplier mcDayClock = () -> {
+                        org.bukkit.World mainWorld = getServer().getWorlds().isEmpty()
+                                        ? null
+                                        : getServer().getWorlds().get(0);
+                        return mainWorld != null ? mainWorld.getFullTime() / 24000L : 0L;
+                };
+                RealmCalendarService realmCalendarService = new RealmCalendarService(kingdomService, mcDayClock);
+                this.realmCalendarService = realmCalendarService;
+                store.setCalendarService(realmCalendarService);
+                store.loadCalendar();
+                realmCalendarService.reconcileAllReigns();
                 LoyaltyService loyaltyService = new LoyaltyService(
                                 loyaltyStore, LoyaltyConfig.fromPluginConfig(getConfig()));
                 this.loyaltyService = loyaltyService;
@@ -238,13 +251,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 parliamentService.setVillagerSeatReleaser(villagerMpEntityService::releaseSeat);
                 parliamentService.setWarService(warService);
                 parliamentService.setTerritoryResolver(territoryResolver);
-                parliamentService.setMcDayClock(() -> {
-                        org.bukkit.World mainWorld = getServer().getWorlds().isEmpty()
-                                        ? null
-                                        : getServer().getWorlds().get(0);
-                        return mainWorld != null ? mainWorld.getFullTime() / 24000L : 0L;
-                });
-                electionService.setHansardArchivist(new HansardArchivist(kingdomService)::archive);
+                parliamentService.setMcDayClock(mcDayClock);
+                HansardArchivist hansardArchivist = new HansardArchivist(kingdomService);
+                hansardArchivist.setCalendarService(realmCalendarService);
+                electionService.setHansardArchivist(hansardArchivist::archive);
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
                                 electionConfig);
@@ -344,7 +354,11 @@ public final class KingdomPlugin extends JavaPlugin {
                 dev.mrlemoos.kingdom.parliament.CoronationCeremony coronationCeremony =
                                 new dev.mrlemoos.kingdom.parliament.CoronationCeremony(this, kingdomService);
                 coronationCeremony.setPoliceTrialService(policeTrialService);
+                coronationCeremony.setCalendarService(realmCalendarService);
                 kingdomCommand.setCoronationCeremony(coronationCeremony);
+                kingdomCommand.setCalendarService(
+                                realmCalendarService,
+                                dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig()));
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -435,6 +449,12 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new PoliceGolemListener(policeService, policeGolemService, kingdomService, store),
                                 this);
 
+                getServer().getScheduler().runTaskTimer(
+                                this,
+                                new dev.mrlemoos.kingdom.task.RealmCalendarTask(
+                                                kingdomService, realmCalendarService, store),
+                                100L,
+                                20L * 20);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickPatrolDetains, 60L, 20L);
                 getServer().getScheduler().runTaskTimer(
@@ -465,6 +485,9 @@ public final class KingdomPlugin extends JavaPlugin {
                 ElectionTask electionTask = new ElectionTask(
                                 this, electionService, electionHandler, kingdomService, store, electionConfig,
                                 villagerPremierInauguralService, parliamentService, villagerMpEntityService);
+                electionTask.setCalendar(
+                                realmCalendarService,
+                                dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig()));
                 electionTask.setStateOpeningCeremony(stateOpeningCeremony);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 

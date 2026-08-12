@@ -247,7 +247,10 @@ public final class ItemBuilder {
         List<Component> pages = bookPages.stream()
             .<Component>map(LEGACY_SECTION::deserialize)
             .toList();
-        bookMeta.pages(pages);
+        // ponytail: addPages, not pages(List) — the latter is inherited from Adventure's Book on the
+        // 26.1.2 API we compile against but declared on BookMeta in 26.2, so the descriptor differs
+        // and a 26.2 server throws NoSuchMethodError. addPages is identical on both.
+        bookMeta.addPages(pages.toArray(new Component[0]));
       }
       itemMeta = bookMeta;
     }

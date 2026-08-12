@@ -129,6 +129,17 @@ public class KingdomService {
                 .anyMatch(m -> kingdomId.equals(m.getKingdomId()) && m.getRank() == rank);
     }
 
+    /** The member wearing the Crown in that kingdom, if any. */
+    public Optional<PlayerMembership> findMonarch(String kingdomId) {
+        if (kingdomId == null) {
+            return Optional.empty();
+        }
+        return memberships.values().stream()
+                .filter(m -> kingdomId.equals(m.getKingdomId()))
+                .filter(m -> m.getRank() == NobleRank.KING || m.getRank() == NobleRank.QUEEN)
+                .findFirst();
+    }
+
     public KingdomResult clearTitle(UUID playerId) {
         PlayerMembership membership = memberships.get(playerId);
         if (membership == null) {

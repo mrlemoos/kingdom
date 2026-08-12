@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.storage;
 
+import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
+import dev.mrlemoos.kingdom.calendar.ReignRecord;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -78,6 +80,7 @@ public final class YamlKingdomStore {
     private WarService warService;
     private StandingRosterStore standingRosterStore;
     private MechanicalJusticeService mechanicalJusticeService;
+    private RealmCalendarService calendarService;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -102,6 +105,64 @@ public final class YamlKingdomStore {
 
     public void setMechanicalJusticeService(MechanicalJusticeService mechanicalJusticeService) {
         this.mechanicalJusticeService = mechanicalJusticeService;
+    }
+
+    public void setCalendarService(RealmCalendarService calendarService) {
+        this.calendarService = calendarService;
+    }
+
+    /** Restores the realm clock; pins the epoch on first run. */
+    public void loadCalendar() {
+        if (calendarService == null) {
+            return;
+        }
+        if (!dataFile.exists()) {
+            calendarService.restore(-1L, 0L);
+            return;
+        }
+        FileConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
+        calendarService.restore(
+                data.getLong("calendar.epoch-world-day", -1L), data.getLong("calendar.last-seen-realm-day", 0L));
+    }
+
+    static List<ReignRecord> readReigns(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+        List<ReignRecord> reigns = new ArrayList<>();
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) {
+                continue;
+            }
+            String monarchId = entry.getString("monarch");
+            String monarchName = entry.getString("name");
+            if (monarchId == null || monarchName == null) {
+                continue;
+            }
+            reigns.add(new ReignRecord(
+                    monarchId,
+                    monarchName,
+                    entry.getString("title", "King"),
+                    entry.getInt("ordinal", 1),
+                    entry.getLong("accession-day", 0L),
+                    entry.getLong("end-day", ReignRecord.OPEN)));
+        }
+        reigns.sort(java.util.Comparator.comparingLong(ReignRecord::accessionDay));
+        return reigns;
+    }
+
+    private static void writeReigns(FileConfiguration data, String path, List<ReignRecord> reigns) {
+        for (int i = 0; i < reigns.size(); i++) {
+            ReignRecord reign = reigns.get(i);
+            String entry = path + "." + i;
+            data.set(entry + ".monarch", reign.monarchId());
+            data.set(entry + ".name", reign.monarchName());
+            data.set(entry + ".title", reign.title());
+            data.set(entry + ".ordinal", reign.ordinal());
+            data.set(entry + ".accession-day", reign.accessionDay());
+            data.set(entry + ".end-day", reign.endDay());
+        }
     }
 
     /** Loads persisted warrants after {@link MechanicalJusticeService} is constructed. */
@@ -150,6 +211,7 @@ public final class YamlKingdomStore {
                 kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
                 readParliament(entry.getConfigurationSection("parliament"), kingdom);
                 readPolice(entry.getConfigurationSection("police"), kingdom);
+                kingdom.getReignHistory().replaceAll(readReigns(entry.getConfigurationSection("reigns")));
                 kingdoms.put(kingdom.getId(), kingdom);
             }
         }
@@ -214,6 +276,7 @@ public final class YamlKingdomStore {
             writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
             writeParliament(data, path + ".parliament", kingdom);
             writePolice(data, path + ".police", kingdom);
+            writeReigns(data, path + ".reigns", kingdom.getReignHistory().view());
             if (mechanicalJusticeService != null) {
                 writeWarrants(
                         data,
@@ -233,6 +296,10 @@ public final class YamlKingdomStore {
             }
         }
 
+        if (calendarService != null) {
+            data.set("calendar.epoch-world-day", calendarService.epochWorldDay());
+            data.set("calendar.last-seen-realm-day", calendarService.currentRealmDay());
+        }
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
         }

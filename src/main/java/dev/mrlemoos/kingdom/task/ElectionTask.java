@@ -34,6 +34,8 @@ public final class ElectionTask implements Runnable {
     private final ParliamentService parliamentService;
     private final VillagerMpEntityService villagerMpEntityService;
     private StateOpeningCeremony stateOpeningCeremony;
+    private dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService;
+    private dev.mrlemoos.kingdom.calendar.PollingDay pollingDay;
 
     public ElectionTask(
             JavaPlugin plugin,
@@ -54,6 +56,14 @@ public final class ElectionTask implements Runnable {
         this.villagerPremierInauguralService = villagerPremierInauguralService;
         this.parliamentService = parliamentService;
         this.villagerMpEntityService = villagerMpEntityService;
+    }
+
+    /** Puts general elections on the realm calendar; without it the old fixed interval governs. */
+    public void setCalendar(
+            dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService,
+            dev.mrlemoos.kingdom.calendar.PollingDay pollingDay) {
+        this.calendarService = calendarService;
+        this.pollingDay = pollingDay;
     }
 
     public void setStateOpeningCeremony(StateOpeningCeremony stateOpeningCeremony) {
@@ -182,6 +192,20 @@ public final class ElectionTask implements Runnable {
         }
     }
 
+    /**
+     * A general election is an instant in the realm calendar, not a duration: the writ is issued on the appointed
+     * polling day. Without a calendar the old fixed interval still governs.
+     */
+    private boolean isWritDue(long currentMcDay, long lastGeneralElectionMcDay) {
+        if (calendarService == null || pollingDay == null) {
+            return lastGeneralElectionMcDay < 0
+                    || currentMcDay - lastGeneralElectionMcDay >= config.generalIntervalMcDays();
+        }
+        long epoch = calendarService.epochWorldDay();
+        long lastRealmDay = lastGeneralElectionMcDay < 0 ? -1L : Math.max(0L, lastGeneralElectionMcDay - epoch);
+        return pollingDay.isDue(Math.max(0L, currentMcDay - epoch), lastRealmDay);
+    }
+
     private void scheduleGeneralElections() {
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
             if (kingdom.getElectionState().election().isActive()) {
@@ -193,7 +217,7 @@ public final class ElectionTask implements Runnable {
             }
             long currentMcDay = world.getFullTime() / 24000L;
             long last = kingdom.getElectionState().lastGeneralElectionMcDay();
-            if (last >= 0 && currentMcDay - last < config.generalIntervalMcDays()) {
+            if (!isWritDue(currentMcDay, last)) {
                 continue;
             }
             var result = electionHandler.openGeneralElection(kingdom.getId());

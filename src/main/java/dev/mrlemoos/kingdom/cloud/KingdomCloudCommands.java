@@ -125,6 +125,8 @@ public final class KingdomCloudCommands {
         registerGreedySubcommand(manager, kingdomCommand, "election");
         registerGreedySubcommand(manager, kingdomCommand, "police");
         registerGreedySubcommand(manager, kingdomCommand, "whitelist");
+        registerGreedySubcommand(manager, kingdomCommand, "date");
+        registerGreedySubcommand(manager, kingdomCommand, "almanac");
     }
 
     private static void registerGreedySubcommand(

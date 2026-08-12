@@ -6,6 +6,9 @@ import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
+import dev.mrlemoos.kingdom.calendar.AlmanacBook;
+import dev.mrlemoos.kingdom.calendar.PollingDay;
+import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -23,7 +26,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -43,6 +49,8 @@ public final class KingdomCommand {
     private final WarService warService;
     private final LoyaltyService loyaltyService;
     private CoronationCeremony coronationCeremony;
+    private RealmCalendarService calendarService;
+    private PollingDay pollingDay;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this(service, store, nobleDisplay, null, null, null, null, null, null, null, null, null);
@@ -161,6 +169,11 @@ public final class KingdomCommand {
         this.coronationCeremony = coronationCeremony;
     }
 
+    public void setCalendarService(RealmCalendarService calendarService, PollingDay pollingDay) {
+        this.calendarService = calendarService;
+        this.pollingDay = pollingDay;
+    }
+
     public void execute(CommandSender sender, String[] args) {
         if (args.length == 0) {
             sender.sendMessage(help(sender));
@@ -186,6 +199,8 @@ public final class KingdomCommand {
             case "election" -> handleElection(sender, args);
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
+            case "date" -> handleDate(sender, args);
+            case "almanac" -> handleAlmanac(sender);
             default -> sender.sendMessage(help(sender));
         }
     }
@@ -256,8 +271,81 @@ public final class KingdomCommand {
         return;
     }
 
+    /** {@code /kingdom date [kingdom]} — the realm date, dated by the reign of that kingdom's monarch. */
+    private void handleDate(CommandSender sender, String[] args) {
+        if (calendarService == null) {
+            sender.sendMessage(error("The realm calendar is not available."));
+            return;
+        }
+        Optional<Kingdom> kingdom = args.length >= 2
+                ? service.getKingdom(args[1])
+                : kingdomOf(sender);
+        if (args.length >= 2 && kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return;
+        }
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(info(calendarService.today().format()
+                    + ", Realm Year " + calendarService.today().realmYear()));
+            return;
+        }
+        sender.sendMessage(info(calendarService.formatFor(kingdom.get().getId())));
+        calendarService.currentReign(kingdom.get().getId()).ifPresent(reign ->
+                sender.sendMessage(c("&7Acceded on realm day ") + c("&f" + reign.accessionDay())));
+    }
+
+    /** {@code /kingdom almanac} — the realm almanac, as a written book. Overflow drops at the reader's feet. */
+    private void handleAlmanac(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(error("Only players can be handed an almanac."));
+            return;
+        }
+        if (calendarService == null || pollingDay == null) {
+            sender.sendMessage(error("The realm calendar is not available."));
+            return;
+        }
+        Optional<Kingdom> kingdom = kingdomOf(sender);
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Join a kingdom before asking for its almanac."));
+            return;
+        }
+        List<String> pages = AlmanacBook.pages(
+                kingdom.get().getDisplayName(),
+                calendarService.currentRealmDay(),
+                kingdom.get().getReignHistory().view(),
+                pollingDay);
+        ItemStack almanac = new ItemBuilder(Material.WRITTEN_BOOK)
+                .displayAs(c("&6The Almanac of " + kingdom.get().getDisplayName()))
+                .book("The Almanac", kingdom.get().getDisplayName(), pages)
+                .build();
+        for (ItemStack overflow : player.getInventory().addItem(almanac).values()) {
+            player.getWorld().dropItem(player.getLocation(), overflow);
+        }
+        sender.sendMessage(info("The almanac is drawn up: " + calendarService.formatFor(kingdom.get().getId())));
+    }
+
+    /** Any title change may seat or vacate the Crown; the reign record follows it. */
+    private void reconcileReignOf(java.util.UUID playerId) {
+        if (calendarService == null) {
+            return;
+        }
+        service.getMembership(playerId)
+                .ifPresent(membership -> calendarService.reconcileReign(membership.getKingdomId()));
+    }
+
+    private Optional<Kingdom> kingdomOf(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return Optional.empty();
+        }
+        return service.getMembership(player.getUniqueId())
+                .flatMap(membership -> service.getKingdom(membership.getKingdomId()));
+    }
+
     private void sendKingdomInfo(CommandSender sender, Kingdom kingdom) {
         sender.sendMessage(info(kingdom.getDisplayName()));
+        if (calendarService != null) {
+            sender.sendMessage(c("&7Date: ") + c("&f" + calendarService.formatFor(kingdom.getId())));
+        }
         service.territoryLabel(kingdom).ifPresent(label ->
                 sender.sendMessage(c("&7Territory: ")+ c("&f" + label)));
         if (economyService != null) {
@@ -405,6 +493,7 @@ public final class KingdomCommand {
             KingdomResult result = service.clearTitle(target.getUniqueId());
             sender.sendMessage(format(result));
             if (result instanceof KingdomResult.Success) {
+                reconcileReignOf(target.getUniqueId());
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
             }
@@ -425,6 +514,7 @@ public final class KingdomCommand {
             KingdomResult result = service.assignTitle(target.getUniqueId(), rank, style);
             sender.sendMessage(format(result));
             if (result instanceof KingdomResult.Success) {
+                reconcileReignOf(target.getUniqueId());
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
                 if (coronationCeremony != null) {
@@ -605,6 +695,10 @@ public final class KingdomCommand {
         builder.append(c("&7")).append(" — choose your kingdom once");
         builder.append("\n").append(c("&e")).append("/kingdom info [name]");
         builder.append(c("&7")).append(" — realm or player details");
+        builder.append("\n").append(c("&e")).append("/kingdom date [name]");
+        builder.append(c("&7")).append(" — the realm date and reigning monarch");
+        builder.append("\n").append(c("&e")).append("/kingdom almanac");
+        builder.append(c("&7")).append(" — months, polling day, roll of monarchs");
         if (fiscalHandler != null) {
             builder.append("\n").append(c("&e")).append("/kingdom election ...");
             builder.append(c("&7")).append(" — MP elections and nominations");

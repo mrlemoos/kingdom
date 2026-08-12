@@ -40,6 +40,7 @@ public final class CoronationCeremony {
     private final JavaPlugin plugin;
     private final KingdomService kingdomService;
     private PoliceTrialService policeTrialService;
+    private dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService;
 
     /** Monarchs crowned in absentia: the ceremony waits for them to log in. */
     private final Map<UUID, String> pendingCoronations = new ConcurrentHashMap<>();
@@ -51,6 +52,10 @@ public final class CoronationCeremony {
 
     public void setPoliceTrialService(PoliceTrialService policeTrialService) {
         this.policeTrialService = policeTrialService;
+    }
+
+    public void setCalendarService(dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService) {
+        this.calendarService = calendarService;
     }
 
     /** True when nobody in that player's kingdom presently holds the Crown. */
@@ -145,8 +150,14 @@ public final class CoronationCeremony {
     }
 
     private void proclaim(Player monarch, Kingdom kingdom) {
+        if (calendarService != null) {
+            calendarService.reconcileReign(kingdom.getId());
+        }
         Bukkit.broadcastMessage(c("&6" + crownTitle(monarch.getUniqueId()) + " " + monarch.getName()
                 + " is crowned sovereign of " + kingdom.getDisplayName() + "."));
+        if (calendarService != null) {
+            Bukkit.broadcastMessage(c("&e" + calendarService.formatFor(kingdom.getId())));
+        }
         Bukkit.broadcastMessage(c("&eLong live the " + crownTitle(monarch.getUniqueId()) + "!"));
     }
 

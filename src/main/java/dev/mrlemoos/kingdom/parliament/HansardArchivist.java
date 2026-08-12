@@ -15,9 +15,14 @@ import java.util.Optional;
 public final class HansardArchivist {
 
     private final KingdomService kingdomService;
+    private dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService;
 
     public HansardArchivist(KingdomService kingdomService) {
         this.kingdomService = kingdomService;
+    }
+
+    public void setCalendarService(dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService) {
+        this.calendarService = calendarService;
     }
 
     /** Shelves the closing session's Hansard. Silent where the kingdom has set no registrar. */
@@ -33,7 +38,12 @@ public final class HansardArchivist {
         if (registrar.isEmpty()) {
             return;
         }
-        List<HansardVolume> volumes = HansardBook.render(kingdom.get().getDisplayName(), records);
+        List<HansardVolume> volumes = calendarService == null
+                ? HansardBook.render(kingdom.get().getDisplayName(), records)
+                : HansardBook.render(
+                        kingdom.get().getDisplayName(),
+                        records,
+                        mcDay -> calendarService.stampForMcDay(kingdomId, mcDay));
         for (HansardVolume volume : volumes) {
             try {
                 RegistrarShelfWriter.placeBook(

@@ -162,6 +162,11 @@ parliament:
     polling-window-days: 2
 
 election:
+  # Polling day: the realm date the writ is issued each realm year. Month 1 is Frostwane, 7 is Harvest.
+  # Falls back to general-interval-mc-days only where the realm calendar is unavailable.
+  polling-day:
+    month: 7
+    day: 1
   general-interval-mc-days: 120
   duration-mc-days: 3
   inaugural-fiscal-delay-mc-days: 2
