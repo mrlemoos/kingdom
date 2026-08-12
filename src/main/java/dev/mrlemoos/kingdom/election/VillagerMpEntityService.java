@@ -48,6 +48,7 @@ public final class VillagerMpEntityService {
     private final NamespacedKey mpOriginKey;
     private final NamespacedKey treasuryLordTagKey;
     private final NamespacedKey townCrierTagKey;
+    private final NamespacedKey villagerMagistrateTagKey;
     private EconomyService economyService;
     private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
 
@@ -64,6 +65,8 @@ public final class VillagerMpEntityService {
         this.mpOriginKey = new NamespacedKey(plugin, "kingdom_mp_origin");
         this.treasuryLordTagKey = new NamespacedKey(plugin, "treasury_lord");
         this.townCrierTagKey = new NamespacedKey(plugin, "town_crier");
+        // Written by PoliceCourtService; read here so no sweep relabels the magistrate.
+        this.villagerMagistrateTagKey = new NamespacedKey(plugin, "police_judge");
     }
 
     public void setVillagerStrikeSource(EconomyService economyService, VillagerEconomyConfig villagerEconomyConfig) {
@@ -234,10 +237,13 @@ public final class VillagerMpEntityService {
         }
         Set<UUID> seatedMpIds = seatedVillagerEntityIds(kingdom);
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-            if (isTreasuryLord(villager) || seatedMpIds.contains(villager.getUniqueId())) {
-                continue;
-            }
-            if (isMpVillager(villager)) {
+            // One exclusion rule for every sweep: plugin NPCs own their nametag.
+            if (VillagerNametagRefreshEligibility.isPluginNpc(
+                    isTreasuryLord(villager),
+                    isMpVillager(villager),
+                    seatedMpIds.contains(villager.getUniqueId()),
+                    isTownCrier(villager),
+                    isVillagerMagistrate(villager))) {
                 continue;
             }
             if (!isInKingdomTerritory(villager, kingdom)) {
@@ -735,6 +741,7 @@ public final class VillagerMpEntityService {
                 isMpVillager(villager),
                 isSeatedMpVillager(villager.getUniqueId()),
                 isTownCrier(villager),
+                isVillagerMagistrate(villager),
                 isInAnyKingdomTerritory(villager));
     }
 
@@ -865,6 +872,21 @@ public final class VillagerMpEntityService {
     private boolean isTreasuryLord(Villager villager) {
         Byte tag = villager.getPersistentDataContainer().get(treasuryLordTagKey, PersistentDataType.BYTE);
         return tag != null && tag == 1;
+    }
+
+    private boolean isVillagerMagistrate(Villager villager) {
+        Byte tag = villager.getPersistentDataContainer().get(villagerMagistrateTagKey, PersistentDataType.BYTE);
+        return tag != null && tag == 1;
+    }
+
+    /** True when this villager holds a plugin role and so owns its own nametag. */
+    public boolean isPluginNpcVillager(Villager villager) {
+        return VillagerNametagRefreshEligibility.isPluginNpc(
+                isTreasuryLord(villager),
+                isMpVillager(villager),
+                isSeatedMpVillager(villager.getUniqueId()),
+                isTownCrier(villager),
+                isVillagerMagistrate(villager));
     }
 
     private boolean isTownCrier(Villager villager) {
