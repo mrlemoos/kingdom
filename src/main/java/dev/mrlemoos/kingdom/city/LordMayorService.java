@@ -26,7 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class LordMayorService {
 
     /** The nametag every Lord Mayor wears, always visible. */
-    public static final String NAMETAG = ColourEncoder.c("&6&l[Lord Mayor]");
+    public static final String NAMETAG = ColourEncoder.c("&6Lord Mayor");
 
     private final KingdomService kingdomService;
     private final NamespacedKey mayorTagKey;
