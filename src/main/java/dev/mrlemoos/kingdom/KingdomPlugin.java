@@ -433,7 +433,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.LordMayorGuiListener(
-                                                lordMayorService, cityService, kingdomService, store),
+                                                lordMayorService, cityService, kingdomService, store,
+                                                economyService, realmWealthRates),
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);

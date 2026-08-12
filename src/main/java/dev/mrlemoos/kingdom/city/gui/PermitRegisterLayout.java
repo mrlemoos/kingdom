@@ -12,6 +12,7 @@ public final class PermitRegisterLayout {
     public static final int SLOT_PREVIOUS = 45;
     public static final int SLOT_PAGE = 49;
     public static final int SLOT_NEXT = 53;
+    public static final int SLOT_STATISTICS = 47;
 
     public static final int SLOT_CONFIRM_REVOKE = 11;
     public static final int SLOT_CONFIRM_HOLDER = 13;

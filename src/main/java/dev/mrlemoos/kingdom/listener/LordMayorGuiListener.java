@@ -5,11 +5,14 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.city.CityResult;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
+import dev.mrlemoos.kingdom.city.gui.CityStatistics;
 import dev.mrlemoos.kingdom.city.gui.PermitApplicantStatus;
 import dev.mrlemoos.kingdom.city.gui.PermitApplyGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterLayout;
 import dev.mrlemoos.kingdom.city.gui.PermitRevokeConfirmGui;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -42,16 +45,22 @@ public final class LordMayorGuiListener implements Listener {
     private final CityService cityService;
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
+    private final EconomyService economyService;
+    private final RealmWealthRates realmWealthRates;
 
     public LordMayorGuiListener(
             LordMayorService lordMayorService,
             CityService cityService,
             KingdomService kingdomService,
-            YamlKingdomStore store) {
+            YamlKingdomStore store,
+            EconomyService economyService,
+            RealmWealthRates realmWealthRates) {
         this.lordMayorService = Objects.requireNonNull(lordMayorService, "lordMayorService");
         this.cityService = Objects.requireNonNull(cityService, "cityService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.store = store;
+        this.economyService = economyService;
+        this.realmWealthRates = realmWealthRates;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -211,8 +220,28 @@ public final class LordMayorGuiListener implements Listener {
         }
         entries.sort(Comparator.comparingLong(PermitRegisterGui.Entry::grantedAtMs));
         player.openInventory(PermitRegisterGui
-                .create(kingdomId, entries, page, System.currentTimeMillis())
+                .create(kingdomId, entries, page, System.currentTimeMillis(), statisticsOf(kingdomId, entries.size()))
                 .getInventory());
+    }
+
+    /** The state of the realm as the register shows it, or null when no economy is running. */
+    private CityStatistics statisticsOf(String kingdomId, int permitHolders) {
+        if (economyService == null || realmWealthRates == null) {
+            return null;
+        }
+        int members = (int) kingdomService.getMembershipsView().values().stream()
+                .filter(m -> kingdomId.equals(m.getKingdomId()))
+                .count();
+        Map<UUID, ?> villagerWallets = economyService.villagerWallets().get(kingdomId);
+        return new CityStatistics(
+                members,
+                permitHolders,
+                villagerWallets == null ? 0 : villagerWallets.size(),
+                economyService.getTreasuryBalance(kingdomId),
+                economyService.getRealmWealth(kingdomId, realmWealthRates),
+                economyService.getLastDailyGdp(kingdomId),
+                economyService.getTotalTaxRevenue(kingdomId),
+                economyService.getLastDayTradesSettled(kingdomId));
     }
 
     private PermitApplicantStatus statusOf(String kingdomId, UUID playerId) {

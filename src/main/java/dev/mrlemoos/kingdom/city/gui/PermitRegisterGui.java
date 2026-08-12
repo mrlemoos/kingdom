@@ -43,19 +43,28 @@ public final class PermitRegisterGui implements InventoryHolder {
     }
 
     public static PermitRegisterGui create(
-            String kingdomId, List<Entry> allEntries, int requestedPage, long nowMs) {
+            String kingdomId,
+            List<Entry> allEntries,
+            int requestedPage,
+            long nowMs,
+            CityStatistics statistics) {
         int total = allEntries.size();
         int page = PermitRegisterLayout.clampPage(requestedPage, total);
         List<Entry> slice = PermitRegisterLayout.pageSlice(allEntries, page);
         PermitRegisterGui gui = new PermitRegisterGui(kingdomId, page, slice);
         Inventory inventory = Bukkit.createInventory(gui, 54, TITLE);
         gui.inventory = inventory;
-        populate(inventory, slice, page, total, nowMs);
+        populate(inventory, slice, page, total, nowMs, statistics);
         return gui;
     }
 
     private static void populate(
-            Inventory inventory, List<Entry> slice, int page, int total, long nowMs) {
+            Inventory inventory,
+            List<Entry> slice,
+            int page,
+            int total,
+            long nowMs,
+            CityStatistics statistics) {
         inventory.clear();
         int slot = 0;
         for (Entry entry : slice) {
@@ -77,7 +86,19 @@ public final class PermitRegisterGui implements InventoryHolder {
                         Material.BOOK,
                         c("&6Page " + (page + 1) + " of " + PermitRegisterLayout.pageCount(total)),
                         total + " permit holder" + (total == 1 ? "" : "s")));
+        if (statistics != null) {
+            inventory.setItem(PermitRegisterLayout.SLOT_STATISTICS, statisticsItem(statistics));
+        }
         fillBackground(inventory);
+    }
+
+    private static ItemStack statisticsItem(CityStatistics statistics) {
+        ItemBuilder builder = new ItemBuilder(Material.WRITABLE_BOOK)
+                .displayAs(c("&6State of the Realm"));
+        for (String line : statistics.lines()) {
+            builder.lore(c("&7" + line));
+        }
+        return builder.build();
     }
 
     private static ItemStack head(Entry entry, long nowMs) {
