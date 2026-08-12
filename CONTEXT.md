@@ -231,8 +231,8 @@ The monarch's approval of a bill passed by the Commons, given in the House of Lo
 _Avoid_: Signature, ratification, approval
 
 **Registrar**:
-The archive where assented Acts are stored as written books on chiseled bookshelves. The monarch sets the anchor bookshelf; further Acts fill slots and extend to adjacent shelves.
-_Avoid_: Archive, library, record office
+The archive where assented Acts and **Hansard** volumes are stored as written books on chiseled bookshelves. The monarch sets the anchor bookshelf; the registrar is that shelf and every face-adjacent chiseled bookshelf reachable from it (no diagonals). Further volumes fill slots and extend along that contiguous run.
+_Avoid_: Archive, library, record office, Hansard shelf (the shelf is the Registrar; Hansard is what is shelved)
 
 **Member of Parliament**:
 A seated MP who may vote in Commons divisions. Citizens without the MP title cannot vote.

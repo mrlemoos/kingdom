@@ -2,12 +2,15 @@ package dev.mrlemoos.kingdom.parliament;
 
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.ChiseledBookshelf;
-import org.bukkit.block.TileState;
 import org.bukkit.inventory.ItemStack;
 
 public final class RegistrarShelfWriter {
@@ -16,15 +19,14 @@ public final class RegistrarShelfWriter {
 
     public record ShelfPlacement(RegistrarSite shelf, int slot) {}
 
-    public static ShelfPlacement placeActBook(RegistrarSite anchor, List<String> pages, List<RegistrarSite> existingShelves) {
+    public static ShelfPlacement placeActBook(RegistrarSite anchor, List<String> pages) {
         String title = pages.isEmpty() ? "Act" : pages.get(0);
-        return placeBook(anchor, title, pages, existingShelves);
+        return placeBook(anchor, title, pages);
     }
 
     /** Shelves any bound volume—an Act, or a volume of Hansard—under its own title. */
-    public static ShelfPlacement placeBook(
-            RegistrarSite anchor, String bookTitle, List<String> pages, List<RegistrarSite> existingShelves) {
-        ShelfPlacement placement = findSlot(anchor, existingShelves);
+    public static ShelfPlacement placeBook(RegistrarSite anchor, String bookTitle, List<String> pages) {
+        ShelfPlacement placement = findSlot(anchor);
         World world = org.bukkit.Bukkit.getWorld(placement.shelf().worldName());
         if (world == null) {
             throw new IllegalStateException("Registrar world is not loaded: " + placement.shelf().worldName());
@@ -38,7 +40,7 @@ public final class RegistrarShelfWriter {
             block.setType(Material.CHISELED_BOOKSHELF);
         }
 
-        if (!(block.getState() instanceof TileState tileState) || !(tileState instanceof ChiseledBookshelf bookshelf)) {
+        if (!(block.getState() instanceof ChiseledBookshelf bookshelf)) {
             throw new IllegalStateException("Registrar shelf is not a chiseled bookshelf.");
         }
 
@@ -47,7 +49,7 @@ public final class RegistrarShelfWriter {
             title = title.substring(0, 32);
         }
         ItemStack book = new ItemBuilder(Material.WRITTEN_BOOK)
-                .book(title, "Parliament", pages)
+                .book(title, RegistrarCatalogue.AUTHOR, pages)
                 .build();
 
         bookshelf.getInventory().setItem(placement.slot(), book);
@@ -55,42 +57,47 @@ public final class RegistrarShelfWriter {
         return placement;
     }
 
-    private static ShelfPlacement findSlot(RegistrarSite anchor, List<RegistrarSite> existingShelves) {
-        List<RegistrarSite> candidates = new java.util.ArrayList<>();
-        candidates.add(anchor);
-        candidates.addAll(existingShelves);
-
-        for (RegistrarSite site : candidates) {
-            World world = org.bukkit.Bukkit.getWorld(site.worldName());
-            if (world == null) {
-                continue;
-            }
-            Block block = world.getBlockAt(site.blockX(), site.blockY(), site.blockZ());
-            if (block.getType() != Material.CHISELED_BOOKSHELF) {
-                return new ShelfPlacement(site, 0);
-            }
-            if (block.getState() instanceof ChiseledBookshelf bookshelf) {
-                for (int slot = 0; slot < bookshelf.getInventory().getSize(); slot++) {
-                    ItemStack item = bookshelf.getInventory().getItem(slot);
-                    if (item == null || item.getType().isAir()) {
-                        return new ShelfPlacement(site, slot);
-                    }
-                }
-            }
+    static ShelfPlacement findSlot(RegistrarSite anchor) {
+        World world = org.bukkit.Bukkit.getWorld(anchor.worldName());
+        if (world == null) {
+            throw new IllegalStateException("Registrar world is not loaded: " + anchor.worldName());
         }
 
-        RegistrarSite next = adjacentShelf(anchor, candidates.size());
-        return new ShelfPlacement(next, 0);
-    }
+        List<RegistrarSite> cluster = RegistrarCluster.floodFill(
+                anchor,
+                site -> {
+                    if (!site.worldName().equals(world.getName())) {
+                        return false;
+                    }
+                    return world.getBlockAt(site.blockX(), site.blockY(), site.blockZ()).getType()
+                            == Material.CHISELED_BOOKSHELF;
+                },
+                RegistrarCluster.MAX_SHELVES);
 
-    private static RegistrarSite adjacentShelf(RegistrarSite anchor, int offset) {
-        int[][] deltas = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, {0, -1, 0}};
-        int[] delta = deltas[offset % deltas.length];
-        int steps = (offset / deltas.length) + 1;
-        return RegistrarSite.of(
-                anchor.worldName(),
-                anchor.blockX() + delta[0] * steps,
-                anchor.blockY() + delta[1] * steps,
-                anchor.blockZ() + delta[2] * steps);
+        if (cluster.isEmpty()) {
+            cluster = List.of(anchor);
+        }
+
+        Map<RegistrarSite, Set<Integer>> occupied = new HashMap<>();
+        int slotsPerShelf = 6;
+        for (RegistrarSite site : cluster) {
+            Block block = world.getBlockAt(site.blockX(), site.blockY(), site.blockZ());
+            if (block.getType() != Material.CHISELED_BOOKSHELF
+                    || !(block.getState() instanceof ChiseledBookshelf bookshelf)) {
+                occupied.put(site, Set.of());
+                continue;
+            }
+            slotsPerShelf = bookshelf.getInventory().getSize();
+            Set<Integer> taken = new HashSet<>();
+            for (int slot = 0; slot < slotsPerShelf; slot++) {
+                ItemStack item = bookshelf.getInventory().getItem(slot);
+                if (item != null && !item.getType().isAir()) {
+                    taken.add(slot);
+                }
+            }
+            occupied.put(site, taken);
+        }
+
+        return RegistrarShelfSlot.next(anchor, cluster, occupied, slotsPerShelf);
     }
 }

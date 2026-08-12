@@ -40,6 +40,7 @@ import dev.mrlemoos.kingdom.listener.EconomyActivityListener;
 import dev.mrlemoos.kingdom.listener.JoinReminderListener;
 import dev.mrlemoos.kingdom.listener.LifeEventListener;
 import dev.mrlemoos.kingdom.listener.ParliamentGuiListener;
+import dev.mrlemoos.kingdom.listener.RegistrarListener;
 import dev.mrlemoos.kingdom.listener.TreasuryBriefingListener;
 import dev.mrlemoos.kingdom.listener.TerritoryVillagerDespawnListener;
 import dev.mrlemoos.kingdom.listener.TerritoryWealthListener;
@@ -491,6 +492,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 economyStore),
                                 this);
                 getServer().getPluginManager().registerEvents(parliamentGuiListener, this);
+                getServer().getPluginManager().registerEvents(new RegistrarListener(kingdomService), this);
                 getServer().getPluginManager().registerEvents(
                                 new ResignationLetterListener(
                                                 kingdomService, resignationService, resignationLetterItem,

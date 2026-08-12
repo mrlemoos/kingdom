@@ -3,7 +3,6 @@ package dev.mrlemoos.kingdom.command;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
-import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
@@ -14,9 +13,7 @@ import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
-import dev.mrlemoos.kingdom.model.parliament.AssentedAct;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
-import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
@@ -34,7 +31,6 @@ import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarService;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -43,7 +39,6 @@ import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -392,9 +387,8 @@ public final class ParliamentHandler {
                 .getKingdom(kingdomId)
                 .flatMap(k -> k.getParliamentSites().registrar());
         if (registrar.isPresent()) {
-            List<RegistrarSite> existing = existingShelfSites(kingdomId);
-            RegistrarShelfWriter.ShelfPlacement placement = RegistrarShelfWriter.placeActBook(registrar.get(),
-                    draft.get().bookPages(), existing);
+            RegistrarShelfWriter.ShelfPlacement placement =
+                    RegistrarShelfWriter.placeActBook(registrar.get(), draft.get().bookPages());
             parliamentService.commitArchivedAct(kingdomId, draft.get(), placement.shelf(), placement.slot());
         }
 
@@ -622,17 +616,6 @@ public final class ParliamentHandler {
                 },
                 () -> sender.sendMessage(c("&7No bill is before Parliament.")));
         return true;
-    }
-
-    List<RegistrarSite> existingShelfSites(String kingdomId) {
-        List<RegistrarSite> shelves = new ArrayList<>();
-        kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
-            for (AssentedAct act : kingdom.getParliamentState().assentedActsView()) {
-                shelves.add(
-                        RegistrarSite.of(act.shelfWorld(), act.shelfBlockX(), act.shelfBlockY(), act.shelfBlockZ()));
-            }
-        });
-        return shelves;
     }
 
     public Block findLecternBlock(Player player) {

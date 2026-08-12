@@ -1,10 +1,8 @@
 package dev.mrlemoos.kingdom.parliament;
 
 import dev.mrlemoos.kingdom.model.Kingdom;
-import dev.mrlemoos.kingdom.model.parliament.AssentedAct;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.service.KingdomService;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,19 +44,10 @@ public final class HansardArchivist {
                         mcDay -> calendarService.stampForMcDay(kingdomId, mcDay));
         for (HansardVolume volume : volumes) {
             try {
-                RegistrarShelfWriter.placeBook(
-                        registrar.get(), volume.title(), volume.pages(), existingShelfSites(kingdom.get()));
+                RegistrarShelfWriter.placeBook(registrar.get(), volume.title(), volume.pages());
             } catch (IllegalStateException failed) {
                 return;
             }
         }
-    }
-
-    private static List<RegistrarSite> existingShelfSites(Kingdom kingdom) {
-        List<RegistrarSite> shelves = new ArrayList<>();
-        for (AssentedAct act : kingdom.getParliamentState().assentedActsView()) {
-            shelves.add(RegistrarSite.of(act.shelfWorld(), act.shelfBlockX(), act.shelfBlockY(), act.shelfBlockZ()));
-        }
-        return shelves;
     }
 }
