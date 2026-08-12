@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.command;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
@@ -48,6 +49,8 @@ public final class KingdomCommand {
     private final KingdomWhitelistHandler whitelistHandler;
     private final WarService warService;
     private final LoyaltyService loyaltyService;
+    private KingdomCityHandler cityHandler;
+    private CityService cityService;
     private CoronationCeremony coronationCeremony;
     private RealmCalendarService calendarService;
     private PollingDay pollingDay;
@@ -165,6 +168,12 @@ public final class KingdomCommand {
         this.loyaltyService = loyaltyService;
     }
 
+    /** Wires {@code /kingdom capital} and {@code /kingdom permit}, and permit revocation on a move. */
+    public void setCityHandler(KingdomCityHandler cityHandler, CityService cityService) {
+        this.cityHandler = cityHandler;
+        this.cityService = cityService;
+    }
+
     public void setCoronationCeremony(CoronationCeremony coronationCeremony) {
         this.coronationCeremony = coronationCeremony;
     }
@@ -199,6 +208,8 @@ public final class KingdomCommand {
             case "election" -> handleElection(sender, args);
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
+            case "capital" -> handleCapital(sender, args);
+            case "permit" -> handlePermit(sender, args);
             case "date" -> handleDate(sender, args);
             case "almanac" -> handleAlmanac(sender);
             default -> sender.sendMessage(help(sender));
@@ -474,6 +485,10 @@ public final class KingdomCommand {
         KingdomResult result = service.movePlayer(target.getUniqueId(), args[2]);
         sender.sendMessage(format(result));
         if (result instanceof KingdomResult.Success) {
+            // Leaving a kingdom surrenders its build permit; the new realm's must be applied for.
+            if (cityService != null) {
+                cityService.revokeAllPermits(target.getUniqueId());
+            }
             store.saveFrom(service);
             refreshDisplayIfOnline(target.getUniqueId());
         }
@@ -656,6 +671,24 @@ public final class KingdomCommand {
         whitelistHandler.handleWhitelist(sender, subArgs);
     }
 
+    private void handleCapital(CommandSender sender, String[] args) {
+        if (cityHandler == null) {
+            sender.sendMessage(error("City commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        cityHandler.handleCapital(sender, subArgs);
+    }
+
+    private void handlePermit(CommandSender sender, String[] args) {
+        if (cityHandler == null) {
+            sender.sendMessage(error("City commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        cityHandler.handlePermit(sender, subArgs);
+    }
+
     private void handleSetWorld(CommandSender sender, String[] args) {
         if (!requireAdmin(sender)) {
             return;
@@ -716,6 +749,12 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — police readiness");
             builder.append("\n").append(c("&e")).append("/kingdom whitelist status");
             builder.append(c("&7")).append(" — server whitelist");
+        }
+        if (cityHandler != null) {
+            builder.append("\n").append(c("&e")).append("/kingdom capital set|clear");
+            builder.append(c("&7")).append(" — site the capital and its Lord Mayor");
+            builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
+            builder.append(c("&7")).append(" — build permits");
         }
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");

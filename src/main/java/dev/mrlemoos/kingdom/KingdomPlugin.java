@@ -2,6 +2,9 @@ package dev.mrlemoos.kingdom;
 
 import dev.mrlemoos.kingdom.command.CoronaCommand;
 import dev.mrlemoos.kingdom.command.ElectionHandler;
+import dev.mrlemoos.kingdom.city.CityService;
+import dev.mrlemoos.kingdom.city.LordMayorService;
+import dev.mrlemoos.kingdom.command.KingdomCityHandler;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.KingdomFiscalHandler;
 import dev.mrlemoos.kingdom.command.KingdomPoliceHandler;
@@ -319,6 +322,16 @@ public final class KingdomPlugin extends JavaPlugin {
                 KingdomWhitelistHandler whitelistHandler = new KingdomWhitelistHandler(
                                 whitelistService,
                                 kingdomService);
+                CityService cityService = new CityService(
+                                kingdomService, policeTrialService::isUnderPrisonSentence);
+                policeTrialService.setBuildPermitRevoker(cityService::revokeAllPermits);
+                LordMayorService lordMayorService = new LordMayorService(this, kingdomService);
+                KingdomCityHandler cityHandler = new KingdomCityHandler(
+                                kingdomService,
+                                cityService,
+                                lordMayorService,
+                                territoryResolver,
+                                store);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
                                 parliamentService,
                                 kingdomService,
@@ -355,6 +368,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new dev.mrlemoos.kingdom.parliament.CoronationCeremony(this, kingdomService);
                 coronationCeremony.setPoliceTrialService(policeTrialService);
                 coronationCeremony.setCalendarService(realmCalendarService);
+                kingdomCommand.setCityHandler(cityHandler, cityService);
                 kingdomCommand.setCoronationCeremony(coronationCeremony);
                 kingdomCommand.setCalendarService(
                                 realmCalendarService,
@@ -414,7 +428,12 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 territoryResolver,
                                                 buildConductEnforcer,
                                                 mechanicalJusticeService,
-                                                loyaltyService),
+                                                loyaltyService,
+                                                cityService),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.LordMayorGuiListener(
+                                                lordMayorService, cityService, kingdomService, store),
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(new MintInteractListener(economyCoordinator), this);
@@ -493,10 +512,16 @@ public final class KingdomPlugin extends JavaPlugin {
 
                 TerritoryVillagerDespawnTask territoryVillagerDespawnTask = new TerritoryVillagerDespawnTask(this,
                                 villagerMpEntityService);
+                territoryVillagerDespawnTask.setLordMayorService(lordMayorService, kingdomService, store);
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
                 getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);
+                getServer().getScheduler().runTaskLater(this, () -> {
+                        if (lordMayorService.reconcileAll()) {
+                                store.saveFrom(kingdomService);
+                        }
+                }, 40L);
 
                 nobleDisplay.refreshAllOnline();
 

@@ -839,3 +839,37 @@ _Avoid_: Election interval, term length, dissolution date
 **Almanac**:
 A written book drawn up by `/kingdom almanac` recording the realm date, the twelve months, the next **polling day** and the kingdom's **roll of monarchs**.
 _Avoid_: Hansard, order paper, register
+
+## City
+
+**Capital**:
+The single point a monarch designates as the seat of their kingdom, set with `/kingdom capital set` from inside the kingdom's linked territory and removed with `/kingdom capital clear`. Setting it again moves the seat. The capital is the **city hall** and the place the **lord mayor** stands; a kingdom with no capital issues no **build permits** and is not gated at all.
+_Avoid_: Home, spawn, capital city, seat of government
+
+**City hall**:
+The civic office at the **capital** where **build permits** are applied for. Not a building the plugin places—it is the capital point itself, and the monarch is free to raise a hall around it.
+_Avoid_: Town hall, mayor's office, civic centre, guild hall
+
+**Lord Mayor**:
+The realm NPC that issues **build permits**, standing at the **city hall**: a tamed wolf, seated, invulnerable, without AI, showing a **[Lord Mayor]** nametag. Spawned by `/kingdom capital set`, removed by `/kingdom capital clear`, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy.
+_Avoid_: Mayor NPC, town crier, clerk, magistrate
+
+**Build permit**:
+The licence a player must hold to place or break blocks inside a kingdom's linked territory. Free, granted on the spot by the **lord mayor**, kingdom-wide, and persisted in `data.yml`. Held only by members of that kingdom; **foreigners** cannot obtain one. Revoked by a **prison sentence**, by leaving the kingdom, and by the monarch through `/kingdom permit revoke`.
+_Avoid_: Build rights, build flag, planning permission, land claim
+
+**Permit exemption**:
+The standing right of the **King or Queen** and the **Princes or Princesses** to build inside **their own** kingdom without a **build permit**. It does not travel: royalty in another realm is a **foreigner** and cannot build there at all. Operators are not exempt from this gate, unlike the **build-ban Act** gate.
+_Avoid_: Admin bypass, OP override, royal decree
+
+**Foreigner**:
+Relative to a kingdom, a player who is not one of its members. A foreigner may not hold that kingdom's **build permit** and so may not build in its territory, whatever rank they hold at home.
+_Avoid_: Outsider, guest, visitor, non-citizen
+
+**Permit register**:
+The paginated roll of a kingdom's **build permit** holders, opened by the **King or Queen** or a **Prince or Princess** shift-right-clicking the **lord mayor**. Each holder appears as a player head; selecting one offers revocation.
+_Avoid_: Permit list, whitelist, roster
+
+**Unlicensed building**:
+An attempt to place or break a block inside linked territory without a **build permit**. The action is refused and the player told why, at most once in a short interval. It is not a crime: no **warrant** is opened and no **political loyalty** is lost, unlike a **build-ban Act** breach.
+_Avoid_: Griefing, trespass, illegal build, build offence

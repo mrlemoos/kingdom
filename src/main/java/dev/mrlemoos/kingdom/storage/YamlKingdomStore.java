@@ -33,6 +33,7 @@ import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionBlocKind;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
+import dev.mrlemoos.kingdom.model.city.CapitalLocation;
 import dev.mrlemoos.kingdom.model.police.ArrestReward;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
@@ -58,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -211,6 +213,7 @@ public final class YamlKingdomStore {
                 kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
                 readParliament(entry.getConfigurationSection("parliament"), kingdom);
                 readPolice(entry.getConfigurationSection("police"), kingdom);
+                readCity(entry.getConfigurationSection("city"), kingdom);
                 kingdom.getReignHistory().replaceAll(readReigns(entry.getConfigurationSection("reigns")));
                 kingdoms.put(kingdom.getId(), kingdom);
             }
@@ -276,6 +279,7 @@ public final class YamlKingdomStore {
             writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
             writeParliament(data, path + ".parliament", kingdom);
             writePolice(data, path + ".police", kingdom);
+            writeCity(data, path + ".city", kingdom);
             writeReigns(data, path + ".reigns", kingdom.getReignHistory().view());
             if (mechanicalJusticeService != null) {
                 writeWarrants(
@@ -1238,6 +1242,61 @@ public final class YamlKingdomStore {
             guardGolems.add(UUID.fromString(id));
         }
         police.replaceGuardGolems(guardGolems);
+    }
+
+    static void writeCity(FileConfiguration config, String path, Kingdom kingdom) {
+        var city = kingdom.getCityState();
+        Optional<CapitalLocation> capital = city.capital();
+        if (capital.isPresent()) {
+            CapitalLocation seat = capital.get();
+            config.set(path + ".capital.world", seat.worldName());
+            config.set(path + ".capital.x", seat.x());
+            config.set(path + ".capital.y", seat.y());
+            config.set(path + ".capital.z", seat.z());
+            config.set(path + ".capital.yaw", (double) seat.yaw());
+            config.set(path + ".capital.pitch", (double) seat.pitch());
+        }
+        Optional<UUID> mayor = city.lordMayorEntityId();
+        if (mayor.isPresent()) {
+            config.set(path + ".lord-mayor-entity", mayor.get().toString());
+        }
+        for (var entry : city.permitsView().entrySet()) {
+            config.set(path + ".permits." + entry.getKey(), entry.getValue());
+        }
+    }
+
+    static void readCity(ConfigurationSection section, Kingdom kingdom) {
+        if (section == null) {
+            return;
+        }
+        var city = kingdom.getCityState();
+        ConfigurationSection capitalSection = section.getConfigurationSection("capital");
+        if (capitalSection != null) {
+            String world = capitalSection.getString("world");
+            if (world != null) {
+                city.setCapital(new CapitalLocation(
+                        world,
+                        capitalSection.getDouble("x"),
+                        capitalSection.getDouble("y"),
+                        capitalSection.getDouble("z"),
+                        (float) capitalSection.getDouble("yaw"),
+                        (float) capitalSection.getDouble("pitch")));
+            }
+        }
+
+        String mayorEntity = section.getString("lord-mayor-entity");
+        if (mayorEntity != null && !mayorEntity.isBlank()) {
+            city.setLordMayorEntityId(UUID.fromString(mayorEntity));
+        }
+
+        ConfigurationSection permitsSection = section.getConfigurationSection("permits");
+        if (permitsSection != null) {
+            Map<UUID, Long> permits = new LinkedHashMap<>();
+            for (String key : permitsSection.getKeys(false)) {
+                permits.put(UUID.fromString(key), permitsSection.getLong(key));
+            }
+            city.replacePermits(permits);
+        }
     }
 
     static void writeWarrants(FileConfiguration config, String path, List<Warrant> warrants) {

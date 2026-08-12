@@ -89,6 +89,29 @@ class PrisonSentenceEffectsTest {
     }
 
     @Test
+    void prisonRevokesTheBuildPermitAndReleaseDoesNotRestoreIt() {
+        dev.mrlemoos.kingdom.city.CityService cityService =
+                new dev.mrlemoos.kingdom.city.CityService(kingdomService);
+        cityService.setCapital(
+                "northmarch",
+                NobleRank.KING,
+                new dev.mrlemoos.kingdom.model.city.CapitalLocation("world", 5, 64, 5, 0f, 0f));
+        cityService.grantPermit("northmarch", SUSPECT);
+        trialService.setBuildPermitRevoker(cityService::revokeAllPermits);
+        assertTrue(cityService.mayBuild("northmarch", SUSPECT));
+
+        openApproveAndArrest();
+        trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.PRISON, 0, 15);
+
+        assertFalse(cityService.hasPermit("northmarch", SUSPECT));
+
+        trialService.releaseFromPrison(SUSPECT);
+
+        assertFalse(cityService.hasPermit("northmarch", SUSPECT));
+        assertFalse(cityService.mayBuild("northmarch", SUSPECT));
+    }
+
+    @Test
     void prisonNeverRemovesFromWhitelist() {
         assertFalse(PrisonOfficePolicy.mayRemoveFromWhitelist());
     }

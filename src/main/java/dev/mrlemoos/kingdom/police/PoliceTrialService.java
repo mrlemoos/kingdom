@@ -39,6 +39,7 @@ public final class PoliceTrialService {
     private final ArrestRewardService arrestRewardService;
     private ElectedOfficeVacator electedOfficeVacator;
     private PrisonSpawnPort prisonSpawnPort;
+    private BuildPermitRevoker buildPermitRevoker = BuildPermitRevoker.none();
     private TrialJuryService trialJuryService;
     private final AtomicLong caseSequence = new AtomicLong(1);
     private final List<PoliceCase> cases = new ArrayList<>();
@@ -103,6 +104,11 @@ public final class PoliceTrialService {
 
     public void setPrisonSpawnPort(PrisonSpawnPort prisonSpawnPort) {
         this.prisonSpawnPort = Objects.requireNonNull(prisonSpawnPort, "prisonSpawnPort");
+    }
+
+    /** Late-wire after {@code CityService} is constructed. */
+    public void setBuildPermitRevoker(BuildPermitRevoker buildPermitRevoker) {
+        this.buildPermitRevoker = Objects.requireNonNull(buildPermitRevoker, "buildPermitRevoker");
     }
 
     public void setTrialJuryService(TrialJuryService trialJuryService) {
@@ -391,6 +397,8 @@ public final class PoliceTrialService {
         Optional<SavedSpawn> priorSpawn = prisonSpawnPort.capture(accusedId);
         SuspendedAppointment suspended = suspendAppointedAndSworn(kingdomId, accusedId);
         vacateElectedIfNeeded(kingdomId, accusedId);
+        // A licence a prisoner can reclaim in one click needs no suspension state: revoke outright.
+        buildPermitRevoker.revokeAllPermits(accusedId);
 
         policeCase.applySentence(SentenceType.PRISON, 0, prisonMinutes, slot);
         teleportBlocked.add(accusedId);

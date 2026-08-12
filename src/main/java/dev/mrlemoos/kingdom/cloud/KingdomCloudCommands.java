@@ -125,6 +125,31 @@ public final class KingdomCloudCommands {
         registerGreedySubcommand(manager, kingdomCommand, "election");
         registerGreedySubcommand(manager, kingdomCommand, "police");
         registerGreedySubcommand(manager, kingdomCommand, "whitelist");
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("capital")
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "capital" })));
+
+        for (String action : new String[] { "set", "clear" }) {
+            manager.command(manager.commandBuilder("kingdom", "kdm")
+                    .literal("capital")
+                    .literal(action)
+                    .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "capital", action })));
+        }
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("permit")
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "permit" })));
+
+        for (String action : new String[] { "grant", "revoke" }) {
+            manager.command(manager.commandBuilder("kingdom", "kdm")
+                    .literal("permit")
+                    .literal(action)
+                    .required("player", StringParser.stringParser(), onlinePlayers)
+                    .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
+                            "permit", action, ctx.get("player")
+                    })));
+        }
+
         registerGreedySubcommand(manager, kingdomCommand, "date");
         registerGreedySubcommand(manager, kingdomCommand, "almanac");
     }

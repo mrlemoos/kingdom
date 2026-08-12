@@ -2,6 +2,8 @@ package dev.mrlemoos.kingdom.listener;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.city.BuildRefusalThrottle;
+import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyResult;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
@@ -37,6 +39,8 @@ public final class BuildConductListener implements Listener {
     private final BuildConductEnforcer enforcer;
     private final MechanicalJusticeService justiceService;
     private final LoyaltyService loyaltyService;
+    private final CityService cityService;
+    private final BuildRefusalThrottle refusalThrottle = new BuildRefusalThrottle();
 
     public BuildConductListener(
             KingdomService kingdomService,
@@ -44,11 +48,22 @@ public final class BuildConductListener implements Listener {
             BuildConductEnforcer enforcer,
             MechanicalJusticeService justiceService,
             LoyaltyService loyaltyService) {
+        this(kingdomService, territoryResolver, enforcer, justiceService, loyaltyService, null);
+    }
+
+    public BuildConductListener(
+            KingdomService kingdomService,
+            KingdomTerritoryResolver territoryResolver,
+            BuildConductEnforcer enforcer,
+            MechanicalJusticeService justiceService,
+            LoyaltyService loyaltyService,
+            CityService cityService) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
         this.enforcer = Objects.requireNonNull(enforcer, "enforcer");
         this.justiceService = Objects.requireNonNull(justiceService, "justiceService");
         this.loyaltyService = Objects.requireNonNull(loyaltyService, "loyaltyService");
+        this.cityService = cityService;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -69,9 +84,6 @@ public final class BuildConductListener implements Listener {
         if (player == null || block == null || block.getWorld() == null) {
             return;
         }
-        if (!enforcer.config().enabled()) {
-            return;
-        }
 
         Optional<String> jurisdiction = territoryResolver.owningKingdomId(
                 block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
@@ -83,14 +95,20 @@ public final class BuildConductListener implements Listener {
         if (kingdom.isEmpty()) {
             return;
         }
+        UUID actorId = player.getUniqueId();
+
+        if (!enforcer.config().enabled()) {
+            refuseWithoutPermit(player, kingdom.get(), actorId, event);
+            return;
+        }
 
         List<AssentedAct> acts = kingdom.get().getParliamentState().assentedActsView();
         BlockActionFacts facts = new BlockActionFacts(jurisdiction.get(), actionType);
-        UUID actorId = player.getUniqueId();
         BuildEnforcementDecision decision =
                 enforcer.evaluate(facts, acts, actorId, player.isOp());
 
         if (!decision.denied()) {
+            refuseWithoutPermit(player, kingdom.get(), actorId, event);
             return;
         }
 
@@ -108,6 +126,25 @@ public final class BuildConductListener implements Listener {
         PoliceResult warrant = justiceService.openFromActBreach(breach, actorId);
         if (warrant instanceof PoliceResult.Success) {
             player.sendMessage(c("&7A warrant application has been filed with the Crown."));
+        }
+    }
+
+    /**
+     * The build-permit gate. Unlike the Act ban this is not a crime: the block event is cancelled
+     * and the player told why, with no warrant and no loyalty drop. Operators are not exempt.
+     */
+    private void refuseWithoutPermit(
+            Player player, Kingdom kingdom, UUID actorId, org.bukkit.event.Cancellable event) {
+        if (cityService == null) {
+            return;
+        }
+        if (cityService.mayBuild(kingdom.getId(), actorId)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (refusalThrottle.shouldSend(actorId, System.currentTimeMillis())) {
+            player.sendMessage(c("&cYou need a build permit from the Lord Mayor of "
+                    + kingdom.getDisplayName() + "."));
         }
     }
 }
