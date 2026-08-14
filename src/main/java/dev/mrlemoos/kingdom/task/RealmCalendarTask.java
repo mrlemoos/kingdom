@@ -6,15 +6,22 @@ import dev.mrlemoos.kingdom.calendar.RegnalDating;
 import dev.mrlemoos.kingdom.calendar.Season;
 import dev.mrlemoos.kingdom.calendar.SeasonProfile;
 import dev.mrlemoos.kingdom.city.SeasonGazette;
+import dev.mrlemoos.kingdom.helpers.ColourEncoder;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import java.time.Duration;
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.title.Title;
+import net.kyori.adventure.title.Title.Times;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -24,6 +31,13 @@ import org.bukkit.configuration.file.FileConfiguration;
  * survives a restart.
  */
 public final class RealmCalendarTask implements Runnable {
+
+    /** The colour each season wears on the title screen. */
+    private static final Map<Season, NamedTextColor> SEASON_COLOURS = new EnumMap<>(Map.of(
+            Season.SPRING, NamedTextColor.GREEN,
+            Season.SUMMER, NamedTextColor.YELLOW,
+            Season.AUTUMN, NamedTextColor.GOLD,
+            Season.WINTER, NamedTextColor.AQUA));
 
     private final KingdomService kingdomService;
     private final RealmCalendarService calendarService;
@@ -96,9 +110,19 @@ public final class RealmCalendarTask implements Runnable {
         }
         Season season = turning.get();
         Bukkit.broadcastMessage(c("&6" + season.proclamation()));
+        showSeasonTitle(season);
         criersCry(season);
         // Persist at once: the day roll below may not run for hours, and the word must not go out twice.
         store.saveFrom(kingdomService);
+    }
+
+    /** Throws the season across every screen, in the colour the season wears. */
+    private void showSeasonTitle(Season season) {
+        Title title = Title.title(
+                ColourEncoder.component("&l" + season.displayName()).colorIfAbsent(SEASON_COLOURS.get(season)),
+                ColourEncoder.component(season.banner()).colorIfAbsent(NamedTextColor.GRAY),
+                Times.times(Duration.ofMillis(500L), Duration.ofSeconds(4L), Duration.ofSeconds(1L)));
+        Bukkit.getServer().showTitle(title);
     }
 
     /**

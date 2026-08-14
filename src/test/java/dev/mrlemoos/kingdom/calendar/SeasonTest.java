@@ -51,6 +51,16 @@ class SeasonTest {
     }
 
     @Test
+    void everySeasonCarriesABannerShortEnoughForTheScreen() {
+        for (Season season : Season.values()) {
+            assertEquals(season.banner(), season.banner().trim(), season.displayName());
+            org.junit.jupiter.api.Assertions.assertFalse(season.banner().isEmpty(), season.displayName());
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    season.banner().length() <= Season.MAX_BANNER_CHARS, season.displayName());
+        }
+    }
+
+    @Test
     void theSeasonOfADayFollowsItsMonth() {
         assertEquals(Season.SPRING, Season.ofDay(0L));
         assertEquals(Season.SUMMER, Season.ofDay(3L * RealmCalendar.DAYS_PER_MONTH));
