@@ -24,7 +24,7 @@ public record RealmSidebar(String title, List<String> lines) {
         }
         String morale = moraleLabel == null || moraleLabel.isBlank() ? "Not open" : moraleLabel;
         return Optional.of(new RealmSidebar(
-                "&6&l" + kingdomDisplayName,
+                "&6" + kingdomDisplayName,
                 List.of(
                         "&7Season: &f" + season.displayName(),
                         "&7Wallet: &f" + formatCorona(walletBalance) + " Corona",
