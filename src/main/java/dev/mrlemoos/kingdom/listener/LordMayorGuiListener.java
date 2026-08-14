@@ -2,20 +2,26 @@ package dev.mrlemoos.kingdom.listener;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.city.AllegianceOath;
 import dev.mrlemoos.kingdom.city.CityResult;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
 import dev.mrlemoos.kingdom.city.gui.CityStatistics;
+import dev.mrlemoos.kingdom.city.gui.OathGui;
 import dev.mrlemoos.kingdom.city.gui.PermitApplicantStatus;
 import dev.mrlemoos.kingdom.city.gui.PermitApplyGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterLayout;
 import dev.mrlemoos.kingdom.city.gui.PermitRevokeConfirmGui;
+import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
+import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.ArrayList;
@@ -26,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -35,10 +42,11 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 /**
- * The city hall counter. Right-clicking the Lord Mayor opens the permit application; the monarch
- * or a prince shift-right-clicking opens the permit register instead.
+ * The city hall counter. Unaffiliated players swear the oath of allegiance; members apply for a
+ * build permit. The monarch or a prince shift-right-clicking opens the permit register instead.
  */
 public final class LordMayorGuiListener implements Listener {
 
@@ -48,6 +56,7 @@ public final class LordMayorGuiListener implements Listener {
     private final YamlKingdomStore store;
     private final EconomyService economyService;
     private final RealmWealthRates realmWealthRates;
+    private final NoblePrefixDisplay nobleDisplay;
 
     public LordMayorGuiListener(
             LordMayorService lordMayorService,
@@ -56,12 +65,24 @@ public final class LordMayorGuiListener implements Listener {
             YamlKingdomStore store,
             EconomyService economyService,
             RealmWealthRates realmWealthRates) {
+        this(lordMayorService, cityService, kingdomService, store, economyService, realmWealthRates, null);
+    }
+
+    public LordMayorGuiListener(
+            LordMayorService lordMayorService,
+            CityService cityService,
+            KingdomService kingdomService,
+            YamlKingdomStore store,
+            EconomyService economyService,
+            RealmWealthRates realmWealthRates,
+            NoblePrefixDisplay nobleDisplay) {
         this.lordMayorService = Objects.requireNonNull(lordMayorService, "lordMayorService");
         this.cityService = Objects.requireNonNull(cityService, "cityService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.store = store;
         this.economyService = economyService;
         this.realmWealthRates = realmWealthRates;
+        this.nobleDisplay = nobleDisplay;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -92,7 +113,65 @@ public final class LordMayorGuiListener implements Listener {
             openRegister(player, kingdomId.get(), 0);
             return;
         }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty()) {
+            openOath(player, kingdom.get());
+            return;
+        }
+        if (!kingdomId.get().equals(membership.get().getKingdomId())) {
+            player.sendMessage(c("&cYou already belong to a kingdom. Ask an operator to move you."));
+            return;
+        }
         openApply(player, kingdom.get());
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onOathClick(InventoryClickEvent event) {
+        if (!(event.getInventory().getHolder() instanceof OathGui gui)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (event.getClickedInventory() != event.getView().getTopInventory()) {
+            return;
+        }
+        if (gui.isDeclineSlot(event.getSlot())) {
+            player.closeInventory();
+            return;
+        }
+        if (!gui.isSwearSlot(event.getSlot())) {
+            return;
+        }
+
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(gui.kingdomId());
+        if (kingdom.isEmpty()) {
+            player.sendMessage(c("&cThis Lord Mayor serves no kingdom."));
+            player.closeInventory();
+            return;
+        }
+        String addressee = addresseeOf(kingdom.get());
+        CityResult result = cityService.swearAllegiance(gui.kingdomId(), player.getUniqueId());
+        player.closeInventory();
+        if (!(result instanceof CityResult.Success)) {
+            player.sendMessage(c("&c" + result.message()));
+            return;
+        }
+        String displayName = kingdom.get().getDisplayName();
+        player.sendMessage(c("&a" + AllegianceOath.swearerMessage(addressee, displayName)));
+        String announcement = "&6" + AllegianceOath.realmAnnouncement(player.getName(), addressee);
+        for (Player member : RealmFeedback.onlineMembers(kingdomService, gui.kingdomId())) {
+            if (!member.getUniqueId().equals(player.getUniqueId())) {
+                member.sendMessage(c(announcement));
+            }
+        }
+        RealmFeedback.oathOfAllegiance(player);
+        giveOathBook(player, addressee);
+        save();
+        if (nobleDisplay != null) {
+            nobleDisplay.refresh(player);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -208,9 +287,14 @@ public final class LordMayorGuiListener implements Listener {
         Object holder = event.getInventory().getHolder();
         if (holder instanceof PermitApplyGui
                 || holder instanceof PermitRegisterGui
-                || holder instanceof PermitRevokeConfirmGui) {
+                || holder instanceof PermitRevokeConfirmGui
+                || holder instanceof OathGui) {
             event.setCancelled(true);
         }
+    }
+
+    private void openOath(Player player, Kingdom kingdom) {
+        player.openInventory(OathGui.create(kingdom.getId(), player.getName(), addresseeOf(kingdom)).getInventory());
     }
 
     private void openApply(Player player, Kingdom kingdom) {
@@ -282,6 +366,31 @@ public final class LordMayorGuiListener implements Listener {
         Player holder = Bukkit.getPlayer(holderId);
         if (holder != null && holder.isOnline()) {
             holder.sendMessage(c("&cYour build permit has been revoked by the Crown."));
+        }
+    }
+
+    private String addresseeOf(Kingdom kingdom) {
+        Optional<PlayerMembership> monarch = kingdomService.findMonarch(kingdom.getId());
+        if (monarch.isEmpty()) {
+            return AllegianceOath.addressee(null, kingdom.getDisplayName());
+        }
+        PlayerMembership seated = monarch.get();
+        NobleRank rank = seated.getRank();
+        if (rank == null) {
+            return AllegianceOath.addressee(null, kingdom.getDisplayName());
+        }
+        TitleStyle style = seated.getTitleStyle() != null ? seated.getTitleStyle() : TitleStyle.MASCULINE;
+        String titleAndName = rank.displayTitle(style) + " " + nameOf(seated.getPlayerId());
+        return AllegianceOath.addressee(titleAndName, kingdom.getDisplayName());
+    }
+
+    private void giveOathBook(Player player, String addressee) {
+        ItemStack book = new ItemBuilder(Material.WRITTEN_BOOK)
+                .displayAs(c("&6Oath of Allegiance"))
+                .book("Oath of Allegiance", player.getName(), List.of(AllegianceOath.words(player.getName(), addressee)))
+                .build();
+        for (ItemStack leftover : player.getInventory().addItem(book).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
         }
     }
 

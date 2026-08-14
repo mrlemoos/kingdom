@@ -200,6 +200,42 @@ class CityServiceTest {
     }
 
     @Test
+    void anUnaffiliatedPlayerMaySwearWhenACapitalStands() {
+        setCapital();
+        UUID newcomer = UUID.fromString("00000000-0000-0000-0000-000000000099");
+
+        assertInstanceOf(CityResult.Success.class, cityService.swearAllegiance("northmarch", newcomer));
+        assertTrue(kingdomService.getMembership(newcomer).isPresent());
+        assertEquals("northmarch", kingdomService.getMembership(newcomer).orElseThrow().getKingdomId());
+        assertFalse(cityService.hasPermit("northmarch", newcomer));
+    }
+
+    @Test
+    void swearingNeedsACityHall() {
+        UUID newcomer = UUID.fromString("00000000-0000-0000-0000-000000000099");
+
+        assertInstanceOf(CityResult.Failure.class, cityService.swearAllegiance("northmarch", newcomer));
+        assertTrue(kingdomService.getMembership(newcomer).isEmpty());
+    }
+
+    @Test
+    void aMemberCannotSwearAgain() {
+        setCapital();
+
+        assertInstanceOf(CityResult.Failure.class, cityService.swearAllegiance("northmarch", CITIZEN));
+    }
+
+    @Test
+    void selfJoinIsRefusedWhileACapitalStands() {
+        assertFalse(cityService.requiresOathAtHall("northmarch"));
+        setCapital();
+        assertTrue(cityService.requiresOathAtHall("northmarch"));
+        assertEquals(
+                AllegianceOath.hallJoinRefusal("Northmarch"),
+                cityService.hallJoinRefusal("northmarch").orElseThrow());
+    }
+
+    @Test
     void dissolvingTheCapitalClearsTheCrierStand() {
         setCapital();
         cityService.setTownCrierStand(

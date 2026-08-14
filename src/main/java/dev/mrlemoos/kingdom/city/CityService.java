@@ -6,6 +6,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.city.CapitalLocation;
 import dev.mrlemoos.kingdom.model.city.KingdomCityState;
+import dev.mrlemoos.kingdom.service.KingdomResult;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Map;
 import java.util.Objects;
@@ -13,8 +14,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Capitals and build permits. A kingdom with no capital set is not gated at all; once a capital
- * exists, only permit holders and the kingdom's own monarch or princes may build in its territory.
+ * Capitals, the oath of allegiance, and build permits. A kingdom with no capital set is not gated
+ * at all; once a capital exists, new members swear at city hall, and only permit holders and the
+ * kingdom's own monarch or princes may build in its territory.
  */
 public final class CityService {
 
@@ -91,6 +93,46 @@ public final class CityService {
         }
         city.clearCapital();
         return CityResult.ok("The capital has been dissolved. Build permits are no longer required.");
+    }
+
+    // --- oath of allegiance ----------------------------------------------
+
+    /** True when this kingdom has a city hall and so will not take {@code /kingdom join}. */
+    public boolean requiresOathAtHall(String kingdomId) {
+        return enforcementActive(kingdomId);
+    }
+
+    /** The hall-join refusal for this kingdom, when a capital stands. */
+    public Optional<String> hallJoinRefusal(String kingdomId) {
+        if (!requiresOathAtHall(kingdomId)) {
+            return Optional.empty();
+        }
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(AllegianceOath.hallJoinRefusal(kingdom.get().getDisplayName()));
+    }
+
+    /**
+     * The civil oath at city hall: unaffiliated players become members. Does not grant a build
+     * permit.
+     */
+    public CityResult swearAllegiance(String kingdomId, UUID playerId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return CityResult.fail("Unknown kingdom.");
+        }
+        if (!kingdom.get().getCityState().hasCapital()) {
+            return CityResult.fail("This kingdom has no city hall.");
+        }
+        KingdomResult joined = kingdomService.joinKingdom(playerId, kingdom.get().getId());
+        if (joined instanceof KingdomResult.Failure failure) {
+            return CityResult.fail(failure.message());
+        }
+        return CityResult.ok("You have sworn allegiance and are a member of "
+                + kingdom.get().getDisplayName()
+                + ".");
     }
 
     // --- town crier stand ------------------------------------------------

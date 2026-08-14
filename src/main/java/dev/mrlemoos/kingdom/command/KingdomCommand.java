@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.command;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
+import dev.mrlemoos.kingdom.city.AllegianceOath;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
@@ -235,6 +236,15 @@ public final class KingdomCommand {
         }
         if (args.length < 2) {
             sender.sendMessage(error("Usage: /kingdom join <kingdom>"));
+            return;
+        }
+
+        Optional<Kingdom> joining = service.getKingdom(args[1]);
+        if (joining.isPresent()
+                && cityService != null
+                && cityService.requiresOathAtHall(joining.get().getId())) {
+            Optional<String> refusal = cityService.hallJoinRefusal(joining.get().getId());
+            sender.sendMessage(error(refusal.orElse(AllegianceOath.hallJoinRefusal(joining.get().getDisplayName()))));
             return;
         }
 
@@ -780,7 +790,7 @@ public final class KingdomCommand {
         builder.append("\n").append(c("&e")).append("/kingdom list");
         builder.append(c("&7")).append(" — list realms");
         builder.append("\n").append(c("&e")).append("/kingdom join <name>");
-        builder.append(c("&7")).append(" — choose your kingdom once");
+        builder.append(c("&7")).append(" — join, or swear at city hall when a capital is set");
         builder.append("\n").append(c("&e")).append("/kingdom info [name]");
         builder.append(c("&7")).append(" — realm or player details");
         builder.append("\n").append(c("&e")).append("/kingdom date [name]");

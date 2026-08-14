@@ -912,16 +912,28 @@ _Avoid_: Automatic no confidence, winter penalty, censure motion
 
 ## City
 
+**Member**:
+A player who belongs to one kingdom. Created by the **oath of allegiance**, or by an operator moving them. Relative to that kingdom they are not a **foreigner**.
+_Avoid_: Citizen, subject, resident, national
+
+**Oath of allegiance**:
+The civil ceremony, administered by the **lord mayor** at **city hall**, by which a player who belongs to no kingdom pledges loyalty to **the Crown** of that kingdom and becomes a **member**. They affirm a written oath that names the seated **King or Queen** when one holds the throne; if the throne is vacant it is sworn to the Crown as office. The monarch need not be present. Completing the oath is announced to online members of the kingdom and marked at city hall by a brief spectacle. A kingdom with no **capital** has no hall and cannot administer the oath. Distinct from the **oath of service**, which binds military obligation without granting membership.
+_Avoid_: Naturalisation, citizen enrolment, join command, loyalty oath, oath of service
+
+**Oath book**:
+The signed written book given to a new **member** when they complete the **oath of allegiance**. A keepsake of the oath they affirmed; it grants no office, permit, or further right.
+_Avoid_: Citizenship papers, membership card, naturalisation certificate
+
 **Capital**:
 The single point a monarch designates as the seat of their kingdom, set with `/kingdom capital set` from inside the kingdom's linked territory and removed with `/kingdom capital clear`. Setting it again moves the seat. The capital is the **city hall** and the place the **lord mayor** stands; a kingdom with no capital issues no **build permits** and is not gated at all.
 _Avoid_: Home, spawn, capital city, seat of government
 
 **City hall**:
-The civic office at the **capital** where **build permits** are applied for. Not a building the plugin places—it is the capital point itself, and the monarch is free to raise a hall around it.
+The civic office at the **capital** where the **oath of allegiance** is sworn and **build permits** are applied for. Not a building the plugin places—it is the capital point itself, and the monarch is free to raise a hall around it.
 _Avoid_: Town hall, mayor's office, civic centre, guild hall
 
 **Lord Mayor**:
-The realm NPC that issues **build permits**, standing at the **city hall**: a tamed wolf, seated, invulnerable, without AI, showing a **[Lord Mayor]** nametag. Spawned by `/kingdom capital set`, removed by `/kingdom capital clear`, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy.
+The realm NPC that administers the **oath of allegiance** and issues **build permits**, standing at the **city hall**: a tamed wolf, seated, invulnerable, without AI, showing a **[Lord Mayor]** nametag. Spawned by `/kingdom capital set`, removed by `/kingdom capital clear`, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy.
 _Avoid_: Mayor NPC, town crier, clerk, magistrate
 
 **Build permit**:

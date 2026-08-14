@@ -145,6 +145,18 @@ public final class RealmFeedback {
 
     // --- the city ---------------------------------------------------------
 
+    /** The oath of allegiance at city hall: a blessing on the swearer, heard through the realm. */
+    public static void oathOfAllegiance(Player swearer) {
+        if (swearer == null || noServer()) {
+            return;
+        }
+        play(swearer, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        burst(swearer.getLocation(), Particle.TOTEM_OF_UNDYING, 40);
+        burst(swearer.getLocation(), Particle.FIREWORK, 30);
+        burst(swearer.getLocation(), Particle.HAPPY_VILLAGER, 20);
+        title(swearer, "&6Allegiance sworn", "&eYou are a member of this realm");
+    }
+
     /** A build permit issued. */
     public static void permitGranted(UUID holderId) {
         Player holder = player(holderId);
