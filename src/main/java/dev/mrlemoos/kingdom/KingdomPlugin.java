@@ -15,6 +15,7 @@ import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.display.PlayerPrefixComposer;
 import dev.mrlemoos.kingdom.feedback.DivisionBossBarService;
+import dev.mrlemoos.kingdom.feedback.ElectionBossBarService;
 import dev.mrlemoos.kingdom.feedback.TrialBossBarService;
 import dev.mrlemoos.kingdom.election.ElectionConfig;
 import dev.mrlemoos.kingdom.election.ElectionService;
@@ -132,6 +133,7 @@ public final class KingdomPlugin extends JavaPlugin {
 
         private KingdomService kingdomService;
         private DivisionBossBarService divisionBossBarService;
+        private ElectionBossBarService electionBossBarService;
         private TrialBossBarService trialBossBarService;
         private YamlKingdomStore store;
         private dev.mrlemoos.kingdom.calendar.RealmCalendarService realmCalendarService;
@@ -369,6 +371,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this, kingdomService, trialJuryService::listSessions);
                 trialBossBarService.start();
                 this.trialBossBarService = trialBossBarService;
+                ElectionBossBarService electionBossBarService = new ElectionBossBarService(
+                                this, kingdomService, electionConfig);
+                electionBossBarService.start();
+                this.electionBossBarService = electionBossBarService;
                 policeGolemService.setPatrolDetainDeps(
                                 mechanicalJusticeService,
                                 jurisdictionPort,
@@ -650,6 +656,9 @@ public final class KingdomPlugin extends JavaPlugin {
         public void onDisable() {
                 if (trialBossBarService != null) {
                         trialBossBarService.stop();
+                }
+                if (electionBossBarService != null) {
+                        electionBossBarService.stop();
                 }
                 if (divisionBossBarService != null) {
                         divisionBossBarService.clearAll();

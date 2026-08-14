@@ -4,7 +4,9 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
+import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Map;
 import java.util.Optional;
@@ -21,7 +23,9 @@ import org.bukkit.entity.Player;
  *
  * <p>It keeps no schedule of its own — the existing election sweep drives it — and it holds no state
  * beyond one bar per kingdom, rebuilt from the bill before the House on every sweep. Its audience is
- * re-seated each sweep too, so players joining and leaving need no listener of their own.
+ * re-seated each sweep too, so players joining and leaving need no listener of their own. Commons
+ * divisions hang only over the Crown, the Premier, the Speaker and the MPs; a referendum still hangs over the
+ * whole realm.
  */
 public final class DivisionBossBarService {
 
@@ -60,7 +64,7 @@ public final class DivisionBossBarService {
         }
         bar.setProgress(DivisionBarText.progress(
                 currentMcDay, bill.divisionClosesOnMcDay().orElse(-1L), windowMcDays));
-        seat(bar, kingdomId);
+        seat(bar, kingdomId, bill.type() != BillType.REFERENDUM);
         bar.setVisible(true);
     }
 
@@ -80,12 +84,22 @@ public final class DivisionBossBarService {
         }
     }
 
-    /** Re-seats the bar's audience: exactly the kingdom's online subjects, nobody else. */
-    private void seat(BossBar bar, String kingdomId) {
+    /**
+     * Re-seats the bar. A Commons division is shown only to the Crown, Premier, Speaker and MPs; a
+     * referendum still hangs over the whole realm.
+     */
+    private void seat(BossBar bar, String kingdomId, boolean houseOnly) {
         bar.removeAll();
         for (Player member : RealmFeedback.onlineMembers(kingdomService, kingdomId)) {
-            bar.addPlayer(member);
+            if (!houseOnly || houseMember(member)) {
+                bar.addPlayer(member);
+            }
         }
+    }
+
+    private boolean houseMember(Player member) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(member.getUniqueId());
+        return membership.isPresent() && HouseBarAudience.sees(membership.get().getRank());
     }
 
     private static int count(Bill bill, VoteChoice choice) {
