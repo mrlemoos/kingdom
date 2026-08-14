@@ -613,6 +613,12 @@ public final class KingdomPlugin extends JavaPlugin {
                 electionTask.setDivisionBossBarService(divisionBossBarService);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
+                dev.mrlemoos.kingdom.display.RealmSidebarService realmSidebarService =
+                                new dev.mrlemoos.kingdom.display.RealmSidebarService(
+                                                kingdomService, economyService, realmCalendarService,
+                                                territoryResolver);
+                getServer().getScheduler().runTaskTimer(this, realmSidebarService::refreshAllOnline, 60L, 40L);
+
                 TerritoryVillagerDespawnTask territoryVillagerDespawnTask = new TerritoryVillagerDespawnTask(this,
                                 villagerMpEntityService);
                 territoryVillagerDespawnTask.setCityNpcServices(
