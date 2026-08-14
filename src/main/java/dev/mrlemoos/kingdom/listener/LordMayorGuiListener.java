@@ -34,6 +34,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.EquipmentSlot;
 
 /**
  * The city hall counter. Right-clicking the Lord Mayor opens the permit application; the monarch
@@ -65,6 +66,11 @@ public final class LordMayorGuiListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteractMayor(PlayerInteractEntityEvent event) {
+        // The off-hand event fires in the same tick and would re-open the freshly opened GUI, which
+        // the client reads as an immediate close.
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
         if (!lordMayorService.isLordMayor(event.getRightClicked())) {
             return;
         }

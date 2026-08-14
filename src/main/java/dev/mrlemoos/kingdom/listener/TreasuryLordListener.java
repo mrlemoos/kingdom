@@ -23,6 +23,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
 
 public final class TreasuryLordListener implements Listener {
 
@@ -45,6 +46,11 @@ public final class TreasuryLordListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteractLord(PlayerInteractEntityEvent event) {
+        // The off-hand event fires in the same tick and would re-open the freshly opened GUI, which
+        // the client reads as an immediate close.
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
         if (!(event.getRightClicked() instanceof Villager villager)) {
             return;
         }
