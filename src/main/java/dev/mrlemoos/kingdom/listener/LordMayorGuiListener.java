@@ -5,6 +5,7 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.city.AllegianceOath;
 import dev.mrlemoos.kingdom.city.CityResult;
 import dev.mrlemoos.kingdom.city.CityService;
+import dev.mrlemoos.kingdom.city.LordMayorCounter;
 import dev.mrlemoos.kingdom.city.LordMayorService;
 import dev.mrlemoos.kingdom.city.gui.CityStatistics;
 import dev.mrlemoos.kingdom.city.gui.OathGui;
@@ -46,7 +47,7 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * The city hall counter. Unaffiliated players swear the oath of allegiance; members apply for a
- * build permit. The monarch or a prince shift-right-clicking opens the permit register instead.
+ * build permit. The monarch or a prince opens the permit register.
  */
 public final class LordMayorGuiListener implements Listener {
 
@@ -109,20 +110,14 @@ public final class LordMayorGuiListener implements Listener {
             return;
         }
 
-        if (player.isSneaking() && isRegistrarOf(kingdomId.get(), player.getUniqueId())) {
-            openRegister(player, kingdomId.get(), 0);
-            return;
-        }
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
-        if (membership.isEmpty()) {
-            openOath(player, kingdom.get());
-            return;
+        switch (LordMayorCounter.action(membership, kingdomId.get())) {
+            case REGISTER -> openRegister(player, kingdomId.get(), 0);
+            case OATH -> openOath(player, kingdom.get());
+            case FOREIGN_MEMBER -> player.sendMessage(
+                    c("&cYou already belong to a kingdom. Ask an operator to move you."));
+            case APPLY -> openApply(player, kingdom.get());
         }
-        if (!kingdomId.get().equals(membership.get().getKingdomId())) {
-            player.sendMessage(c("&cYou already belong to a kingdom. Ask an operator to move you."));
-            return;
-        }
-        openApply(player, kingdom.get());
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -225,7 +220,7 @@ public final class LordMayorGuiListener implements Listener {
         if (event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
-        if (!isRegistrarOf(gui.kingdomId(), player.getUniqueId())) {
+        if (!isRegistrar(gui.kingdomId(), player.getUniqueId())) {
             return;
         }
 
@@ -259,7 +254,7 @@ public final class LordMayorGuiListener implements Listener {
         if (event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
-        if (!isRegistrarOf(gui.kingdomId(), player.getUniqueId())) {
+        if (!isRegistrar(gui.kingdomId(), player.getUniqueId())) {
             return;
         }
 
@@ -353,13 +348,9 @@ public final class LordMayorGuiListener implements Listener {
     }
 
     /** Only the King, Queen or a Prince/Princess of this kingdom may read the register. */
-    private boolean isRegistrarOf(String kingdomId, UUID playerId) {
+    private boolean isRegistrar(String kingdomId, UUID playerId) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(playerId);
-        if (membership.isEmpty() || !kingdomId.equals(membership.get().getKingdomId())) {
-            return false;
-        }
-        NobleRank rank = membership.get().getRank();
-        return rank != null && CityService.isRoyalExempt(rank);
+        return membership.isPresent() && LordMayorCounter.isRegistrar(membership.get(), kingdomId);
     }
 
     private void notifyHolder(UUID holderId) {
