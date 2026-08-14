@@ -587,7 +587,9 @@ public final class KingdomCommand {
                 reconcileReignOf(target.getUniqueId());
                 store.saveFrom(service);
                 refreshDisplayIfOnline(target.getUniqueId());
-                RealmFeedback.titleChanged(target.getUniqueId(), rank.displayTitle(style));
+                Optional<PlayerMembership> granted = service.getMembership(target.getUniqueId());
+                String kingdomId = granted.isPresent() ? granted.get().getKingdomId() : null;
+                RealmFeedback.titleChanged(service, kingdomId, target.getUniqueId(), rank.displayTitle(style));
                 if (coronationCeremony != null) {
                     coronationCeremony.crownIfDue(target.getUniqueId(), rank, throneWasVacant);
                 }

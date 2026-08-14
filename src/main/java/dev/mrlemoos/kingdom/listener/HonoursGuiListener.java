@@ -122,7 +122,9 @@ public final class HonoursGuiListener implements Listener {
         if (store != null) {
             store.saveFrom(kingdomService);
         }
-        RealmFeedback.titleChanged(targetId, rankLabel);
+        Optional<PlayerMembership> membership = kingdomService.getMembership(monarch.getUniqueId());
+        String kingdomId = membership.isPresent() ? membership.get().getKingdomId() : null;
+        RealmFeedback.titleChanged(kingdomService, kingdomId, targetId, rankLabel);
         Player target = Bukkit.getPlayer(targetId);
         if (target != null && nobleDisplay != null) {
             nobleDisplay.refresh(target);

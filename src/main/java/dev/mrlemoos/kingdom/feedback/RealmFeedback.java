@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.feedback;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.helpers.ColourEncoder;
+import dev.mrlemoos.kingdom.honours.HonourProclamation;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -182,6 +183,11 @@ public final class RealmFeedback {
 
     /** A noble title granted, or taken away when {@code rankLabel} is absent. */
     public static void titleChanged(UUID playerId, String rankLabel) {
+        titleChanged(null, null, playerId, rankLabel);
+    }
+
+    public static void titleChanged(
+            KingdomService kingdomService, String kingdomId, UUID playerId, String rankLabel) {
         Player player = player(playerId);
         if (player == null) {
             return;
@@ -191,9 +197,24 @@ public final class RealmFeedback {
             title(player, "&7Untitled", "&7Your title has been surrendered");
             return;
         }
-        play(player, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        burst(player.getLocation(), Particle.TOTEM_OF_UNDYING, 20);
-        title(player, "&6" + rankLabel, "&eThe Crown confers your title");
+        Location here = player.getLocation();
+        World world = here.getWorld();
+        if (world != null) {
+            world.playSound(here, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
+            if (HonourProclamation.isKnighthood(rankLabel)) {
+                world.playSound(here, Sound.ITEM_TRIDENT_THUNDER, 0.6f, 1.4f);
+            } else {
+                world.playSound(here, Sound.BLOCK_NOTE_BLOCK_BELL, 1.0f, 1.4f);
+            }
+        }
+        burst(here, Particle.FIREWORK, 50);
+        burst(here, Particle.TOTEM_OF_UNDYING, 40);
+        burst(here, Particle.END_ROD, 24);
+        burst(here, Particle.HAPPY_VILLAGER, 16);
+        title(player, "&6" + rankLabel, "&e" + HonourProclamation.screenSubheading(rankLabel), 10, 70, 20);
+        if (kingdomService != null && kingdomId != null) {
+            kingdomMessage(kingdomService, kingdomId, "&6" + HonourProclamation.line(player.getName(), rankLabel));
+        }
     }
 
     /** A seat won at the polls. */
@@ -270,10 +291,15 @@ public final class RealmFeedback {
 
     /** A title over one player's eyes. */
     public static void title(Player player, String heading, String subheading) {
+        title(player, heading, subheading, 5, 45, 15);
+    }
+
+    public static void title(
+            Player player, String heading, String subheading, int fadeIn, int stay, int fadeOut) {
         if (player == null) {
             return;
         }
-        player.sendTitle(c(heading), c(subheading), 5, 45, 15);
+        player.sendTitle(c(heading), c(subheading), fadeIn, stay, fadeOut);
     }
 
     /** A line across one player's action bar. */
