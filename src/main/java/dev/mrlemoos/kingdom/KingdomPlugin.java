@@ -74,6 +74,7 @@ import dev.mrlemoos.kingdom.police.TrialJuryConfig;
 import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
 import dev.mrlemoos.kingdom.police.TrialJuryService;
 import dev.mrlemoos.kingdom.police.CourtSummonService;
+import dev.mrlemoos.kingdom.police.CrownAssaultConfig;
 import dev.mrlemoos.kingdom.police.VillagerJuryEntityService;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudCommands;
 import dev.mrlemoos.kingdom.cloud.KingdomCloudManagerFactory;
@@ -530,6 +531,18 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 kingdomService,
                                                 territoryResolver,
                                                 mechanicalJusticeService),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.CrownAssaultListener(
+                                                kingdomService,
+                                                territoryResolver,
+                                                mechanicalJusticeService,
+                                                policeService,
+                                                policeTrialService,
+                                                policeGolemService,
+                                                trialJuryRuntime,
+                                                CrownAssaultConfig.fromPluginConfig(getConfig()),
+                                                () -> store.saveFrom(kingdomService)),
                                 this);
                 getServer().getPluginManager().registerEvents(new LifeEventListener(economyCoordinator, this), this);
                 getServer().getPluginManager().registerEvents(

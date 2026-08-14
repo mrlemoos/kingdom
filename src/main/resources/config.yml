@@ -102,6 +102,9 @@ loyalty:
 police:
   mechanical-act-breach:
     enabled: true
+  crown-assault:
+    # Patrol golem must be this close to the victim to witness assault on the Crown.
+    witness-range-blocks: 32
   trial:
     # Real-time seconds for the trial window (jury ballots or villager spectacle) before lapse.
     window-seconds: 120

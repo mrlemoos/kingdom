@@ -4,8 +4,7 @@ import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.model.police.SentenceType;
 
 /**
- * Default charge suggestions for mechanical Act breaches.
- * Treason remains a manual constable charge — not produced here.
+ * Default charge suggestions for mechanical Act breaches and flagrant treason.
  */
 public final class DefaultActBreachCharge {
 
@@ -18,6 +17,7 @@ public final class DefaultActBreachCharge {
             case BUILD_BAN -> new Suggestion(SentenceType.FINE, 10.0, 0);
             case CURFEW -> new Suggestion(SentenceType.WARNING, 0, 0);
             case WAR_LIMIT -> new Suggestion(SentenceType.PRISON, 0, 15);
+            case TREASON -> new Suggestion(SentenceType.PRISON, 0, 15);
         };
     }
 }

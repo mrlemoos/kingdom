@@ -1419,6 +1419,7 @@ public final class ParliamentService {
             case BUILD_BAN -> "build ban";
             case CURFEW -> "curfew";
             case WAR_LIMIT -> "war limit";
+            case TREASON -> "treason";
         };
     }
 

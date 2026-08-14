@@ -957,7 +957,7 @@ Relative to a kingdom, a player who is not one of its members. A foreigner may n
 _Avoid_: Outsider, guest, visitor, non-citizen
 
 **Permit register**:
-The paginated roll of a kingdom's **build permit** holders, opened by the **King or Queen** or a **Prince or Princess** shift-right-clicking the **lord mayor**. Each holder appears as a player head; selecting one offers revocation.
+The paginated roll of a kingdom's **build permit** holders, opened by the **King or Queen** or a **Prince or Princess** right-clicking the **lord mayor**. Each holder appears as a player head; selecting one offers revocation.
 _Avoid_: Permit list, whitelist, roster
 
 **Unlicensed building**:

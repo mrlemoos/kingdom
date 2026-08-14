@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.police;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.model.police.Warrant;
 import dev.mrlemoos.kingdom.model.police.WarrantStatus;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -76,6 +77,40 @@ public final class MechanicalJusticeService {
                 System.currentTimeMillis());
         warrants.add(warrant);
         return PoliceResult.ok("Warrant application filed pending royal approval.");
+    }
+
+    /**
+     * Witnessed assault on the Crown: active at once, no royal paper.
+     */
+    public PoliceResult openFlagrantTreason(String kingdomId, UUID suspectId) {
+        if (kingdomId == null || kingdomId.isBlank() || suspectId == null) {
+            return PoliceResult.fail("A kingdom and suspect are required.");
+        }
+        if (kingdomService.getKingdom(kingdomId).isEmpty()) {
+            return PoliceResult.fail("Unknown kingdom.");
+        }
+        if (!policeService.isPoliceReady(kingdomId)) {
+            return PoliceResult.fail(
+                    "Police infrastructure is not ready. Configure at least one cell and a court.");
+        }
+        if (hasWarrantImmunity(kingdomId, suspectId)) {
+            return PoliceResult.fail("That person has warrant immunity under kingdom police law.");
+        }
+        if (findPendingForSuspect(kingdomId, suspectId).isPresent()
+                || hasActiveWarrant(kingdomId, suspectId)) {
+            return PoliceResult.fail("A warrant for that suspect is already open.");
+        }
+
+        Warrant warrant = new Warrant(
+                nextWarrantId(kingdomId),
+                kingdomId,
+                suspectId,
+                CrownAssault.BILL_ID,
+                ConductKind.TREASON,
+                WarrantStatus.ACTIVE,
+                System.currentTimeMillis());
+        warrants.add(warrant);
+        return PoliceResult.ok("Flagrant treason warrant is active.");
     }
 
     public PoliceResult approveWarrant(String kingdomId, UUID crownId, String warrantId) {
@@ -210,7 +245,7 @@ public final class MechanicalJusticeService {
         }
     }
 
-    private boolean hasWarrantImmunity(String kingdomId, UUID suspectId) {
+    public boolean hasWarrantImmunity(String kingdomId, UUID suspectId) {
         if (VillagerWarrantPolicy.isImmune(suspectId, speakerVillagerResolver.apply(kingdomId))) {
             return true;
         }

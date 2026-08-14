@@ -7,6 +7,7 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -88,6 +89,38 @@ public final class PoliceGolemService {
         }
         String kingdomId = entity.getPersistentDataContainer().get(kingdomTagKey, PersistentDataType.STRING);
         return kingdomId == null || kingdomId.isBlank() ? Optional.empty() : Optional.of(kingdomId);
+    }
+
+    /**
+     * Distance in blocks from {@code from} to the nearest living patrol golem of this kingdom
+     * in the same world. Empty when none.
+     */
+    public OptionalDouble nearestPatrolDistanceBlocks(String kingdomId, Location from) {
+        if (from == null || from.getWorld() == null || kingdomId == null || kingdomId.isBlank()) {
+            return OptionalDouble.empty();
+        }
+        Optional<dev.mrlemoos.kingdom.model.Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return OptionalDouble.empty();
+        }
+        double nearest = Double.POSITIVE_INFINITY;
+        boolean found = false;
+        for (UUID golemId : kingdom.get().getPoliceState().patrolGolemsView()) {
+            Optional<IronGolem> golem = findGolemById(golemId).filter(g -> isValidGolem(g, kingdomId));
+            if (golem.isEmpty()) {
+                continue;
+            }
+            IronGolem patrol = golem.get();
+            if (!from.getWorld().equals(patrol.getWorld())) {
+                continue;
+            }
+            double distance = patrol.getLocation().distance(from);
+            if (distance < nearest) {
+                nearest = distance;
+                found = true;
+            }
+        }
+        return found ? OptionalDouble.of(nearest) : OptionalDouble.empty();
     }
 
     public Optional<GolemOfficerKind> kindForGolem(Entity entity) {

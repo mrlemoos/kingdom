@@ -129,4 +129,43 @@ class MechanicalJusticeServiceTest {
         assertInstanceOf(PoliceResult.Failure.class, result);
         assertTrue(disabled.findPendingForSuspect("northmarch", SUSPECT).isEmpty());
     }
+
+    @Test
+    void flagrantTreasonOpensActiveWarrantWithoutCrownPaper() {
+        PoliceResult result = justice.openFlagrantTreason("northmarch", SUSPECT);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        Optional<Warrant> warrant = justice.findActiveForSuspect("northmarch", SUSPECT);
+        assertTrue(warrant.isPresent());
+        assertEquals(WarrantStatus.ACTIVE, warrant.get().status());
+        assertEquals(CrownAssault.BILL_ID, warrant.get().actBillId());
+        assertEquals(ConductKind.TREASON, warrant.get().provisionKind());
+        assertTrue(justice.findPendingForSuspect("northmarch", SUSPECT).isEmpty());
+    }
+
+    @Test
+    void flagrantTreasonStillOpensWhenActBreachFlagDisabled() {
+        MechanicalJusticeService disabled = new MechanicalJusticeService(
+                kingdomService, policeService, MechanicalJusticeConfig.disabled());
+
+        PoliceResult result = disabled.openFlagrantTreason("northmarch", SUSPECT);
+
+        assertInstanceOf(PoliceResult.Success.class, result);
+        assertTrue(disabled.hasActiveWarrant("northmarch", SUSPECT));
+    }
+
+    @Test
+    void flagrantTreasonBlockedByImmunityAndInfrastructureAndDuplicate() {
+        assertInstanceOf(
+                PoliceResult.Failure.class, justice.openFlagrantTreason("northmarch", KING));
+
+        kingdomService.createKingdom("southreach", "Southreach");
+        UUID visitor = UUID.fromString("00000000-0000-0000-0000-000000000099");
+        assertInstanceOf(
+                PoliceResult.Failure.class, justice.openFlagrantTreason("southreach", visitor));
+
+        justice.openFlagrantTreason("northmarch", SUSPECT);
+        assertInstanceOf(
+                PoliceResult.Failure.class, justice.openFlagrantTreason("northmarch", SUSPECT));
+    }
 }

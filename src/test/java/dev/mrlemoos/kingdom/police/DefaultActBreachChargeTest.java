@@ -30,4 +30,12 @@ class DefaultActBreachChargeTest {
         assertEquals(SentenceType.PRISON, suggestion.preferred());
         assertEquals(15, suggestion.prisonMinutes());
     }
+
+    @Test
+    void treasonSuggestsPrison() {
+        DefaultActBreachCharge.Suggestion suggestion =
+                DefaultActBreachCharge.forProvision(ConductKind.TREASON);
+        assertEquals(SentenceType.PRISON, suggestion.preferred());
+        assertEquals(15, suggestion.prisonMinutes());
+    }
 }
