@@ -5,6 +5,9 @@ import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.mrlemoos.kingdom.economy.villager.VillagerStrike;
+import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
+import dev.mrlemoos.kingdom.hearth.ColdRamp;
+import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
@@ -51,6 +54,8 @@ public final class VillagerMpEntityService {
     private final NamespacedKey villagerMagistrateTagKey;
     private EconomyService economyService;
     private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
+    private ColdLedgerStore coldLedger;
+    private HearthConfig hearthConfig = HearthConfig.defaults();
 
     public VillagerMpEntityService(
             JavaPlugin plugin,
@@ -67,6 +72,12 @@ public final class VillagerMpEntityService {
         this.townCrierTagKey = new NamespacedKey(plugin, "town_crier");
         // Written by PoliceCourtService; read here so no sweep relabels the magistrate.
         this.villagerMagistrateTagKey = new NamespacedKey(plugin, "police_judge");
+    }
+
+    /** Gives the sweep the cold ledger, so a frozen villager wears the strike nametag as an unpaid one does. */
+    public void setColdStrikeSource(ColdLedgerStore coldLedger, HearthConfig hearthConfig) {
+        this.coldLedger = coldLedger;
+        this.hearthConfig = hearthConfig != null ? hearthConfig : HearthConfig.defaults();
     }
 
     public void setVillagerStrikeSource(EconomyService economyService, VillagerEconomyConfig villagerEconomyConfig) {
@@ -794,11 +805,15 @@ public final class VillagerMpEntityService {
         if (kingdomId.isEmpty()) {
             return false;
         }
-        return VillagerStrike.isOnStrike(
+        if (VillagerStrike.isOnStrike(
                 economyService.getVillagerWalletFrozenSince(kingdomId.get(), villager.getUniqueId()),
                 villager.getLocation().getWorld().getFullTime() / 24000L,
                 villagerEconomyConfig.frozenWalletStrikeMcDays(),
-                villagerEconomyConfig.frozenWalletEscheatMcDays());
+                villagerEconomyConfig.frozenWalletEscheatMcDays())) {
+            return true;
+        }
+        ColdLedgerStore ledger = this.coldLedger;
+        return ledger != null && ColdRamp.strikes(ledger.coldDays(kingdomId.get(), villager.getUniqueId()), hearthConfig);
     }
 
     private static void refreshMpNametag(Villager villager, String profession) {

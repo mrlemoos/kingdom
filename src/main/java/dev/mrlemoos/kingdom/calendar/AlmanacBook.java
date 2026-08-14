@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The realm almanac: the date it was drawn up, the twelve months, the next polling day, and the roll of monarchs.
+ * The realm almanac: the date it was drawn up, the twelve months and the season each belongs to, the season now
+ * in force and what it asks of the realm, the next polling day, and the roll of monarchs.
  * Rendered as written-book pages, so nothing on a page overruns what a book will hold.
  */
 public final class AlmanacBook {
@@ -25,8 +26,12 @@ public final class AlmanacBook {
         lines.add("");
         lines.add("Months of the year");
         for (RealmMonth month : RealmMonth.values()) {
-            lines.add((month.ordinal() + 1) + ". " + month.displayName());
+            lines.add((month.ordinal() + 1) + ". " + month.displayName()
+                    + " (" + month.season().displayName() + ")");
         }
+        lines.add("");
+        lines.add("This season");
+        lines.add(today.month().season().proclamation());
         lines.add("");
         lines.add("Next polling day");
         lines.add(nextPollingDay(today, pollingDay));

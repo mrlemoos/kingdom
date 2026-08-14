@@ -857,8 +857,58 @@ The realm date each realm year on which the writ for a general election is issue
 _Avoid_: Election interval, term length, dissolution date
 
 **Almanac**:
-A written book drawn up by `/kingdom almanac` recording the realm date, the twelve months, the next **polling day** and the kingdom's **roll of monarchs**.
+A written book drawn up by `/kingdom almanac` recording the realm date, the twelve months and the **season** each belongs to, the season now in force and what it asks of the realm, the next **polling day** and the kingdom's **roll of monarchs**.
 _Avoid_: Hansard, order paper, register
+
+## Season
+
+**Season**:
+One quarter of the realm year: three whole **months**, server-wide, the same for every kingdom. Spring is Frostwane, Thawtide and Seedfall; summer is Blossoming, Highmead and Sunwake; autumn is Harvest, Goldfall and Emberwane; winter is Hallowtide, Longnight and Yulewatch. Derived from the **realm day** and never stored.
+_Avoid_: Weather, biome, Realm Year, quarter
+
+**Season profile**:
+What a season asks of the realm and grants it, held as one set of figures the whole plugin reads: how fast crops come on, what the fields and workshops yield, what the levy costs to keep, how thickly the hostile dark spawns, whether hearths must burn, how slowly a soldier's **morale** mends and how fast it wears away in the field. Tunable in config; the seasons themselves are not.
+_Avoid_: Modifier table, multiplier, difficulty setting
+
+**Season turn**:
+The first day of a season, on which the realm is told what has come upon it. Announced once, whatever the hour, and hung on every kingdom's **Gazette** so the **town crier** cries it thereafter for those who were not about when the word first went out. Authored by the realm, not by the Crown.
+_Avoid_: Solstice, equinox, weather change
+
+**Outdoor profession**:
+A villager trade worked in the open, whose yield swings with the **season** — richest in summer and autumn, poorest in winter. Set against the indoor trades, which are worked under a roof and yield the same the year round but still need a **hearth** to keep warm.
+_Avoid_: Farmer, tier, profession rate
+
+**Hearth**:
+A lit campfire inside a kingdom's territory with a container set against it — face to face, never on the diagonal — which burns a day's ration of coal or logs out of that container each winter day to keep the villagers within reach of it warm. It burns the whole ration or none: a container short of it keeps what it has and warms nobody. Not a placed or crafted thing of the plugin's own: any campfire so furnished is a hearth, found by sweeping the territory rather than recorded.
+_Avoid_: Furnace, brazier, heater, warmth block
+
+**Cold**:
+The state of a villager left through a winter day beyond the reach of a burning **hearth**. Cold bites by degrees: from the first day it costs the villager part of its yield, and by the third it goes on **strike** as any unpaid villager does, told the same way on its nametag. A day's warmth wipes the slate. Seated villager MPs, Lords of the Treasury and the Town Crier never strike, cold or not. The run of cold days behind each villager is the only thing the hearths leave on disk.
+_Avoid_: Freezing, frostbite, damage
+
+**Levy upkeep**:
+The daily charge on the treasury for keeping men under arms: a standing rate for the **standing roster** and a dearer one for those who answered a **muster**, both moved by the **season**. Winter is dearest, summer cheapest.
+_Avoid_: Stipend, wage, tax, budget
+
+**Arrears**:
+Levy upkeep a treasury could not meet. The realm is warned the day the levy first goes unpaid; while arrears stand, the unpaid lose **morale**, and those whose morale sinks far enough **desert**.
+_Avoid_: Debt, deficit, overdraft
+
+**Desertion**:
+The loss of a soldier from the **standing roster** for want of pay. Not a punishment and not reversible by paying up: the deserter must be raised again.
+_Avoid_: Discharge, demobilisation, dismissal
+
+**Field morale decay**:
+The steady loss of **morale** by men a kingdom keeps under arms in a war through a hard **season**, one step every few realm days whatever else befalls them. Winter alone bites by default. It falls on the same ladder as **arrears** do, so an army both in the field and unpaid loses heart from both causes at once.
+_Avoid_: Attrition damage, siege timer, exhaustion
+
+**Campaign season**:
+Summer and autumn together, when the levy is cheap, the fields are full and morale mends quickly — the fit time to take the field. Set against winter, when a war fought is a war the treasury and the harvest both pay for.
+_Avoid_: War window, muster period, ceasefire
+
+**Winter censure**:
+The political price a **Premier** pays for taking the realm to war, or sending it to the country, in winter: their own political loyalty falls a step, the grievance is entered in Hansard, and the realm is told. It lands on the Premier alone and never on their subjects, and it tables nothing — a **motion of no confidence** still needs two seated MPs to choose it between them.
+_Avoid_: Automatic no confidence, winter penalty, censure motion
 
 ## City
 

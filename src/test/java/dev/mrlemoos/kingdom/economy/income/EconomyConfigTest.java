@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.economy.income;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.bukkit.Material;
@@ -61,5 +62,25 @@ class EconomyConfigTest {
         assertTrue(config.harvestMaterialValues().containsKey(Material.WHEAT));
         assertTrue(config.craftMaterialValues().containsKey(Material.IRON_INGOT));
         assertTrue(config.trivialCraftMaterials().contains(Material.STICK));
+    }
+
+    @Test
+    void outdoorProfessionsAreWorkedInTheOpen() {
+        EconomyConfig config = EconomyConfig.defaults();
+
+        assertTrue(config.isOutdoorProfession("farmer"));
+        assertTrue(config.isOutdoorProfession("fisherman"));
+        assertTrue(config.isOutdoorProfession("shepherd"));
+        assertTrue(config.isOutdoorProfession("FARMER"));
+    }
+
+    @Test
+    void everyOtherProfessionIsIndoorByDefault() {
+        EconomyConfig config = EconomyConfig.defaults();
+
+        assertFalse(config.isOutdoorProfession("librarian"));
+        assertFalse(config.isOutdoorProfession("armorer"));
+        assertFalse(config.isOutdoorProfession("none"));
+        assertFalse(config.isOutdoorProfession("unknown"));
     }
 }

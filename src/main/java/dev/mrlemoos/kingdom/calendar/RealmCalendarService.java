@@ -19,6 +19,7 @@ public final class RealmCalendarService {
 
     private final KingdomService kingdomService;
     private final LongSupplier mcDayClock;
+    private final SeasonTurn seasonTurn = new SeasonTurn();
     private RealmClock clock;
 
     public RealmCalendarService(KingdomService kingdomService, LongSupplier mcDayClock) {
@@ -41,6 +42,16 @@ public final class RealmCalendarService {
 
     public RealmDate today() {
         return RealmCalendar.dateOf(currentRealmDay());
+    }
+
+    /** The season in force today; a pure function of the realm day, stored nowhere. */
+    public Season currentSeason() {
+        return Season.ofDay(currentRealmDay());
+    }
+
+    /** The record of which season turn was last proclaimed, so the word goes out but once. */
+    public SeasonTurn seasonTurn() {
+        return seasonTurn;
     }
 
     /** e.g. {@code 12th of Harvest, Year 3 of King Leo II (Realm Year 48)}. */

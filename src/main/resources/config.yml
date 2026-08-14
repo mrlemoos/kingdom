@@ -14,6 +14,12 @@ economy:
   max-mints-per-kingdom: 3
   villager-gdp:
     tick-interval-ticks: 24000
+  # Trades worked in the open, whose daily yield swings with the season's outdoor yield factor.
+  # Every trade left off this list is indoor and holds its yield the year round.
+  outdoor-professions:
+    - farmer
+    - fisherman
+    - shepherd
   frozen-wallet-escheat-mc-days: 30
   frozen-wallet-strike-mc-days: 7
   villager-commerce-tax-rate: 0.05
@@ -167,6 +173,14 @@ parliament:
     # In-game days a referendum's polling window stays open unless the Premier closes it early.
     polling-window-days: 2
 
+  # A Premier who takes the realm to war, or sends it to the country, in winter loses political
+  # standing for it and has the grievance entered in Hansard. No motion of no confidence is ever
+  # tabled by the calendar: two seated Members must choose that between them.
+  winter-censure:
+    enabled: true
+    # Steps down the political loyalty ladder the Premier falls. 1 is Faithful to Doubtful.
+    tier-steps: 1
+
 election:
   # Polling day: the realm date the writ is issued each realm year. Month 1 is Frostwane, 7 is Harvest.
   # Falls back to general-interval-mc-days only where the realm calendar is unavailable.
@@ -206,3 +220,78 @@ election:
       librarian: aye
       armorer: nay
       mason: aye
+
+# What each season asks of the realm and grants it. The seasons themselves are fixed:
+# spring is Frostwane, Thawtide and Seedfall; summer Blossoming, Highmead and Sunwake;
+# autumn Harvest, Goldfall and Emberwane; winter Hallowtide, Longnight and Yulewatch.
+season:
+  spring:
+    crop-growth-factor: 1.0
+    outdoor-yield-factor: 1.0
+    indoor-yield-factor: 1.0
+    standing-levy-upkeep-factor: 1.0
+    mustered-levy-upkeep-factor: 1.5
+    hostile-spawn-factor: 1.0
+    hearths-required: false
+    morale-recovery-factor: 1.0
+    # Realm days in the field per step of morale lost, whatever else befalls the men. 0 never bites.
+    siege-morale-decay-days: 0
+  summer:
+    crop-growth-factor: 1.25
+    outdoor-yield-factor: 1.25
+    indoor-yield-factor: 1.0
+    standing-levy-upkeep-factor: 0.75
+    mustered-levy-upkeep-factor: 1.25
+    hostile-spawn-factor: 0.9
+    hearths-required: false
+    morale-recovery-factor: 1.25
+    siege-morale-decay-days: 0
+  autumn:
+    crop-growth-factor: 1.15
+    outdoor-yield-factor: 1.25
+    indoor-yield-factor: 1.0
+    standing-levy-upkeep-factor: 1.0
+    mustered-levy-upkeep-factor: 1.5
+    hostile-spawn-factor: 1.0
+    hearths-required: false
+    morale-recovery-factor: 1.0
+    siege-morale-decay-days: 0
+  winter:
+    crop-growth-factor: 0.5
+    outdoor-yield-factor: 0.5
+    indoor-yield-factor: 1.0
+    standing-levy-upkeep-factor: 1.5
+    mustered-levy-upkeep-factor: 2.0
+    hostile-spawn-factor: 1.35
+    hearths-required: true
+    morale-recovery-factor: 0.5
+    siege-morale-decay-days: 3
+
+# Hearths: any lit campfire inside linked territory with a container set against it, face to face.
+# Nothing is placed or recorded — the daily sweep asks the world afresh. Only the seasons whose
+# profile sets hearths-required ask for one; outside those, no fuel burns and nobody goes cold.
+hearth:
+  # Fuel items burnt out of the container each realm day. A container short of the ration burns nothing.
+  fuel-per-day: 2
+  # How far a burning hearth's warmth reaches, in blocks.
+  warmth-radius: 12.0
+  # What counts as fuel. Any Bukkit material name will serve.
+  fuel-items:
+    - COAL
+    - CHARCOAL
+    - COAL_BLOCK
+    - OAK_LOG
+    - SPRUCE_LOG
+    - BIRCH_LOG
+    - JUNGLE_LOG
+    - ACACIA_LOG
+    - DARK_OAK_LOG
+    - MANGROVE_LOG
+    - CHERRY_LOG
+    - PALE_OAK_LOG
+    - CRIMSON_STEM
+    - WARPED_STEM
+  # What a cold villager yields of its day's gross while the cold stands.
+  cold-yield-factor: 0.5
+  # Cold days before the villager downs tools, on the same strike as any unpaid one. 0 never strikes.
+  cold-strike-days: 3

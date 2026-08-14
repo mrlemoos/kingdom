@@ -19,6 +19,9 @@ import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeRequest;
 import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.mrlemoos.kingdom.economy.villager.VillagerStrike;
+import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
+import dev.mrlemoos.kingdom.hearth.ColdRamp;
+import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -49,6 +52,8 @@ public final class EconomyCoordinator {
     private final LifeEventCalculator lifeEventCalculator;
     private final EmeraldVillagerTradeService emeraldVillagerTradeService;
     private final VillagerEconomyConfig villagerEconomyConfig;
+    private ColdLedgerStore coldLedger;
+    private HearthConfig hearthConfig = HearthConfig.defaults();
     private final Map<UUID, HarvestWindow> harvestWindows = new HashMap<>();
     private Runnable persistenceHook = () -> {};
 
@@ -349,11 +354,29 @@ public final class EconomyCoordinator {
         if (treasuryLord || seatedMp || kingdomTaggedMp || kingdomId.isEmpty() || world == null || villagerId == null) {
             return false;
         }
-        return VillagerStrike.isOnStrike(
+        if (VillagerStrike.isOnStrike(
                 economyService.getVillagerWalletFrozenSince(kingdomId.get(), villagerId),
                 world.getFullTime() / 24000L,
                 villagerEconomyConfig.frozenWalletStrikeMcDays(),
-                villagerEconomyConfig.frozenWalletEscheatMcDays());
+                villagerEconomyConfig.frozenWalletEscheatMcDays())) {
+            return true;
+        }
+        return isColdEnoughToStrike(kingdomId.get(), villagerId);
+    }
+
+    /** Gives the coordinator the cold ledger, so a villager left to freeze strikes as an unpaid one does. */
+    public void setColdStrikeSource(ColdLedgerStore coldLedger, HearthConfig hearthConfig) {
+        this.coldLedger = coldLedger;
+        this.hearthConfig = hearthConfig != null ? hearthConfig : HearthConfig.defaults();
+    }
+
+    /** A villager left beyond a burning hearth long enough downs tools, on the same strike as any other. */
+    private boolean isColdEnoughToStrike(String kingdomId, UUID villagerId) {
+        ColdLedgerStore ledger = this.coldLedger;
+        if (ledger == null) {
+            return false;
+        }
+        return ColdRamp.strikes(ledger.coldDays(kingdomId, villagerId), hearthConfig);
     }
 
     private boolean isTerritoryMember(UUID playerId, Optional<String> territoryKingdomId) {

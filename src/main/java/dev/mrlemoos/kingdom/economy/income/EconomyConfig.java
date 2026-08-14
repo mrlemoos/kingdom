@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.economy.income;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.bukkit.Material;
@@ -28,6 +30,7 @@ public record EconomyConfig(
         double villagerTierOneMultiplier,
         double villagerTierTwoMultiplier,
         Map<String, Double> villagerProfessionRates,
+        Set<String> outdoorProfessions,
         Map<Material, Double> harvestMaterialValues,
         Map<Material, Double> craftMaterialValues,
         Set<Material> trivialCraftMaterials) {
@@ -72,6 +75,8 @@ public record EconomyConfig(
                         Map.entry("mason", 0.55),
                         Map.entry("nitwit", 0.1),
                         Map.entry("none", 0.15)),
+                // Trades worked in the open, whose yield swings with the season; every other trade is indoor.
+                Set.of("farmer", "fisherman", "shepherd"),
                 Map.ofEntries(
                         Map.entry(Material.WHEAT, 0.04),
                         Map.entry(Material.CARROTS, 0.05),
@@ -114,6 +119,26 @@ public record EconomyConfig(
             case VILLAGER_TRADE -> villagerTradeCooldownMs;
             case PLAYER_TRADE -> playerTradeCooldownMs;
         };
+    }
+
+    /** Whether a trade is worked in the open, and so swings with the season. */
+    public boolean isOutdoorProfession(String profession) {
+        return profession != null && outdoorProfessions.contains(profession.toLowerCase());
+    }
+
+    private static Set<String> outdoorProfessionsFrom(
+            org.bukkit.configuration.file.FileConfiguration config, Set<String> fallback) {
+        List<String> configured = config.getStringList("economy.outdoor-professions");
+        if (configured.isEmpty()) {
+            return fallback;
+        }
+        Set<String> professions = new HashSet<>();
+        for (String profession : configured) {
+            if (profession != null && !profession.isBlank()) {
+                professions.add(profession.toLowerCase());
+            }
+        }
+        return Set.copyOf(professions);
     }
 
     public double tierMultiplier(int tierIndex) {
@@ -163,6 +188,7 @@ public record EconomyConfig(
                 defaults.villagerTierOneMultiplier(),
                 defaults.villagerTierTwoMultiplier(),
                 defaults.villagerProfessionRates(),
+                outdoorProfessionsFrom(config, defaults.outdoorProfessions()),
                 defaults.harvestMaterialValues(),
                 defaults.craftMaterialValues(),
                 defaults.trivialCraftMaterials());

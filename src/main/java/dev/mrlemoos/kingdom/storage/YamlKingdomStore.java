@@ -49,6 +49,7 @@ import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.loyalty.MoraleStore;
@@ -58,6 +59,8 @@ import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.levy.LevyArrears;
+import dev.mrlemoos.kingdom.war.levy.LevyArrearsStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterStore;
 import java.io.File;
 import java.io.IOException;
@@ -87,6 +90,8 @@ public final class YamlKingdomStore {
     private MoraleStore moraleStore;
     private WarService warService;
     private StandingRosterStore standingRosterStore;
+    private LevyArrearsStore levyArrearsStore;
+    private ColdLedgerStore coldLedgerStore;
     private MechanicalJusticeService mechanicalJusticeService;
     private RealmCalendarService calendarService;
 
@@ -111,6 +116,14 @@ public final class YamlKingdomStore {
         this.standingRosterStore = standingRosterStore;
     }
 
+    public void setLevyArrearsStore(LevyArrearsStore levyArrearsStore) {
+        this.levyArrearsStore = levyArrearsStore;
+    }
+
+    public void setColdLedgerStore(ColdLedgerStore coldLedgerStore) {
+        this.coldLedgerStore = coldLedgerStore;
+    }
+
     public void setMechanicalJusticeService(MechanicalJusticeService mechanicalJusticeService) {
         this.mechanicalJusticeService = mechanicalJusticeService;
     }
@@ -131,6 +144,7 @@ public final class YamlKingdomStore {
         FileConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
         calendarService.restore(
                 data.getLong("calendar.epoch-world-day", -1L), data.getLong("calendar.last-seen-realm-day", 0L));
+        calendarService.seasonTurn().restore(data.getLong("calendar.last-season-turn-day", -1L));
     }
 
     static List<ReignRecord> readReigns(ConfigurationSection section) {
@@ -274,6 +288,12 @@ public final class YamlKingdomStore {
             standingRosterStore.replaceAllRosters(readRosters(data.getConfigurationSection("standing-roster")));
             standingRosterStore.replaceAllOnDutyStates(readOnDutyStates(data.getConfigurationSection("on-duty")));
         }
+        if (levyArrearsStore != null) {
+            levyArrearsStore.replaceAll(readLevyArrears(data.getConfigurationSection("levy-arrears")));
+        }
+        if (coldLedgerStore != null) {
+            coldLedgerStore.replaceAll(readColdDays(data.getConfigurationSection("cold-days")));
+        }
     }
 
     public void saveFrom(KingdomService service) {
@@ -311,6 +331,7 @@ public final class YamlKingdomStore {
         if (calendarService != null) {
             data.set("calendar.epoch-world-day", calendarService.epochWorldDay());
             data.set("calendar.last-seen-realm-day", calendarService.currentRealmDay());
+            data.set("calendar.last-season-turn-day", calendarService.seasonTurn().lastAnnouncedDay());
         }
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
@@ -326,6 +347,12 @@ public final class YamlKingdomStore {
         if (standingRosterStore != null) {
             writeRosters(data, "standing-roster", standingRosterStore.allRostersView());
             writeOnDutyStates(data, "on-duty", standingRosterStore.allOnDutyStatesView());
+        }
+        if (levyArrearsStore != null) {
+            writeLevyArrears(data, "levy-arrears", levyArrearsStore.allView());
+        }
+        if (coldLedgerStore != null) {
+            writeColdDays(data, "cold-days", coldLedgerStore.allView());
         }
 
         try {
@@ -1723,6 +1750,90 @@ public final class YamlKingdomStore {
             }
         }
         return marks;
+    }
+
+    static void writeLevyArrears(FileConfiguration config, String path, Map<String, LevyArrears> arrears) {
+        if (arrears == null || arrears.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, LevyArrears> entry : arrears.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            String entryPath = path + "." + entry.getKey();
+            config.set(entryPath + ".amount", entry.getValue().amount());
+            config.set(entryPath + ".last-paid-day", entry.getValue().lastPaidDay());
+            config.set(entryPath + ".warned", entry.getValue().warned());
+        }
+    }
+
+    static Map<String, LevyArrears> readLevyArrears(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, LevyArrears> arrears = new HashMap<>();
+        for (String kingdomId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(kingdomId);
+            if (entry == null) {
+                continue;
+            }
+            arrears.put(
+                    kingdomId,
+                    new LevyArrears(
+                            entry.getDouble("amount", 0.0),
+                            entry.getLong("last-paid-day", 0L),
+                            entry.getBoolean("warned", false)));
+        }
+        return arrears;
+    }
+
+    /**
+     * The run of cold days behind each villager. Nothing else of the hearths is kept: a hearth is a
+     * fact about the world and the world holds it.
+     */
+    static void writeColdDays(FileConfiguration config, String path, Map<String, Map<UUID, Integer>> coldDays) {
+        if (coldDays == null || coldDays.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Map<UUID, Integer>> kingdom : coldDays.entrySet()) {
+            if (kingdom.getKey() == null || kingdom.getValue() == null) {
+                continue;
+            }
+            for (Map.Entry<UUID, Integer> villager : kingdom.getValue().entrySet()) {
+                if (villager.getKey() == null || villager.getValue() == null || villager.getValue().intValue() <= 0) {
+                    continue;
+                }
+                config.set(path + "." + kingdom.getKey() + "." + villager.getKey(), villager.getValue());
+            }
+        }
+    }
+
+    static Map<String, Map<UUID, Integer>> readColdDays(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, Map<UUID, Integer>> coldDays = new HashMap<>();
+        for (String kingdomId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(kingdomId);
+            if (entry == null) {
+                continue;
+            }
+            Map<UUID, Integer> villagers = new HashMap<>();
+            for (String uuidString : entry.getKeys(false)) {
+                try {
+                    int days = entry.getInt(uuidString, 0);
+                    if (days > 0) {
+                        villagers.put(UUID.fromString(uuidString), Integer.valueOf(days));
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Skip malformed villager entries.
+                }
+            }
+            if (!villagers.isEmpty()) {
+                coldDays.put(kingdomId, villagers);
+            }
+        }
+        return coldDays;
     }
 
     static void writeRosters(FileConfiguration config, String path, Map<String, Set<UUID>> rosters) {

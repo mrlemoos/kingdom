@@ -28,6 +28,7 @@ public final class WarService {
     private final AtomicLong warSequence = new AtomicLong(1);
     private WarConfig config = WarConfig.off();
     private StandingRosterService standingRosterService;
+    private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
 
     public WarService(KingdomService kingdomService) {
         this(kingdomService, System::currentTimeMillis);
@@ -52,6 +53,14 @@ public final class WarService {
      */
     public void setStandingRosterService(StandingRosterService standingRosterService) {
         this.standingRosterService = standingRosterService;
+    }
+
+    /**
+     * Optional hook (same nullable-setter pattern) so a war declared in winter costs the attacker's
+     * Premier political standing. It never tables anything: the House alone moves no confidence.
+     */
+    public void setWinterCensureService(dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService) {
+        this.winterCensureService = winterCensureService;
     }
 
     public Collection<ActiveWar> activeWarsView() {
@@ -145,6 +154,11 @@ public final class WarService {
         if (standingRosterService != null) {
             standingRosterService.mobiliseOnWarEnactment(normalisedAttacker);
             standingRosterService.mobiliseOnWarEnactment(normalisedTarget);
+        }
+        if (winterCensureService != null) {
+            // The attacker's Premier chose the moment; the defender's did not.
+            winterCensureService.censure(
+                    normalisedAttacker, dev.mrlemoos.kingdom.parliament.WinterCensureService.Act.WAR);
         }
         return WarResult.ok("War declared: " + normalisedAttacker + " against " + normalisedTarget + ".");
     }

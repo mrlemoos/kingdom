@@ -80,6 +80,25 @@ public final class StandingRosterService {
         return WarResult.ok("Removed from the standing roster.");
     }
 
+    /**
+     * Desertion for want of pay: strikes a soldier off the standing roster outright and stands him
+     * down from duty. No Crown warrant is asked for — the levy's arrears did the removing — and
+     * paying the arrears off restores nobody; the deserter must be raised again.
+     */
+    public void desert(String kingdomId, UUID playerId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return;
+        }
+        String normalisedKingdomId = kingdom.get().getId();
+        Set<UUID> roster = new LinkedHashSet<>(store.findRoster(normalisedKingdomId));
+        if (!roster.remove(playerId)) {
+            return;
+        }
+        store.putRoster(normalisedKingdomId, roster);
+        store.clearOnDutyState(playerId);
+    }
+
     public Set<UUID> rosterView(String kingdomId) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {

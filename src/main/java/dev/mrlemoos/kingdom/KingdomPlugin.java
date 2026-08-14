@@ -93,6 +93,8 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
 import dev.mrlemoos.kingdom.parliament.HansardArchivist;
+import dev.mrlemoos.kingdom.parliament.WinterCensureConfig;
+import dev.mrlemoos.kingdom.parliament.WinterCensureService;
 import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
 import dev.mrlemoos.kingdom.service.TeleportService;
@@ -101,6 +103,9 @@ import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.task.ElectionTask;
 import dev.mrlemoos.kingdom.task.TerritoryVillagerDespawnTask;
 import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
+import dev.mrlemoos.kingdom.hearth.HearthConfig;
+import dev.mrlemoos.kingdom.hearth.HearthDayService;
+import dev.mrlemoos.kingdom.hearth.InMemoryColdLedgerStore;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
@@ -108,6 +113,12 @@ import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.oath.InMemorySwornOutsiderStore;
 import dev.mrlemoos.kingdom.war.oath.OathConfig;
 import dev.mrlemoos.kingdom.war.oath.OathService;
+import dev.mrlemoos.kingdom.war.levy.InMemoryLevyArrearsStore;
+import dev.mrlemoos.kingdom.war.levy.LevyUpkeepConfig;
+import dev.mrlemoos.kingdom.war.levy.LevyUpkeepService;
+import dev.mrlemoos.kingdom.war.siege.FieldMoraleDecayService;
+import dev.mrlemoos.kingdom.war.siege.MilitaryParticipantRegistry;
+import dev.mrlemoos.kingdom.war.levy.StandingRosterLevyRoster;
 import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
@@ -148,6 +159,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 InMemoryMoraleStore moraleStore = new InMemoryMoraleStore();
                 store.setMoraleStore(moraleStore);
                 warService = new WarService(kingdomService);
+                MilitaryParticipantRegistry militaryParticipantRegistry = new MilitaryParticipantRegistry();
                 warService.setConfig(WarConfig.fromPluginConfig(getConfig()));
                 store.setWarService(warService);
                 InMemoryStandingRosterStore standingRosterStore = new InMemoryStandingRosterStore();
@@ -155,6 +167,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService, standingRosterStore, StandingRosterConfig.fromPluginConfig(getConfig()));
                 warService.setStandingRosterService(standingRosterService);
                 store.setStandingRosterStore(standingRosterStore);
+                InMemoryLevyArrearsStore levyArrearsStore = new InMemoryLevyArrearsStore();
+                store.setLevyArrearsStore(levyArrearsStore);
+                InMemoryColdLedgerStore coldLedgerStore = new InMemoryColdLedgerStore();
+                store.setColdLedgerStore(coldLedgerStore);
+                HearthConfig hearthConfig = HearthConfig.fromPluginConfig(getConfig());
                 store.loadInto(kingdomService);
                 java.util.function.LongSupplier mcDayClock = () -> {
                         org.bukkit.World mainWorld = getServer().getWorlds().isEmpty()
@@ -244,6 +261,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(
                                 this, kingdomService, villagerScanner, territoryResolver);
                 villagerMpEntityService.setVillagerStrikeSource(economyService, villagerEconomyConfig);
+                villagerMpEntityService.setColdStrikeSource(coldLedgerStore, hearthConfig);
+                economyCoordinator.setColdStrikeSource(coldLedgerStore, hearthConfig);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
                 parliamentService.setDivisionWindowMcDays(getConfig().getInt(
@@ -266,6 +285,20 @@ public final class KingdomPlugin extends JavaPlugin {
                 HansardArchivist hansardArchivist = new HansardArchivist(kingdomService);
                 hansardArchivist.setCalendarService(realmCalendarService);
                 electionService.setHansardArchivist(hansardArchivist::archive);
+                // A Premier who wars or dissolves in winter answers for it in political standing —
+                // never by a motion, which only the House may table.
+                WinterCensureService winterCensureService = new WinterCensureService(
+                                kingdomService,
+                                loyaltyService,
+                                WinterCensureConfig.fromPluginConfig(getConfig()),
+                                realmCalendarService::currentSeason,
+                                realmCalendarService::currentRealmDay);
+                winterCensureService.setAnnouncer((kingdomId, message) -> kingdomService.getKingdom(kingdomId)
+                                .ifPresent(kingdom -> org.bukkit.Bukkit.broadcastMessage(
+                                                dev.mrlemoos.kingdom.helpers.ColourEncoder.c(
+                                                                "&e" + kingdom.getDisplayName() + ": " + message))));
+                electionService.setWinterCensureService(winterCensureService);
+                warService.setWinterCensureService(winterCensureService);
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
                                 electionConfig);
@@ -362,6 +395,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 townCrierService,
                                 territoryResolver,
                                 store);
+                DemobilisationService demobilisationService = new DemobilisationService(warService);
+                demobilisationService.setMilitaryParticipantRegistry(militaryParticipantRegistry);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
                                 parliamentService,
                                 kingdomService,
@@ -373,7 +408,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this,
                                 villagerPremierInauguralService,
                                 warService,
-                                new DemobilisationService(warService));
+                                demobilisationService);
                 ResignCommand resignCommand = new ResignCommand(
                                 this,
                                 kingdomService,
@@ -514,11 +549,20 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.LoyaltyLedgerGuiListener(), this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.SeasonalCropGrowthListener(
+                                                this, realmCalendarService),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.SeasonalHostileSpawnListener(
+                                                this, realmCalendarService),
+                                this);
 
                 dev.mrlemoos.kingdom.task.RealmCalendarTask realmCalendarTask =
                                 new dev.mrlemoos.kingdom.task.RealmCalendarTask(
                                                 kingdomService, realmCalendarService, store);
                 realmCalendarTask.setRecoveryServices(loyaltyService, moraleService);
+                realmCalendarTask.setSeasonConfig(getConfig());
                 getServer().getScheduler().runTaskTimer(this, realmCalendarTask, 100L, 20L * 20);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickPatrolDetains, 60L, 20L);
@@ -541,6 +585,17 @@ public final class KingdomPlugin extends JavaPlugin {
                                 VillagerGdpTask.DEFAULT_INTERVAL_TICKS);
                 VillagerGdpTask gdpTask = new VillagerGdpTask(
                                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
+                gdpTask.setCalendarService(realmCalendarService);
+                LevyUpkeepService levyUpkeepService = new LevyUpkeepService(
+                                levyArrearsStore,
+                                LevyUpkeepConfig.fromPluginConfig(getConfig()),
+                                moraleService,
+                                economyService::debitTreasury,
+                                new StandingRosterLevyRoster(standingRosterService));
+                gdpTask.setLevyUpkeep(levyUpkeepService, null);
+                gdpTask.setHearths(new HearthDayService(coldLedgerStore), hearthConfig, villagerMpEntityService);
+                gdpTask.setFieldMoraleDecay(
+                                new FieldMoraleDecayService(moraleService, militaryParticipantRegistry), warService);
                 gdpTask.schedule(gdpInterval);
 
                 TerritoryWealthReconcileTask wealthReconcileTask = new TerritoryWealthReconcileTask(this,

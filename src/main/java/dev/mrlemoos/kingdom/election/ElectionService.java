@@ -31,6 +31,7 @@ public final class ElectionService {
     private final ElectionConfig config;
     private final Supplier<Long> clockMs;
     private BiConsumer<String, List<HansardRecord>> hansardArchivist = (kingdomId, records) -> {};
+    private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
 
     public ElectionService(KingdomService kingdomService, ElectionConfig config) {
         this(kingdomService, config, System::currentTimeMillis);
@@ -45,6 +46,14 @@ public final class ElectionService {
     /** Who binds and shelves Hansard when a Parliament is prorogued. */
     public void setHansardArchivist(BiConsumer<String, List<HansardRecord>> hansardArchivist) {
         this.hansardArchivist = hansardArchivist != null ? hansardArchivist : (kingdomId, records) -> {};
+    }
+
+    /**
+     * Optional hook (nullable setter, mirrors the archivist pattern) so a dissolution called in
+     * winter costs the outgoing Premier political standing before the office is cleared.
+     */
+    public void setWinterCensureService(dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService) {
+        this.winterCensureService = winterCensureService;
     }
 
     /** Hands the closing Parliament's record to the archivist before prorogation clears it. */
@@ -69,6 +78,12 @@ public final class ElectionService {
             return ElectionResult.fail("Cannot call an election while a division is open.");
         }
 
+        // Before the office is cleared, and before Hansard is bound, so the grievance is shelved with
+        // the session it belongs to. Nothing is tabled: only the House may move no confidence.
+        if (winterCensureService != null) {
+            winterCensureService.censure(
+                    kingdomId, dev.mrlemoos.kingdom.parliament.WinterCensureService.Act.DISSOLUTION);
+        }
         clearAllMpTitles(kingdomId);
         clearPremierTitle(kingdomId);
         electionState.clearPremierVillager();

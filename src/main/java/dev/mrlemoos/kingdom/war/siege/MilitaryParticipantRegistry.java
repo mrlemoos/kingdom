@@ -3,9 +3,11 @@ package dev.mrlemoos.kingdom.war.siege;
 import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -99,6 +101,26 @@ public final class MilitaryParticipantRegistry {
             }
         }
         return credit;
+    }
+
+    /**
+     * The subjects registered on {@code kingdomId}'s side of {@code warId}, in the order they were
+     * marked. Empty when the war has no register or that side has nobody on it.
+     */
+    public Set<UUID> participantsOf(String warId, String kingdomId) {
+        Objects.requireNonNull(warId, "warId must not be null");
+        Objects.requireNonNull(kingdomId, "kingdomId must not be null");
+        Map<UUID, MilitaryParticipant> participants = participantsByWar.get(warId);
+        if (participants == null || participants.isEmpty()) {
+            return Set.of();
+        }
+        Set<UUID> side = new LinkedHashSet<>();
+        for (MilitaryParticipant participant : participants.values()) {
+            if (kingdomId.equals(participant.kingdomId())) {
+                side.add(participant.playerId());
+            }
+        }
+        return side;
     }
 
     /** Peace bill demobilisation: clears every participant record for the ended war. */

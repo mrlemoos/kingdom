@@ -60,6 +60,34 @@ class AlmanacBookTest {
     }
 
     @Test
+    void marksEachMonthWithItsSeason() {
+        String almanac = String.join("\n", AlmanacBook.pages("Avalon", 0L, List.of(), HARVEST_FIRST));
+        for (RealmMonth month : RealmMonth.values()) {
+            assertTrue(
+                    almanac.contains(month.displayName() + " (" + month.season().displayName() + ")"),
+                    month.displayName() + ": " + almanac);
+        }
+    }
+
+    @Test
+    void namesTheSeasonInForceAndWhatItAsks() {
+        // 1st of Hallowtide, the turn of winter.
+        String almanac = String.join(
+                "\n", AlmanacBook.pages("Avalon", 9L * 30L, List.of(), HARVEST_FIRST));
+        assertTrue(almanac.contains("This season"), almanac);
+        assertTrue(almanac.contains(Season.WINTER.proclamation()), almanac);
+    }
+
+    @Test
+    void everySeasonedPageStillFitsAWrittenBook() {
+        for (long day = 0L; day < 360L; day += 30L) {
+            for (String page : AlmanacBook.pages("Avalon", day, List.of(), HARVEST_FIRST)) {
+                assertTrue(page.length() <= 256, "page too long: " + page.length());
+            }
+        }
+    }
+
+    @Test
     void anEmptyRollStillBinds() {
         assertEquals(false, AlmanacBook.pages("Avalon", 0L, List.of(), HARVEST_FIRST).isEmpty());
     }

@@ -201,6 +201,23 @@ public final class MusterService {
         return ignoredCount;
     }
 
+    /**
+     * The kingdom's members who have answered a muster call and stand under arms — those the levy
+     * upkeep is dearest for. A member who refused or ignored the call is not among them.
+     */
+    public Set<UUID> answeredMembers(String kingdomId) {
+        Set<UUID> members = membersOf(kingdomId);
+        Set<UUID> answered = new LinkedHashSet<>();
+        for (Map<UUID, MusterAnswer> answers : answersByWar.values()) {
+            for (Map.Entry<UUID, MusterAnswer> entry : answers.entrySet()) {
+                if (entry.getValue() == MusterAnswer.ANSWERED && members.contains(entry.getKey())) {
+                    answered.add(entry.getKey());
+                }
+            }
+        }
+        return answered;
+    }
+
     public Optional<MoraleTier> levyMoraleTier(UUID playerId) {
         return Optional.ofNullable(levyMoraleByPlayer.get(playerId));
     }

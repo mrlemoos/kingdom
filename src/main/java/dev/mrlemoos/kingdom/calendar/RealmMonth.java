@@ -24,4 +24,9 @@ public enum RealmMonth {
     public String displayName() {
         return displayName;
     }
+
+    /** The quarter of the realm year this month belongs to. */
+    public Season season() {
+        return Season.of(this);
+    }
 }

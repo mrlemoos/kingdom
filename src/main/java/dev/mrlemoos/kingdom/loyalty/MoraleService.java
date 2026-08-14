@@ -13,6 +13,9 @@ import java.util.UUID;
  */
 public final class MoraleService {
 
+    /** Spring's neutral yardstick: the season leaves the configured recovery clock as it stands. */
+    private static final double NEUTRAL_MORALE_RECOVERY_FACTOR = 1.0;
+
     private final MoraleStore store;
     private final MoraleConfig config;
 
@@ -68,6 +71,38 @@ public final class MoraleService {
     }
 
     /**
+     * A day of levy upkeep left unpaid: the soldier loses heart one step down the ladder, opening a
+     * closed track directly at Shaken as a siege hostile action does. Called only from the day after
+     * the realm's public warning, and never on the warning day itself.
+     */
+    public MoraleResult recordUnpaidLevy(UUID playerId) {
+        if (!config.militaryEnabled()) {
+            return MoraleResult.disabled("Military morale is disabled.");
+        }
+        Optional<MoraleTier> previous = store.findTier(playerId);
+        MoraleTier next = previous.isPresent() ? afterHostileAction(previous.get()) : MoraleTier.SHAKEN;
+        store.putTier(playerId, next);
+        return MoraleResult.ok(previous, next, "The levy goes unpaid. Military morale: " + display(next) + ".");
+    }
+
+    /**
+     * A hard season's toll on men kept in the field: the soldier loses heart one step down the same
+     * ladder as the unpaid levy's, opening a closed track directly at Shaken. Called on the field
+     * decay clock only (see {@code FieldMoraleDecayService}), never on the day the men take the
+     * field.
+     */
+    public MoraleResult recordFieldAttrition(UUID playerId) {
+        if (!config.militaryEnabled()) {
+            return MoraleResult.disabled("Military morale is disabled.");
+        }
+        Optional<MoraleTier> previous = store.findTier(playerId);
+        MoraleTier next = previous.isPresent() ? afterHostileAction(previous.get()) : MoraleTier.SHAKEN;
+        store.putTier(playerId, next);
+        return MoraleResult.ok(
+                previous, next, "A hard season in the field wears the men down. Military morale: " + display(next) + ".");
+    }
+
+    /**
      * Morale recovery: honourable service raises tier one step per {@link
      * MoraleConfig#recoveryMcDaysPerTier()} in-game days without further breach, up to Steadfast
      * (Shaken → Steadfast, Breaking → Shaken). Rout never recovers by time alone — a {@link
@@ -76,6 +111,15 @@ public final class MoraleService {
      * given tier and restarts whenever the tracked tier no longer matches the current tier.
      */
     public MoraleResult tickRecovery(UUID playerId, long currentMcDay) {
+        return tickRecovery(playerId, currentMcDay, NEUTRAL_MORALE_RECOVERY_FACTOR);
+    }
+
+    /**
+     * As {@link #tickRecovery(UUID, long)}, but with the season in force stretching or shortening the
+     * wait per tier — see {@link MoraleConfig#effectiveRecoveryMcDaysPerTier(double)}. A factor of 1
+     * (spring's neutral yardstick) leaves the seasonless behaviour exactly unchanged.
+     */
+    public MoraleResult tickRecovery(UUID playerId, long currentMcDay, double moraleRecoveryFactor) {
         if (!config.militaryEnabled()) {
             return MoraleResult.disabled("Military morale is disabled.");
         }
@@ -100,7 +144,7 @@ public final class MoraleService {
         }
 
         long elapsed = currentMcDay - mark.mcDay();
-        if (elapsed < config.recoveryMcDaysPerTier()) {
+        if (elapsed < config.effectiveRecoveryMcDaysPerTier(moraleRecoveryFactor)) {
             return MoraleResult.ok(current, tier, "Military morale remains " + display(tier) + ".");
         }
 
