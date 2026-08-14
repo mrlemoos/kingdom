@@ -6,10 +6,15 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.component;
 import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.oath.OathService;
+import dev.mrlemoos.kingdom.war.oath.SwornOutsider;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,7 +31,8 @@ import org.bukkit.scoreboard.Team;
 
 /**
  * Hangs the realm's board at a subject's right hand while they stand upon a kingdom's linked territory, and
- * takes it down the moment they step off it.
+ * takes it down the moment they step off it. On home soil the board adds a standing line; elsewhere it stays
+ * truncated.
  *
  * <p>The board must live on a scoreboard of the player's own, so the noble prefix teams of the main board are
  * mirrored onto it; the main board remains the one place prefixes are written.
@@ -39,19 +45,25 @@ public final class RealmSidebarService {
     private final EconomyService economyService;
     private final RealmCalendarService calendarService;
     private final TerritoryResolver territoryResolver;
+    private final LoyaltyService loyaltyService;
     private final MoraleService moraleService;
+    private final OathService oathService;
 
     public RealmSidebarService(
             KingdomService kingdomService,
             EconomyService economyService,
             RealmCalendarService calendarService,
             TerritoryResolver territoryResolver,
-            MoraleService moraleService) {
+            LoyaltyService loyaltyService,
+            MoraleService moraleService,
+            OathService oathService) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.economyService = Objects.requireNonNull(economyService, "economyService");
         this.calendarService = Objects.requireNonNull(calendarService, "calendarService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
+        this.loyaltyService = loyaltyService;
         this.moraleService = moraleService;
+        this.oathService = oathService;
     }
 
     public void refreshAllOnline() {
@@ -88,23 +100,27 @@ public final class RealmSidebarService {
                 kingdom.get().getDisplayName(),
                 calendarService.currentSeason(),
                 economyService.getWalletBalance(player.getUniqueId()),
-                moraleLabel(player.getUniqueId()));
+                standingLine(player.getUniqueId(), owner.get()));
     }
 
-    private String moraleLabel(UUID playerId) {
-        if (moraleService == null) {
-            return "Not open";
+    private Optional<String> standingLine(UUID playerId, String landKingdomId) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(playerId);
+        String memberKingdomId = membership.isPresent() ? membership.get().getKingdomId() : null;
+        String swornKingdomId = swornKingdomId(playerId);
+        boolean homeSoil = RealmBoardStanding.isHomeSoil(landKingdomId, memberKingdomId, swornKingdomId);
+        Optional<MoraleTier> morale =
+                moraleService == null ? Optional.empty() : moraleService.tierOf(playerId);
+        LoyaltyTier loyalty =
+                loyaltyService == null ? LoyaltyTier.FAITHFUL : loyaltyService.tierOf(playerId);
+        return RealmBoardStanding.line(homeSoil, morale, loyalty);
+    }
+
+    private String swornKingdomId(UUID playerId) {
+        if (oathService == null) {
+            return null;
         }
-        Optional<MoraleTier> tier = moraleService.tierOf(playerId);
-        if (tier.isEmpty()) {
-            return "Not open";
-        }
-        return switch (tier.get()) {
-            case STEADFAST -> "Steadfast";
-            case SHAKEN -> "Shaken";
-            case BREAKING -> "Breaking";
-            case ROUT -> "Rout";
-        };
+        Optional<SwornOutsider> sworn = oathService.swornOutsiderStore().find(playerId);
+        return sworn.isPresent() ? sworn.get().kingdomId() : null;
     }
 
     private void show(Player player, RealmSidebar sidebar) {

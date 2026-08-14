@@ -534,6 +534,14 @@ _Avoid_: Cooldown bar, timer buff, respawn timer
 The subject's own view of both tracks — current tier, what lowered it, in-game days to the next recovery tick, **service credit** applied, and the one act that would help next. Read-only: it reports the domain, it never changes it.
 _Avoid_: Reputation screen, karma meter, loyalty stars UI, scoreboard
 
+**Realm board**:
+The scoreboard at a subject's right hand while they stand on a kingdom's linked territory: whose land it is, the season, and their purse. On **home soil** it also shows one standing line whose heading follows the track — **Loyalty** and the **loyalty tier** while the **military morale** track is closed, **Morale** and the **morale tier** once that track is open. Off home soil the board stays up truncated: land, season, purse, no standing. Peace does not invent a third meter; a **civilian member** still has no military track.
+_Avoid_: Sidebar, tab list, boss bar, State of the Realm, kingdom morale average
+
+**Home soil**:
+Linked territory of the kingdom that holds the player's **fealty** — membership, or a **sworn outsider** bind. A guest with neither sees no standing line.
+_Avoid_: Home chunk, spawn, capital, claimed land
+
 **Loyalty pardon**:
 The monarch restoring a subject's political loyalty at court. Returns tier to **Faithful**, or to **Doubtful** after **Traitor** if the crown chooses partial restoration. Required to clear **Traitor** without acquittal.
 _Avoid_: Unban command, forgive keystroke, amnesty button
