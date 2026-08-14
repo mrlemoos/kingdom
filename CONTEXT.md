@@ -405,11 +405,15 @@ A constable's formal application to pursue a named suspect—player or territory
 _Avoid_: Bounty, hit list, detention order
 
 **Royal warrant approval**:
-The Crown's acceptance or rejection of a warrant application, using the same paper-and-review workflow as a resignation letter. On approval the warrant becomes active; on rejection it does not.
+The Crown's acceptance or rejection of a warrant application, using the same paper-and-review workflow as a resignation letter. On approval the warrant becomes active; on rejection it does not. Does not apply to a **flagrant warrant**.
 _Avoid_: Instant warrant, auto-approve, chat approval
 
+**Flagrant warrant**:
+An **active warrant** opened at once for witnessed **assault on the Crown**, without **royal warrant approval**. The ordinary constable application still needs Crown paper.
+_Avoid_: Auto-approve every warrant, skip trial
+
 **Active warrant**:
-An approved warrant that authorises constables and patrol golems to arrest the named suspect inside kingdom territory.
+An approved warrant, or a **flagrant warrant**, that authorises constables and patrol golems to arrest the named suspect inside kingdom territory.
 _Avoid_: Open case, manhunt tag
 
 **Wanted nametag**:
@@ -445,7 +449,7 @@ The King, Queen, and Prince cannot be subject to a warrant or arrest under kingd
 _Avoid_: Royal exemption, crown privilege, diplomatic immunity
 
 **Arrest**:
-Taking a suspect with an active warrant into custody and opening a pending trial. Suspects may be players or territory villagers (claimed economy villagers and seated MP or Premier villagers). Constables arrest manually; patrol golems detain automatically inside territory. A player judge is chosen at random from online judges, excluding the accused when the accused is a player, the arresting constable, and the Crown who approved the warrant; if none qualify, a trial jury is seated when possible, otherwise the villager judge hears the case.
+Taking a suspect with an active warrant into custody and opening a pending trial. Suspects may be players or territory villagers (claimed economy villagers and seated MP or Premier villagers). Constables arrest manually; patrol golems detain automatically inside territory, including immediately after a **flagrant warrant** for **assault on the Crown**. A player judge is chosen at random from online judges, excluding the accused when the accused is a player, the arresting constable, and the Crown who approved the warrant; if none qualify, a trial jury is seated when possible, otherwise the villager judge hears the case.
 _Avoid_: Ban, kick, instant jail
 
 **Pending trial**:
@@ -727,8 +731,12 @@ The in-game effects of **morale tier** on a fealty subject. **Shaken** and **Bre
 _Avoid_: Custom weakness mod, damage multiplier UI, hunger punishment
 
 **Treason**:
-A political offence against the crown—swearing fealty then aiding an enemy kingdom, defying enacted Acts, or desertion so severe it breaches oath. Handled through the police and court pipeline, not morale debuffs alone.
+A political offence against the crown—swearing fealty then aiding an enemy kingdom, defying enacted Acts, desertion so severe it breaches oath, or **assault on the Crown**. Handled through the police and court pipeline, not morale debuffs alone. Loyalty **Traitor** applies on **conviction**, not on the hit.
 _Avoid_: Ban reason, griefer tag, karma hit
+
+**Assault on the Crown**:
+Player-attributed damage (melee, arrow, trident, potion, or pet) against that kingdom's King, Queen, Prince, or Princess inside **jurisdiction**, witnessed by a **patrol golem** within thirty-two blocks of the victim. Opens a **flagrant warrant** and an immediate patrol **arrest** into **pending trial**. Unwitnessed hits, hits outside jurisdiction, hits when police infrastructure is not ready, and hits by a King, Queen, or Prince are not a police offence. Vanilla damage is not cancelled under **open PvP**.
+_Avoid_: Safe zone, PvP off, monarch god mode, guard-golem witness
 
 **Declaration of war**:
 A formal proposal by the monarch to make war on another kingdom. Hostilities do not begin until a **war bill** passes the Commons and receives **royal assent**; assent alone before Commons passage is insufficient.
