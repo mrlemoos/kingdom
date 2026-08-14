@@ -41,7 +41,8 @@ public final class TownCrierService {
     public static final String EMPTY_TICKER = "Hear ye! No news today.";
     public static final double TICKER_RANGE_BLOCKS = 24.0;
     public static final long TICKER_INTERVAL_TICKS = 80L; // 4 seconds
-    private static final double DISPLAY_HEIGHT = 2.35;
+    /** Blocks above the Crier's feet. Clears the nametag; 2.35 sat on top of it. */
+    public static final double DISPLAY_HEIGHT = 2.70;
 
     private final JavaPlugin plugin;
     private final KingdomService kingdomService;
