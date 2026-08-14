@@ -15,16 +15,20 @@ import dev.mrlemoos.kingdom.economy.wealth.RealmWealthCalculator;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthCounts;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 public class EconomyService {
 
     private final double startingTreasury;
+    private LoyaltyService loyaltyService;
+    private LongSupplier currentMcDay;
     private final Map<UUID, Double> wallets = new HashMap<>();
     private final Map<String, Map<UUID, VillagerWalletState>> villagerWallets = new HashMap<>();
     private final Map<String, KingdomEconomy> kingdomEconomies = new HashMap<>();
@@ -38,6 +42,15 @@ public class EconomyService {
             throw new IllegalArgumentException("Starting treasury cannot be negative.");
         }
         this.startingTreasury = startingTreasury;
+    }
+
+    /**
+     * Optional hook (nullable, mirroring the war domain's setters) so paying income tax counts as
+     * an act of service and brings a subject's loyalty recovery forward. Unset, tax is tax.
+     */
+    public void setServiceCreditHook(LoyaltyService loyaltyService, LongSupplier currentMcDay) {
+        this.loyaltyService = loyaltyService;
+        this.currentMcDay = currentMcDay;
     }
 
     public double getWalletBalance(UUID playerId) {
@@ -64,6 +77,11 @@ public class EconomyService {
         if (result.tax() > 0 && playerKingdomId != null) {
             creditTreasury(playerKingdomId, result.tax());
             economyFor(playerKingdomId).recordTaxRevenue(result.tax());
+            // A subject who pays their tax while out of favour earns service credit; the service
+            // itself refuses the credit at Faithful, Traitor, or with no clock running.
+            if (loyaltyService != null && currentMcDay != null) {
+                loyaltyService.recordServiceCredit(playerId, currentMcDay.getAsLong());
+            }
         }
 
         return result;

@@ -515,8 +515,24 @@ Political standing after conviction for **treason** or equivalent court sentence
 _Avoid_: Auto-ban, perma-kick, enemy team
 
 **Loyalty recovery**:
-Restoring **loyalty tier** after a **political offence** without a pardon. One tier per configured number of in-game days without further offence, up to **Faithful**. **Traitor** cannot recover by time alone.
+Restoring **loyalty tier** after a **political offence** without a pardon. One tier per configured number of in-game days without further offence, up to **Faithful**. **Service credit** may shorten that wait but never skips a tier. **Traitor** cannot recover by time alone.
 _Avoid_: Play time reward, login streak, good boy points
+
+**Service credit**:
+An **act of service** shortening the current **recovery clock** by moving its marked start day back a configured number of in-game days. It never grants a tier directly, never stacks past the next tick, and never applies to **Traitor** or **Rout**, whose clocks do not run. The only earn-back lever a subject holds; the crown's lever remains the **loyalty pardon**.
+_Avoid_: Loyalty points, XP grind, redeemable tokens, daily quest
+
+**Act of service**:
+The qualifying deed that yields **service credit**: on the political track, paying **income tax** while below **Faithful**; on the military track, answering a **muster** and serving it out without a **morale breach**. One per track — the obligation the subject broke is the one that mends it.
+_Avoid_: Fetch quest, chore list, errand, side mission
+
+**Recovery clock**:
+The persisted per-subject mark — tier plus the in-game day the wait began — driving **loyalty recovery** and **morale recovery**. Restarts whenever the marked tier no longer matches the subject's current tier, so any fresh offence resets the wait. Survives restart; visible to the subject in the **loyalty ledger**.
+_Avoid_: Cooldown bar, timer buff, respawn timer
+
+**Loyalty ledger**:
+The subject's own view of both tracks — current tier, what lowered it, in-game days to the next recovery tick, **service credit** applied, and the one act that would help next. Read-only: it reports the domain, it never changes it.
+_Avoid_: Reputation screen, karma meter, loyalty stars UI, scoreboard
 
 **Loyalty pardon**:
 The monarch restoring a subject's political loyalty at court. Returns tier to **Faithful**, or to **Doubtful** after **Traitor** if the crown chooses partial restoration. Required to clear **Traitor** without acquittal.
@@ -691,7 +707,7 @@ Leaving the liege's levy during an **active war** to accept an enemy **oath of s
 _Avoid_: Kingdom switch, alt account, spy role
 
 **Morale recovery**:
-Restoring **morale tier** after a breach without ending the war. Honourable service in an active **siege** slowly raises tier one step per in-game day without further breach, up to **Steadfast**. **Rout** requires **morale pardon** before the subject may muster again.
+Restoring **morale tier** after a breach without ending the war. Honourable service in an active **siege** slowly raises tier one step per in-game day without further breach, up to **Steadfast**; **service credit** may shorten that wait. **Rout** requires **morale pardon** before the subject may muster again.
 _Avoid_: Sleep to heal, eat food buff, passive regen
 
 **Morale pardon**:

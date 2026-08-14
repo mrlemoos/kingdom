@@ -143,11 +143,11 @@ public final class CityService {
         if (!city.hasCapital()) {
             return CityResult.fail("This kingdom has no capital.");
         }
-        if (!city.hasSeparateCrierStand()) {
-            return CityResult.fail("The Town Crier already stands at the capital.");
+        if (city.crierStand().isEmpty()) {
+            return CityResult.fail("This kingdom has no Town Crier.");
         }
         city.clearTownCrierStand();
-        return CityResult.ok("The Town Crier returns to the capital.");
+        return CityResult.ok("The Town Crier has been dismissed.");
     }
 
     // --- permits ---------------------------------------------------------

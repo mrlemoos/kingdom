@@ -113,6 +113,13 @@ public final class TownCrierService {
         location.getChunk();
 
         String kingdomId = kingdom.getId();
+        // A crier whose chunk was unloaded is invisible to Bukkit.getEntity, so earlier sweeps could
+        // stand a fresh one on top of it. Clear any tagged strays before adding another.
+        for (Entity nearby : world.getNearbyEntities(location, 8, 8, 8)) {
+            if (isTownCrier(nearby)) {
+                nearby.remove();
+            }
+        }
         Villager crier = world.spawn(location, Villager.class, spawned -> configure(spawned, kingdomId));
         kingdom.getCityState().setTownCrierEntityId(crier.getUniqueId());
         ensureDisplay(kingdom, crier);
@@ -140,10 +147,15 @@ public final class TownCrierService {
         despawnDisplay(kingdomId);
         KingdomCityState city = kingdom.getCityState();
         Optional<UUID> entityId = city.townCrierEntityId();
-        if (entityId.isPresent()) {
-            Entity entity = Bukkit.getEntity(entityId.get());
-            if (entity != null) {
-                entity.remove();
+        Entity entity = entityId.isPresent() ? Bukkit.getEntity(entityId.get()) : null;
+        if (entity != null) {
+            entity.remove();
+        } else if (entityId.isPresent()) {
+            // The crier's chunk is unloaded, so it cannot be resolved by id; sweep the stand instead
+            // once it is back in memory, otherwise a dismissed crier would linger forever.
+            Optional<CapitalLocation> stand = city.crierStand();
+            if (stand.isPresent() && isStandLoaded(stand.get())) {
+                toBukkitLocation(stand.get()).ifPresent(this::cullAt);
             }
         }
         city.clearTownCrierEntityId();
@@ -163,8 +175,13 @@ public final class TownCrierService {
             despawn(kingdom);
             return true;
         }
+        if (!isStandLoaded(stand.get())) {
+            // Nothing to render and nothing findable: respawning here only duplicates the crier.
+            return false;
+        }
         Optional<Villager> standing = findCrier(kingdom);
         if (standing.isPresent()) {
+            cullStrays(standing.get());
             configure(standing.get(), kingdom.getId());
             ensureDisplay(kingdom, standing.get());
             ensureTickerRunning();
@@ -309,6 +326,35 @@ public final class TownCrierService {
         crier.setCustomNameVisible(true);
         crier.getPersistentDataContainer().set(crierTagKey, PersistentDataType.BYTE, (byte) 1);
         crier.getPersistentDataContainer().set(kingdomTagKey, PersistentDataType.STRING, kingdomId);
+    }
+
+    /** Removes tagged criers standing beside the real one, left over by earlier duplicate spawns. */
+    private void cullStrays(Villager keep) {
+        for (Entity nearby : keep.getNearbyEntities(8, 8, 8)) {
+            if (isTownCrier(nearby)) {
+                nearby.remove();
+            }
+        }
+    }
+
+    /** Removes every tagged crier around a site. */
+    private void cullAt(Location site) {
+        World world = site.getWorld();
+        if (world == null) {
+            return;
+        }
+        for (Entity nearby : world.getNearbyEntities(site, 8, 8, 8)) {
+            if (isTownCrier(nearby)) {
+                nearby.remove();
+            }
+        }
+    }
+
+    /** True when the stand's world is loaded and its chunk is in memory. */
+    static boolean isStandLoaded(CapitalLocation stand) {
+        World world = Bukkit.getWorld(stand.worldName());
+        return world != null
+                && world.isChunkLoaded((int) Math.floor(stand.x()) >> 4, (int) Math.floor(stand.z()) >> 4);
     }
 
     private static Optional<Location> toBukkitLocation(CapitalLocation capital) {

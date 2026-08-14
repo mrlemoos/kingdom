@@ -163,6 +163,7 @@ public final class KingdomCloudCommands {
 
         registerGreedySubcommand(manager, kingdomCommand, "date");
         registerGreedySubcommand(manager, kingdomCommand, "almanac");
+        registerGreedySubcommand(manager, kingdomCommand, "loyalty");
     }
 
     private static void registerGreedySubcommand(

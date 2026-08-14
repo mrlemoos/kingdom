@@ -156,10 +156,10 @@ class CityServiceTest {
     }
 
     @Test
-    void crierStandFallsBackToCapitalUntilMoved() {
+    void aCapitalAloneStandsNoCrier() {
         setCapital();
 
-        assertEquals(CAPITAL, cityService.crierStand("northmarch").orElseThrow());
+        assertTrue(cityService.crierStand("northmarch").isEmpty());
         assertFalse(cityService.hasSeparateCrierStand("northmarch"));
     }
 
@@ -177,7 +177,7 @@ class CityServiceTest {
     }
 
     @Test
-    void clearingTheCrierStandReturnsItToTheCapital() {
+    void clearingTheCrierStandDismissesTheCrier() {
         setCapital();
         CapitalLocation stand = new CapitalLocation("world", 20.0, 65.0, -30.0, 180.0f, 0.0f);
         cityService.setTownCrierStand("northmarch", NobleRank.KING, stand);
@@ -185,7 +185,9 @@ class CityServiceTest {
         assertInstanceOf(
                 CityResult.Success.class, cityService.clearTownCrierStand("northmarch", NobleRank.KING));
         assertFalse(cityService.hasSeparateCrierStand("northmarch"));
-        assertEquals(CAPITAL, cityService.crierStand("northmarch").orElseThrow());
+        assertTrue(cityService.crierStand("northmarch").isEmpty());
+        assertInstanceOf(
+                CityResult.Failure.class, cityService.clearTownCrierStand("northmarch", NobleRank.KING));
     }
 
     @Test

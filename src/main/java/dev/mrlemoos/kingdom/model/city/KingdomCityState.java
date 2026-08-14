@@ -43,14 +43,11 @@ public final class KingdomCityState {
     }
 
     /**
-     * Where the Town Crier stands: a Crown-sited stand when set, otherwise the capital. Empty when
-     * there is no capital.
+     * Where the Town Crier stands. Empty when the Crown has dismissed the Crier; siting a capital
+     * stands one at the city hall.
      */
     public Optional<CapitalLocation> crierStand() {
-        if (townCrierStand != null) {
-            return Optional.of(townCrierStand);
-        }
-        return Optional.ofNullable(capital);
+        return Optional.ofNullable(townCrierStand);
     }
 
     public Optional<CapitalLocation> townCrierStand() {

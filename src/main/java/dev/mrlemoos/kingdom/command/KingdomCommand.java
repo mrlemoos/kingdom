@@ -7,7 +7,10 @@ import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyLedgerView;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
+import dev.mrlemoos.kingdom.loyalty.MoraleService;
+import dev.mrlemoos.kingdom.loyalty.gui.LoyaltyLedgerGui;
 import dev.mrlemoos.kingdom.calendar.AlmanacBook;
 import dev.mrlemoos.kingdom.calendar.PollingDay;
 import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
@@ -50,6 +53,7 @@ public final class KingdomCommand {
     private final KingdomWhitelistHandler whitelistHandler;
     private final WarService warService;
     private final LoyaltyService loyaltyService;
+    private MoraleService moraleService;
     private KingdomCityHandler cityHandler;
     private CityService cityService;
     private CoronationCeremony coronationCeremony;
@@ -175,6 +179,11 @@ public final class KingdomCommand {
         this.cityService = cityService;
     }
 
+    /** Wires the military half of {@code /kingdom loyalty}; without it the ledger is unavailable. */
+    public void setMoraleService(MoraleService moraleService) {
+        this.moraleService = moraleService;
+    }
+
     public void setCoronationCeremony(CoronationCeremony coronationCeremony) {
         this.coronationCeremony = coronationCeremony;
     }
@@ -214,6 +223,7 @@ public final class KingdomCommand {
             case "permit" -> handlePermit(sender, args);
             case "date" -> handleDate(sender, args);
             case "almanac" -> handleAlmanac(sender);
+            case "loyalty" -> handleLoyalty(sender, args);
             default -> sender.sendMessage(help(sender));
         }
     }
@@ -282,6 +292,38 @@ public final class KingdomCommand {
 
         sender.sendMessage(error("Usage: /kingdom info [kingdom|player]"));
         return;
+    }
+
+    /**
+     * {@code /kingdom loyalty [player]} — opens the subject's own loyalty ledger. Only OP may read
+     * another subject's ledger; the menu itself is read-only.
+     */
+    private void handleLoyalty(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(error("Only players can open the loyalty ledger."));
+            return;
+        }
+        if (loyaltyService == null || moraleService == null || calendarService == null) {
+            sender.sendMessage(error("The loyalty ledger is not available."));
+            return;
+        }
+        OfflinePlayer subject = player;
+        if (args.length >= 2) {
+            if (!sender.isOp()) {
+                sender.sendMessage(error("Only the crown's officers may read another subject's ledger."));
+                return;
+            }
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+            if (!target.hasPlayedBefore() && !target.isOnline()) {
+                sender.sendMessage(error("Unknown player."));
+                return;
+            }
+            subject = target;
+        }
+        String subjectName = subject.getName() != null ? subject.getName() : subject.getUniqueId().toString();
+        LoyaltyLedgerView view = LoyaltyLedgerView.of(
+                subject.getUniqueId(), loyaltyService, moraleService, calendarService.currentRealmDay());
+        player.openInventory(LoyaltyLedgerGui.create(view, subjectName).getInventory());
     }
 
     /** {@code /kingdom date [kingdom]} — the realm date, dated by the reign of that kingdom's monarch. */
@@ -745,6 +787,8 @@ public final class KingdomCommand {
         builder.append(c("&7")).append(" — the realm date and reigning monarch");
         builder.append("\n").append(c("&e")).append("/kingdom almanac");
         builder.append(c("&7")).append(" — months, polling day, roll of monarchs");
+        builder.append("\n").append(c("&e")).append("/kingdom loyalty");
+        builder.append(c("&7")).append(" — your loyalty ledger and how to mend it");
         if (fiscalHandler != null) {
             builder.append("\n").append(c("&e")).append("/kingdom election ...");
             builder.append(c("&7")).append(" — MP elections and nominations");

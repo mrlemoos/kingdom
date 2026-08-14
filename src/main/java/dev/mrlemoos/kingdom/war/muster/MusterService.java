@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.war.muster;
 
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
+import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
@@ -38,6 +39,8 @@ public final class MusterService {
     private final KingdomService kingdomService;
     private final Supplier<Long> clockMs;
     private MusterConfig config = MusterConfig.on();
+    private MoraleService moraleService;
+    private java.util.function.LongSupplier currentMcDay;
     private StandingRosterService standingRosterService;
     private LoyaltyService loyaltyService;
 
@@ -78,6 +81,26 @@ public final class MusterService {
      */
     public void setLoyaltyService(LoyaltyService loyaltyService) {
         this.loyaltyService = loyaltyService;
+    }
+
+    /**
+     * Optional hook so serving a muster out to demobilisation counts as an act of service on the
+     * military track. Unset, a served muster simply ends with no morale credit.
+     */
+    public void setMoraleServiceCreditHook(MoraleService moraleService, java.util.function.LongSupplier currentMcDay) {
+        this.moraleService = moraleService;
+        this.currentMcDay = currentMcDay;
+    }
+
+    /**
+     * Records the act of service for a member who answered the muster and saw it through: the
+     * morale service itself refuses the credit at Steadfast, at Rout, or with no clock running.
+     */
+    public void creditServedMuster(UUID playerId) {
+        if (moraleService == null || currentMcDay == null) {
+            return;
+        }
+        moraleService.recordServiceCredit(playerId, currentMcDay.getAsLong());
     }
 
     /**
@@ -193,10 +216,14 @@ public final class MusterService {
             return;
         }
         Set<UUID> eligible = eligibleByWar.remove(warId);
-        answersByWar.remove(warId);
+        Map<UUID, MusterAnswer> answers = answersByWar.remove(warId);
         if (eligible != null) {
             for (UUID playerId : eligible) {
                 levyMoraleByPlayer.remove(playerId);
+                // Answered and saw the war out: an act of service on the military track.
+                if (answers != null && answers.get(playerId) == MusterAnswer.ANSWERED) {
+                    creditServedMuster(playerId);
+                }
             }
         }
     }

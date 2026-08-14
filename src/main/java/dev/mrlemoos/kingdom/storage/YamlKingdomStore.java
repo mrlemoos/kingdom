@@ -52,6 +52,7 @@ import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.loyalty.MoraleStore;
+import dev.mrlemoos.kingdom.loyalty.RecoveryMark;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -260,9 +261,11 @@ public final class YamlKingdomStore {
         service.replaceState(kingdoms, memberships);
         if (loyaltyStore != null) {
             loyaltyStore.replaceAll(readLoyalty(data.getConfigurationSection("loyalty")));
+            loyaltyStore.replaceAllMarks(readLoyaltyMarks(data.getConfigurationSection("loyalty-clocks")));
         }
         if (moraleStore != null) {
             moraleStore.replaceAll(readMorale(data.getConfigurationSection("morale")));
+            moraleStore.replaceAllMarks(readMoraleMarks(data.getConfigurationSection("morale-clocks")));
         }
         if (warService != null) {
             warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
@@ -311,9 +314,11 @@ public final class YamlKingdomStore {
         }
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
+            writeLoyaltyMarks(data, "loyalty-clocks", loyaltyStore.allMarksView());
         }
         if (moraleStore != null) {
             writeMorale(data, "morale", moraleStore.allTiersView());
+            writeMoraleMarks(data, "morale-clocks", moraleStore.allMarksView());
         }
         if (warService != null) {
             writeWars(data, "wars", warService.activeWarsView());
@@ -1656,6 +1661,68 @@ public final class YamlKingdomStore {
             }
         }
         return tiers;
+    }
+
+    // Recovery clocks are written as a single "<tier>:<in-game day>" scalar per player, keeping the
+    // existing flat tier sections untouched so old data.yml files load unchanged.
+    static void writeLoyaltyMarks(
+            FileConfiguration config, String path, Map<UUID, RecoveryMark<LoyaltyTier>> marks) {
+        writeMarks(config, path, marks);
+    }
+
+    static Map<UUID, RecoveryMark<LoyaltyTier>> readLoyaltyMarks(ConfigurationSection section) {
+        return readMarks(section, LoyaltyTier.class);
+    }
+
+    static void writeMoraleMarks(
+            FileConfiguration config, String path, Map<UUID, RecoveryMark<MoraleTier>> marks) {
+        writeMarks(config, path, marks);
+    }
+
+    static Map<UUID, RecoveryMark<MoraleTier>> readMoraleMarks(ConfigurationSection section) {
+        return readMarks(section, MoraleTier.class);
+    }
+
+    private static <T extends Enum<T>> void writeMarks(
+            FileConfiguration config, String path, Map<UUID, RecoveryMark<T>> marks) {
+        if (marks == null || marks.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, RecoveryMark<T>> entry : marks.entrySet()) {
+            RecoveryMark<T> mark = entry.getValue();
+            if (entry.getKey() == null || mark == null || mark.tier() == null) {
+                continue;
+            }
+            config.set(
+                    path + "." + entry.getKey(),
+                    mark.tier().name().toLowerCase(Locale.ROOT) + ":" + mark.mcDay());
+        }
+    }
+
+    private static <T extends Enum<T>> Map<UUID, RecoveryMark<T>> readMarks(
+            ConfigurationSection section, Class<T> tierType) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<UUID, RecoveryMark<T>> marks = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID playerId = UUID.fromString(key);
+                String raw = section.getString(key);
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                int separator = raw.lastIndexOf(':');
+                if (separator < 0) {
+                    continue;
+                }
+                T tier = Enum.valueOf(tierType, raw.substring(0, separator).toUpperCase(Locale.ROOT));
+                marks.put(playerId, new RecoveryMark<>(tier, Long.parseLong(raw.substring(separator + 1))));
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed player, tier, or day entries.
+            }
+        }
+        return marks;
     }
 
     static void writeRosters(FileConfiguration config, String path, Map<String, Set<UUID>> rosters) {

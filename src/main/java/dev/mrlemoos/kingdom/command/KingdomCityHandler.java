@@ -123,6 +123,8 @@ public final class KingdomCityHandler {
         }
 
         Optional<Wolf> mayor = lordMayorService.spawn(kingdom.get(), capital);
+        // The Crier has no implicit home: siting a capital stands one there until it is dismissed.
+        cityService.setTownCrierStand(kingdomId, membership.get().getRank(), capital);
         Optional<org.bukkit.entity.Villager> crier = townCrierService.spawnAtStand(kingdom.get());
         save();
         sender.sendMessage(success(result.message()));
@@ -221,17 +223,15 @@ public final class KingdomCityHandler {
             return true;
         }
 
+        // Despawn first: dismissal needs the stand to find a crier whose chunk was unloaded.
+        townCrierService.despawn(kingdom.get());
         CityResult result = cityService.clearTownCrierStand(kingdomId, membership.get().getRank());
         if (result instanceof CityResult.Failure failure) {
             sender.sendMessage(error(failure.message()));
             return true;
         }
-        Optional<org.bukkit.entity.Villager> crier = townCrierService.spawnAtStand(kingdom.get());
         save();
         sender.sendMessage(success(result.message()));
-        sender.sendMessage(crier.isPresent()
-                ? info("The Town Crier stands again at the capital.")
-                : error("The Town Crier could not be stood up; the capital's world is not loaded."));
         return true;
     }
 
@@ -353,7 +353,7 @@ public final class KingdomCityHandler {
     private String crierHelp() {
         return info("Town Crier commands:")
                 + "\n" + c("&e/kingdom crier set") + c("&7 — stand the Crier where you are")
-                + "\n" + c("&e/kingdom crier clear") + c("&7 — return the Crier to the capital");
+                + "\n" + c("&e/kingdom crier clear") + c("&7 — dismiss the Crier");
     }
 
     private String permitHelp() {

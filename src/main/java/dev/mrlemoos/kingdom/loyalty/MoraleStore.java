@@ -19,4 +19,15 @@ public interface MoraleStore {
     Map<UUID, MoraleTier> allTiersView();
 
     void replaceAll(Map<UUID, MoraleTier> tiers);
+
+    /** The persisted recovery clock for this subject, absent when no wait is running. */
+    Optional<RecoveryMark<MoraleTier>> findMark(UUID playerId);
+
+    void putMark(UUID playerId, RecoveryMark<MoraleTier> mark);
+
+    void clearMark(UUID playerId);
+
+    Map<UUID, RecoveryMark<MoraleTier>> allMarksView();
+
+    void replaceAllMarks(Map<UUID, RecoveryMark<MoraleTier>> marks);
 }

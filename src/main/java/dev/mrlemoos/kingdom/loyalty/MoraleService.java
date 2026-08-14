@@ -2,8 +2,6 @@ package dev.mrlemoos.kingdom.loyalty;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.war.MoraleTier;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,14 +15,6 @@ public final class MoraleService {
 
     private final MoraleStore store;
     private final MoraleConfig config;
-
-    /**
-     * In-memory recovery clocks, mirroring {@link LoyaltyService}'s: lazily established on first
-     * tick for a tier and restarted whenever the tracked tier no longer matches the current one —
-     * including a further morale breach recorded through {@code MoraleStoreTrack} while the clock
-     * was already running.
-     */
-    private final Map<UUID, RecoveryMark> recoveryMarks = new HashMap<>();
 
     public MoraleService(MoraleStore store, MoraleConfig config) {
         this.store = Objects.requireNonNull(store, "store");
@@ -95,17 +85,17 @@ public final class MoraleService {
         }
         MoraleTier tier = current.get();
         if (tier == MoraleTier.STEADFAST) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
             return MoraleResult.ok(current, tier, "Military morale is already Steadfast.");
         }
         if (tier == MoraleTier.ROUT) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
             return MoraleResult.fail("Rout cannot recover by time alone; a morale pardon is required.");
         }
 
-        RecoveryMark mark = recoveryMarks.get(playerId);
+        RecoveryMark<MoraleTier> mark = store.findMark(playerId).orElse(null);
         if (mark == null || mark.tier() != tier) {
-            recoveryMarks.put(playerId, new RecoveryMark(tier, currentMcDay));
+            store.putMark(playerId, new RecoveryMark<>(tier, currentMcDay));
             return MoraleResult.ok(current, tier, "Morale recovery clock started at " + display(tier) + ".");
         }
 
@@ -117,11 +107,44 @@ public final class MoraleService {
         MoraleTier next = tier == MoraleTier.BREAKING ? MoraleTier.SHAKEN : MoraleTier.STEADFAST;
         store.putTier(playerId, next);
         if (next == MoraleTier.STEADFAST) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
         } else {
-            recoveryMarks.put(playerId, new RecoveryMark(next, currentMcDay));
+            store.putMark(playerId, new RecoveryMark<>(next, currentMcDay));
         }
         return MoraleResult.ok(current, next, "Military morale recovered to " + display(next) + ".");
+    }
+
+    /**
+     * Service credit: an act of service — answering a muster and serving it out without a morale
+     * breach — shortens the running recovery clock by moving its marked start day back {@link
+     * MoraleConfig#serviceCreditDays()} in-game days. Mirrors {@link LoyaltyService#recordServiceCredit}: it
+     * never grants a tier, is clamped so repeated service cannot bank more than the current tier's
+     * wait, and fails when no clock is running — a closed track, Steadfast, or
+     * Rout, which clears only by morale pardon.
+     */
+    public MoraleResult recordServiceCredit(UUID playerId, long currentMcDay) {
+        if (!config.militaryEnabled()) {
+            return MoraleResult.disabled("Military morale is disabled.");
+        }
+        Optional<MoraleTier> current = store.findTier(playerId);
+        if (current.isEmpty()) {
+            return MoraleResult.fail("Military morale track is not open.");
+        }
+        MoraleTier tier = current.get();
+        if (tier == MoraleTier.STEADFAST) {
+            return MoraleResult.fail("Military morale is already Steadfast; no service credit is due.");
+        }
+        if (tier == MoraleTier.ROUT) {
+            return MoraleResult.fail("A routed subject earns no service credit; a morale pardon is required.");
+        }
+        RecoveryMark<MoraleTier> mark = store.findMark(playerId).orElse(null);
+        if (mark == null || mark.tier() != tier) {
+            return MoraleResult.fail("No morale recovery is under way to credit.");
+        }
+        long floor = currentMcDay - config.recoveryMcDaysPerTier();
+        long credited = Math.max(floor, mark.mcDay() - config.serviceCreditDays());
+        store.putMark(playerId, new RecoveryMark<>(tier, credited));
+        return MoraleResult.ok(current, tier, "Service noted. Your morale recovery is brought forward.");
     }
 
     /**
@@ -138,7 +161,7 @@ public final class MoraleService {
         }
         Optional<MoraleTier> previous = store.findTier(playerId);
         store.putTier(playerId, MoraleTier.STEADFAST);
-        recoveryMarks.remove(playerId);
+        store.clearMark(playerId);
         return MoraleResult.ok(previous, MoraleTier.STEADFAST, "Morale pardon granted. Military morale restored to Steadfast.");
     }
 
@@ -166,6 +189,4 @@ public final class MoraleService {
             case ROUT -> "Rout";
         };
     }
-
-    private record RecoveryMark(MoraleTier tier, long mcDay) {}
 }

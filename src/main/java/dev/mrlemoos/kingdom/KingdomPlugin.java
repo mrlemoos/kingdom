@@ -190,6 +190,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 store.loadWarrants();
 
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
+                // Paying income tax while out of favour is an act of service on the political track.
+                economyService.setServiceCreditHook(loyaltyService, realmCalendarService::currentRealmDay);
                 economyStore = new YamlEconomyStore(this);
                 economyStore.loadInto(economyService);
                 PoliceTrialService policeTrialService = new PoliceTrialService(
@@ -397,6 +399,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new dev.mrlemoos.kingdom.parliament.CoronationCeremony(this, kingdomService);
                 coronationCeremony.setPoliceTrialService(policeTrialService);
                 coronationCeremony.setCalendarService(realmCalendarService);
+                kingdomCommand.setMoraleService(moraleService);
                 kingdomCommand.setCityHandler(cityHandler, cityService);
                 kingdomCommand.setCoronationCeremony(coronationCeremony);
                 kingdomCommand.setCalendarService(
@@ -509,13 +512,14 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(
                                 new PoliceGolemListener(policeService, policeGolemService, kingdomService, store),
                                 this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.LoyaltyLedgerGuiListener(), this);
 
-                getServer().getScheduler().runTaskTimer(
-                                this,
+                dev.mrlemoos.kingdom.task.RealmCalendarTask realmCalendarTask =
                                 new dev.mrlemoos.kingdom.task.RealmCalendarTask(
-                                                kingdomService, realmCalendarService, store),
-                                100L,
-                                20L * 20);
+                                                kingdomService, realmCalendarService, store);
+                realmCalendarTask.setRecoveryServices(loyaltyService, moraleService);
+                getServer().getScheduler().runTaskTimer(this, realmCalendarTask, 100L, 20L * 20);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickPatrolDetains, 60L, 20L);
                 getServer().getScheduler().runTaskTimer(

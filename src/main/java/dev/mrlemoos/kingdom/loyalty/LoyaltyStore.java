@@ -17,4 +17,15 @@ public interface LoyaltyStore {
     Map<UUID, LoyaltyTier> allTiersView();
 
     void replaceAll(Map<UUID, LoyaltyTier> tiers);
+
+    /** The persisted recovery clock for this subject, absent when no wait is running. */
+    Optional<RecoveryMark<LoyaltyTier>> findMark(UUID playerId);
+
+    void putMark(UUID playerId, RecoveryMark<LoyaltyTier> mark);
+
+    void clearMark(UUID playerId);
+
+    Map<UUID, RecoveryMark<LoyaltyTier>> allMarksView();
+
+    void replaceAllMarks(Map<UUID, RecoveryMark<LoyaltyTier>> marks);
 }

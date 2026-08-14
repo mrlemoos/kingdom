@@ -289,6 +289,39 @@ Full **dual-track offence** behaviour; ties Phase 1 political track to military 
 
 ---
 
+### Slice 4.6 — Recovery clock persistence
+
+| | |
+|---|---|
+| **Goal** | **Recovery clock** survives restart; today `recoveryMarks` is an in-memory `HashMap` in `LoyaltyService` and `MoraleService`, so a restart silently resets the wait. Invisible now, a reported bug the moment the **loyalty ledger** prints a countdown. |
+| **Domain** | `LoyaltyStore` / `MoraleStore` gain `findMark` / `putMark` / `clearMark` (tier + in-game day). Services read and write through the store; the self-healing tier-mismatch restart rule is unchanged. |
+| **Bukkit** | `YamlKingdomStore` persists marks to `data.yml` beside the tier. |
+| **Depends on** | Slice 4.3. |
+| **Acceptance (domain)** | Tests: mark survives a store round-trip; a fresh offence still restarts the clock; a mark for a tier the subject no longer holds is ignored. |
+| **Spike vs flag** | **Refactor**, no flag. No player-visible change on its own. |
+
+### Slice 4.7 — Service credit and acts of service
+
+| | |
+|---|---|
+| **Goal** | **Service credit**: an **act of service** moves the **recovery clock**'s marked start day back a configured number of in-game days. Never grants a tier, never applies to **Traitor** or **Rout**. |
+| **Domain** | `shortenRecovery(playerId, days)` on `LoyaltyService` and `MoraleService`: moves the mark's start day backwards; fails when the track is at top tier, closed, or non-recovering. Config `loyalty.service-credit.days` (default 1). |
+| **Bukkit** | Two hooks only — income tax paid (`EconomyService.creditWallet`, wired in `KingdomPlugin`), and a **muster** served out to demobilisation (`MusterService.clearForWar`, domain-only until the war phase is wired). The day roll (`RealmCalendarTask`) now also ticks both recovery clocks, which nothing did before. |
+| **Depends on** | Slice 4.6. |
+| **Acceptance (domain)** | Tests: credit brings the next tick forward by exactly the configured days; credit past the threshold ticks at most one tier, never two; Traitor and Rout are unaffected; credit with no clock running is a no-op. |
+| **Spike vs flag** | **Feature** under existing loyalty flags. |
+
+### Slice 4.8 — Loyalty ledger GUI
+
+| | |
+|---|---|
+| **Goal** | `/kingdom loyalty` opens the **loyalty ledger**: one item per track — tier, what lowered it, in-game days to the next tick, credit applied, and the next useful **act of service**. Read-only. |
+| **Domain** | A ledger view record assembled from both services; tips computed from live state, never static lore (Traitor → petition the crown; closed military track → swear the **oath of service**; below Faithful → pay income tax). |
+| **Bukkit** | GUI via `ItemBuilder`, title through `ColourEncoder.component()`. Members, self only; OP may pass a player name. `/kingdom info` keeps its one-line summary and points at the new command. |
+| **Depends on** | Slices 4.6–4.7. |
+| **Acceptance (domain)** | Tests: tip text per tier and per track state; countdown matches the persisted clock; no ledger path mutates a tier or a clock. |
+| **Spike vs flag** | **Feature**. |
+
 ## Phase 5 — Army squads
 
 **Rank-and-file** NPCs under player officers; officer **morale tier** drives **squad** behaviour.

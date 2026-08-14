@@ -83,6 +83,9 @@ economy:
 loyalty:
   political:
     enabled: true
+  # Days knocked off a running recovery clock per act of service (both tracks).
+  service-credit:
+    days: 1
   recovery:
     mc-days-per-tier: 3
   military:

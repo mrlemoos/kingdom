@@ -100,6 +100,13 @@ public final class LordMayorService {
         location.getChunk();
 
         String kingdomId = kingdom.getId();
+        // Same guard as the Town Crier: a mayor in an unloaded chunk is invisible to
+        // Bukkit.getEntity, so sweeps could stack wolves on the city hall.
+        for (Entity nearby : world.getNearbyEntities(location, 8, 8, 8)) {
+            if (isLordMayor(nearby)) {
+                nearby.remove();
+            }
+        }
         Wolf mayor = world.spawn(location, Wolf.class, spawned -> configure(spawned, kingdomId));
         kingdom.getCityState().setLordMayorEntityId(mayor.getUniqueId());
         return Optional.of(mayor);
@@ -140,8 +147,16 @@ public final class LordMayorService {
             despawn(kingdom);
             return true;
         }
+        if (!TownCrierService.isStandLoaded(capital.get())) {
+            return false;
+        }
         Optional<Wolf> standing = findMayor(kingdom);
         if (standing.isPresent()) {
+            for (Entity nearby : standing.get().getNearbyEntities(8, 8, 8)) {
+                if (isLordMayor(nearby)) {
+                    nearby.remove();
+                }
+            }
             configure(standing.get(), kingdom.getId());
             return false;
         }

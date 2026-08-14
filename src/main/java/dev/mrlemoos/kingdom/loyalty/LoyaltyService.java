@@ -1,8 +1,6 @@
 package dev.mrlemoos.kingdom.loyalty;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,16 +13,6 @@ public final class LoyaltyService {
 
     private final LoyaltyStore store;
     private final LoyaltyConfig config;
-
-    /**
-     * In-memory recovery clocks keyed by player, tracking the tier the clock was started at and
-     * the in-game day it started ticking. Kept here rather than in {@link LoyaltyStore} — see
-     * {@link #tickRecovery} — since it is a lazily-established, self-healing clock rather than
-     * persisted state: a further political offence (or any tier change) recorded through any path
-     * naturally invalidates a stale mark because its tier no longer matches the current tier,
-     * restarting the clock on the next tick.
-     */
-    private final Map<UUID, RecoveryMark> recoveryMarks = new HashMap<>();
 
     public LoyaltyService(LoyaltyStore store, LoyaltyConfig config) {
         this.store = Objects.requireNonNull(store, "store");
@@ -78,17 +66,17 @@ public final class LoyaltyService {
         }
         LoyaltyTier tier = tierOf(playerId);
         if (tier == LoyaltyTier.FAITHFUL) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
             return LoyaltyResult.ok(tier, tier, "Loyalty is already Faithful.");
         }
         if (tier == LoyaltyTier.TRAITOR) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
             return LoyaltyResult.fail("Traitor cannot recover by time alone; a loyalty pardon is required.");
         }
 
-        RecoveryMark mark = recoveryMarks.get(playerId);
+        RecoveryMark<LoyaltyTier> mark = store.findMark(playerId).orElse(null);
         if (mark == null || mark.tier() != tier) {
-            recoveryMarks.put(playerId, new RecoveryMark(tier, currentMcDay));
+            store.putMark(playerId, new RecoveryMark<>(tier, currentMcDay));
             return LoyaltyResult.ok(tier, tier, "Loyalty recovery clock started at " + display(tier) + ".");
         }
 
@@ -100,11 +88,42 @@ public final class LoyaltyService {
         LoyaltyTier next = tier == LoyaltyTier.DISLOYAL ? LoyaltyTier.DOUBTFUL : LoyaltyTier.FAITHFUL;
         store.putTier(playerId, next);
         if (next == LoyaltyTier.FAITHFUL) {
-            recoveryMarks.remove(playerId);
+            store.clearMark(playerId);
         } else {
-            recoveryMarks.put(playerId, new RecoveryMark(next, currentMcDay));
+            store.putMark(playerId, new RecoveryMark<>(next, currentMcDay));
         }
         return LoyaltyResult.ok(tier, next, "Loyalty recovered to " + display(next) + ".");
+    }
+
+    /**
+     * Service credit: an act of service — paying income tax while below Faithful — shortens the
+     * running recovery clock by moving its marked start day back {@link
+     * LoyaltyConfig#serviceCreditDays()} in-game days. It never grants a tier on its own: {@link #tickRecovery} still restores one
+     * tier at a time, and the credit is clamped so repeated service in one day cannot bank more
+     * than the current tier's wait. Fails when no clock is running:
+     * at Faithful there is nothing to recover, and Traitor's clock never runs at all.
+     */
+    public LoyaltyResult recordServiceCredit(UUID playerId, long currentMcDay) {
+        if (!config.politicalEnabled()) {
+            return LoyaltyResult.disabled("Political loyalty is disabled.");
+        }
+        LoyaltyTier tier = tierOf(playerId);
+        if (tier == LoyaltyTier.FAITHFUL) {
+            return LoyaltyResult.fail("Loyalty is already Faithful; no service credit is due.");
+        }
+        if (tier == LoyaltyTier.TRAITOR) {
+            return LoyaltyResult.fail("A Traitor earns no service credit; a loyalty pardon is required.");
+        }
+        RecoveryMark<LoyaltyTier> mark = store.findMark(playerId).orElse(null);
+        if (mark == null || mark.tier() != tier) {
+            return LoyaltyResult.fail("No loyalty recovery is under way to credit.");
+        }
+        // Clamped so no amount of service banks more than the current tier's wait: the best any
+        // day's service can do is bring the next tick due now, never pre-pay the tier after it.
+        long floor = currentMcDay - config.recoveryMcDaysPerTier();
+        long credited = Math.max(floor, mark.mcDay() - config.serviceCreditDays());
+        store.putMark(playerId, new RecoveryMark<>(tier, credited));
+        return LoyaltyResult.ok(tier, tier, "Service noted. Your loyalty recovery is brought forward.");
     }
 
     /**
@@ -124,7 +143,7 @@ public final class LoyaltyService {
         store.putTier(playerId, next);
         // Clear any stale clock — tickRecovery lazily re-establishes a fresh baseline for the
         // pardoned tier the next time it is called.
-        recoveryMarks.remove(playerId);
+        store.clearMark(playerId);
         return LoyaltyResult.ok(previous, next, "Loyalty pardon granted. Political loyalty restored to " + display(next) + ".");
     }
 
@@ -144,6 +163,4 @@ public final class LoyaltyService {
             case TRAITOR -> "Traitor";
         };
     }
-
-    private record RecoveryMark(LoyaltyTier tier, long mcDay) {}
 }
