@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class AllegianceOathTest {
@@ -49,5 +50,17 @@ class AllegianceOathTest {
         assertTrue(line.contains("the Crown of Northmarch"));
         assertTrue(line.contains("Northmarch"));
         assertTrue(line.toLowerCase().contains("sworn"));
+    }
+
+    @Test
+    void loreWrapsSoTheOathFitsTheHover() {
+        String words = AllegianceOath.words("Bob", "Queen Alice of Northmarch");
+        List<String> lines = AllegianceOath.loreLines(words);
+
+        assertTrue(lines.size() > 1);
+        for (String line : lines) {
+            assertTrue(line.length() <= AllegianceOath.LORE_WIDTH, line);
+        }
+        assertEquals(words, String.join(" ", lines));
     }
 }

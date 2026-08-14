@@ -616,7 +616,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 dev.mrlemoos.kingdom.display.RealmSidebarService realmSidebarService =
                                 new dev.mrlemoos.kingdom.display.RealmSidebarService(
                                                 kingdomService, economyService, realmCalendarService,
-                                                territoryResolver);
+                                                territoryResolver, moraleService);
                 getServer().getScheduler().runTaskTimer(this, realmSidebarService::refreshAllOnline, 60L, 40L);
 
                 TerritoryVillagerDespawnTask territoryVillagerDespawnTask = new TerritoryVillagerDespawnTask(this,

@@ -6,11 +6,14 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.component;
 import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -36,16 +39,19 @@ public final class RealmSidebarService {
     private final EconomyService economyService;
     private final RealmCalendarService calendarService;
     private final TerritoryResolver territoryResolver;
+    private final MoraleService moraleService;
 
     public RealmSidebarService(
             KingdomService kingdomService,
             EconomyService economyService,
             RealmCalendarService calendarService,
-            TerritoryResolver territoryResolver) {
+            TerritoryResolver territoryResolver,
+            MoraleService moraleService) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.economyService = Objects.requireNonNull(economyService, "economyService");
         this.calendarService = Objects.requireNonNull(calendarService, "calendarService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
+        this.moraleService = moraleService;
     }
 
     public void refreshAllOnline() {
@@ -81,7 +87,24 @@ public final class RealmSidebarService {
         return RealmSidebar.of(
                 kingdom.get().getDisplayName(),
                 calendarService.currentSeason(),
-                economyService.getWalletBalance(player.getUniqueId()));
+                economyService.getWalletBalance(player.getUniqueId()),
+                moraleLabel(player.getUniqueId()));
+    }
+
+    private String moraleLabel(UUID playerId) {
+        if (moraleService == null) {
+            return "Not open";
+        }
+        Optional<MoraleTier> tier = moraleService.tierOf(playerId);
+        if (tier.isEmpty()) {
+            return "Not open";
+        }
+        return switch (tier.get()) {
+            case STEADFAST -> "Steadfast";
+            case SHAKEN -> "Shaken";
+            case BREAKING -> "Breaking";
+            case ROUT -> "Rout";
+        };
     }
 
     private void show(Player player, RealmSidebar sidebar) {

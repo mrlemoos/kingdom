@@ -44,19 +44,17 @@ public final class OathGui implements InventoryHolder {
     static void populate(Inventory inventory, String playerName, String addressee) {
         inventory.clear();
         String words = AllegianceOath.words(playerName, addressee);
-        inventory.setItem(
-                SLOT_TEXT,
-                new ItemBuilder(Material.WRITTEN_BOOK)
-                        .displayAs(c("&6Oath of Allegiance"))
-                        .lore(c("&7" + words))
-                        .lore(c("&7Swear before the Lord Mayor."))
-                        .build());
-        inventory.setItem(
-                SLOT_SWEAR,
-                new ItemBuilder(Material.GOLD_INGOT)
-                        .displayAs(c("&aI swear"))
-                        .lore(c("&7" + words))
-                        .build());
+        ItemBuilder book = new ItemBuilder(Material.WRITTEN_BOOK).displayAs(c("&6Oath of Allegiance"));
+        for (String line : AllegianceOath.loreLines(words)) {
+            book.lore(c("&7" + line));
+        }
+        book.lore(c("&7Swear before the Lord Mayor."));
+        inventory.setItem(SLOT_TEXT, book.build());
+        ItemBuilder swear = new ItemBuilder(Material.GOLD_INGOT).displayAs(c("&aI swear"));
+        for (String line : AllegianceOath.loreLines(words)) {
+            swear.lore(c("&7" + line));
+        }
+        inventory.setItem(SLOT_SWEAR, swear.build());
         inventory.setItem(
                 SLOT_DECLINE,
                 new ItemBuilder(Material.BARRIER)
