@@ -8,6 +8,10 @@ import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
+import dev.mrlemoos.kingdom.granary.BukkitGranaryScan;
+import dev.mrlemoos.kingdom.granary.BukkitTerritoryHeads;
+import dev.mrlemoos.kingdom.granary.GranaryConfig;
+import dev.mrlemoos.kingdom.granary.WinterRation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyLedgerView;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.loyalty.MoraleService;
@@ -35,6 +39,7 @@ import java.util.UUID;
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
@@ -54,12 +59,14 @@ public final class KingdomCommand {
     private final KingdomWhitelistHandler whitelistHandler;
     private final WarService warService;
     private final LoyaltyService loyaltyService;
+    private final KingdomGranaryHandler granaryHandler;
     private MoraleService moraleService;
     private KingdomCityHandler cityHandler;
     private CityService cityService;
     private CoronationCeremony coronationCeremony;
     private RealmCalendarService calendarService;
     private PollingDay pollingDay;
+    private GranaryConfig granaryConfig = GranaryConfig.defaults();
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this(service, store, nobleDisplay, null, null, null, null, null, null, null, null, null);
@@ -172,6 +179,7 @@ public final class KingdomCommand {
         this.whitelistHandler = whitelistHandler;
         this.warService = warService;
         this.loyaltyService = loyaltyService;
+        this.granaryHandler = new KingdomGranaryHandler(service, store);
     }
 
     /** Wires {@code /kingdom capital} and {@code /kingdom permit}, and permit revocation on a move. */
@@ -192,6 +200,11 @@ public final class KingdomCommand {
     public void setCalendarService(RealmCalendarService calendarService, PollingDay pollingDay) {
         this.calendarService = calendarService;
         this.pollingDay = pollingDay;
+    }
+
+    /** Gives {@code /kingdom info} the tuned winter ration, so it can say what the granary covers. */
+    public void setGranaryConfig(GranaryConfig granaryConfig) {
+        this.granaryConfig = granaryConfig != null ? granaryConfig : GranaryConfig.defaults();
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -220,6 +233,7 @@ public final class KingdomCommand {
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
             case "capital" -> handleCapital(sender, args);
+            case "granary" -> handleGranary(sender, args);
             case "crier" -> handleCrier(sender, args);
             case "permit" -> handlePermit(sender, args);
             case "date" -> handleDate(sender, args);
@@ -449,6 +463,7 @@ public final class KingdomCommand {
             sender.sendMessage(c("&7You are in this kingdom's linked overworld."));
         }
         sendWarAndPoliceSummary(sender, kingdom);
+        sendGranarySummary(sender, kingdom);
         List<PlayerMembership> members = service.getMembershipsView().values().stream()
                 .filter(m -> kingdom.getId().equals(m.getKingdomId()))
                 .sorted(Comparator.comparing((PlayerMembership m) -> m.hasNobleTitle() ? 0 : 1)
@@ -477,6 +492,29 @@ public final class KingdomCommand {
 
         String policeLine = KingdomInfoSummary.policeLine(kingdom.getPoliceState(), this::offlinePlayerName);
         sender.sendMessage(c("&7" + policeLine));
+    }
+
+    /**
+     * The granary as the realm sees it: stock against capacity, counted off the blocks on demand,
+     * and what that stock covers of the winter at the realm's present head-count.
+     */
+    private void sendGranarySummary(CommandSender sender, Kingdom kingdom) {
+        String granaryRegion = kingdom.getGranaryRegion();
+        String worldName = service.resolveWorldName(kingdom);
+        sender.sendMessage(c("&7" + KingdomInfoSummary.granaryLine(
+                granaryRegion,
+                BukkitGranaryScan.stockOf(worldName, granaryRegion),
+                dailyWinterRation(kingdom, worldName))));
+    }
+
+    /** The bales this kingdom's villagers eat on a winter day, as the granary config has it. */
+    private int dailyWinterRation(Kingdom kingdom, String worldName) {
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return 0;
+        }
+        int heads = BukkitTerritoryHeads.countIn(world, kingdom.getWorldGuardRegion());
+        return WinterRation.balesFor(heads, granaryConfig.headsPerHay());
     }
 
     private String kingdomDisplayName(String kingdomId) {
@@ -738,6 +776,11 @@ public final class KingdomCommand {
         cityHandler.handleCapital(sender, subArgs);
     }
 
+    private void handleGranary(CommandSender sender, String[] args) {
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        granaryHandler.handle(sender, subArgs);
+    }
+
     private void handleCrier(CommandSender sender, String[] args) {
         if (cityHandler == null) {
             sender.sendMessage(error("City commands are not enabled."));
@@ -827,6 +870,8 @@ public final class KingdomCommand {
             builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
             builder.append(c("&7")).append(" — build permits");
         }
+        builder.append("\n").append(c("&e")).append("/kingdom granary setregion <region>|clear");
+        builder.append(c("&7")).append(" — the realm's grain store");
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");
             builder.append("\n").append(c("&6")).append("/kingdom move <player> <kingdom>");

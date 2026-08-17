@@ -5,6 +5,9 @@ import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.mrlemoos.kingdom.economy.villager.VillagerStrike;
+import dev.mrlemoos.kingdom.granary.GranaryConfig;
+import dev.mrlemoos.kingdom.granary.HungerLedgerStore;
+import dev.mrlemoos.kingdom.granary.HungerRamp;
 import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
 import dev.mrlemoos.kingdom.hearth.ColdRamp;
 import dev.mrlemoos.kingdom.hearth.HearthConfig;
@@ -56,6 +59,8 @@ public final class VillagerMpEntityService {
     private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
     private ColdLedgerStore coldLedger;
     private HearthConfig hearthConfig = HearthConfig.defaults();
+    private HungerLedgerStore hungerLedger;
+    private GranaryConfig granaryConfig = GranaryConfig.defaults();
 
     public VillagerMpEntityService(
             JavaPlugin plugin,
@@ -171,7 +176,10 @@ public final class VillagerMpEntityService {
             return;
         }
         applyOrdinaryTerritoryNametag(
-                villager, VillagerMpProfessionMatcher.professionName(profession), isOnStrike(villager));
+                villager,
+                VillagerMpProfessionMatcher.professionName(profession),
+                isOnStrike(villager),
+                isStarving(villager));
     }
 
     public void reconcileTerritoryVillagerNametag(Villager villager) {
@@ -180,11 +188,12 @@ public final class VillagerMpEntityService {
         }
         String professionName = VillagerMpProfessionMatcher.professionName(villager);
         boolean onStrike = isOnStrike(villager);
+        boolean starving = isStarving(villager);
         if (!VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
-                villager.getCustomName(), professionName, true, onStrike)) {
+                villager.getCustomName(), professionName, true, onStrike, starving)) {
             return;
         }
-        applyOrdinaryTerritoryNametag(villager, professionName, onStrike);
+        applyOrdinaryTerritoryNametag(villager, professionName, onStrike, starving);
     }
 
     public boolean isTreasuryLordVillager(Villager villager) {
@@ -784,11 +793,12 @@ public final class VillagerMpEntityService {
     }
 
     private static void applyStandardNametag(Villager villager, String professionName) {
-        applyOrdinaryTerritoryNametag(villager, professionName, false);
+        applyOrdinaryTerritoryNametag(villager, professionName, false, false);
     }
 
-    private static void applyOrdinaryTerritoryNametag(Villager villager, String professionName, boolean onStrike) {
-        String label = VillagerTerritoryNametagReconciliation.labelFor(professionName, onStrike);
+    private static void applyOrdinaryTerritoryNametag(
+            Villager villager, String professionName, boolean onStrike, boolean starving) {
+        String label = VillagerTerritoryNametagReconciliation.labelFor(professionName, onStrike, starving);
         villager.setCustomNameVisible(true);
         villager.setCustomName(label);
     }
@@ -813,7 +823,34 @@ public final class VillagerMpEntityService {
             return true;
         }
         ColdLedgerStore ledger = this.coldLedger;
-        return ledger != null && ColdRamp.strikes(ledger.coldDays(kingdomId.get(), villager.getUniqueId()), hearthConfig);
+        if (ledger != null
+                && ColdRamp.strikes(ledger.coldDays(kingdomId.get(), villager.getUniqueId()), hearthConfig)) {
+            return true;
+        }
+        HungerLedgerStore hunger = this.hungerLedger;
+        return hunger != null
+                && HungerRamp.strikes(hunger.hungryDays(kingdomId.get(), villager.getUniqueId()), granaryConfig);
+    }
+
+    /** Gives the service the hunger ledger, so a villager left unfed strikes and is called starving. */
+    public void setHungerStrikeSource(HungerLedgerStore hungerLedger, GranaryConfig granaryConfig) {
+        this.hungerLedger = hungerLedger;
+        this.granaryConfig = granaryConfig != null ? granaryConfig : GranaryConfig.defaults();
+    }
+
+    /** Whether the villager has gone hungry long enough to down tools, and so be called starving. */
+    private boolean isStarving(Villager villager) {
+        HungerLedgerStore hunger = this.hungerLedger;
+        if (hunger == null || villager.getLocation().getWorld() == null) {
+            return false;
+        }
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                villager.getLocation().getWorld().getName(),
+                villager.getLocation().getBlockX(),
+                villager.getLocation().getBlockY(),
+                villager.getLocation().getBlockZ());
+        return kingdomId.isPresent()
+                && HungerRamp.strikes(hunger.hungryDays(kingdomId.get(), villager.getUniqueId()), granaryConfig);
     }
 
     private static void refreshMpNametag(Villager villager, String profession) {

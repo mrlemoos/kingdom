@@ -161,6 +161,23 @@ public final class KingdomCloudCommands {
                     })));
         }
 
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("granary")
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "granary" })));
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("granary")
+                .literal("setregion")
+                .required("region", StringParser.stringParser())
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
+                        "granary", "setregion", ctx.get("region")
+                })));
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("granary")
+                .literal("clear")
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "granary", "clear" })));
+
         registerGreedySubcommand(manager, kingdomCommand, "date");
         registerGreedySubcommand(manager, kingdomCommand, "almanac");
         registerGreedySubcommand(manager, kingdomCommand, "loyalty");

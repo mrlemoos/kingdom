@@ -1,5 +1,7 @@
 package dev.mrlemoos.kingdom.command;
 
+import dev.mrlemoos.kingdom.granary.GranaryStock;
+import dev.mrlemoos.kingdom.granary.WinterRation;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
@@ -60,6 +62,38 @@ public final class KingdomInfoSummary {
             return singular + " " + name;
         }
         return count + " " + plural;
+    }
+
+    /**
+     * The granary as {@code /kingdom info} tells it: the hay standing in the region against the room
+     * left beside it, and how much of the winter that hay covers at the realm's present ration. Or a
+     * plain word that none is sited. The stock is read afresh, never stored, so an empty reading is
+     * owned up to rather than shown as nought.
+     *
+     * @param dailyRation the bales the kingdom's villagers eat on a winter day
+     */
+    public static String granaryLine(String granaryRegionId, Optional<GranaryStock> stock, int dailyRation) {
+        if (granaryRegionId == null || granaryRegionId.isBlank()) {
+            return "Granary: none sited";
+        }
+        if (stock.isEmpty()) {
+            return "Granary: " + granaryRegionId + " (stock unreadable)";
+        }
+        GranaryStock counted = stock.get();
+        return "Granary: " + counted.stock() + "/" + counted.capacity() + " bales ("
+                + coverage(counted.stock(), dailyRation) + ")";
+    }
+
+    /** What the standing stock sees the realm through, in the plain words of the Gazette. */
+    private static String coverage(int stock, int dailyRation) {
+        int days = WinterRation.daysCovered(stock, dailyRation);
+        if (days >= WinterRation.WINTER_DAYS) {
+            return "covers the winter";
+        }
+        if (days <= 0) {
+            return "covers no day of winter";
+        }
+        return "covers " + days + (days == 1 ? " day" : " days") + " of winter";
     }
 
     public static String loyaltyLine(LoyaltyTier tier) {

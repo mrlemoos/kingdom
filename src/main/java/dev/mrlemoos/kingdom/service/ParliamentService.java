@@ -1420,6 +1420,7 @@ public final class ParliamentService {
             case CURFEW -> "curfew";
             case WAR_LIMIT -> "war limit";
             case TREASON -> "treason";
+            case GRAIN_THEFT -> "grain theft";
         };
     }
 

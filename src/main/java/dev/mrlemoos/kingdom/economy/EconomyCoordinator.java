@@ -19,6 +19,9 @@ import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeRequest;
 import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.mrlemoos.kingdom.economy.villager.VillagerStrike;
+import dev.mrlemoos.kingdom.granary.GranaryConfig;
+import dev.mrlemoos.kingdom.granary.HungerLedgerStore;
+import dev.mrlemoos.kingdom.granary.HungerRamp;
 import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
 import dev.mrlemoos.kingdom.hearth.ColdRamp;
 import dev.mrlemoos.kingdom.hearth.HearthConfig;
@@ -54,6 +57,8 @@ public final class EconomyCoordinator {
     private final VillagerEconomyConfig villagerEconomyConfig;
     private ColdLedgerStore coldLedger;
     private HearthConfig hearthConfig = HearthConfig.defaults();
+    private HungerLedgerStore hungerLedger;
+    private GranaryConfig granaryConfig = GranaryConfig.defaults();
     private final Map<UUID, HarvestWindow> harvestWindows = new HashMap<>();
     private Runnable persistenceHook = () -> {};
 
@@ -361,7 +366,8 @@ public final class EconomyCoordinator {
                 villagerEconomyConfig.frozenWalletEscheatMcDays())) {
             return true;
         }
-        return isColdEnoughToStrike(kingdomId.get(), villagerId);
+        return isColdEnoughToStrike(kingdomId.get(), villagerId)
+                || isHungryEnoughToStrike(kingdomId.get(), villagerId);
     }
 
     /** Gives the coordinator the cold ledger, so a villager left to freeze strikes as an unpaid one does. */
@@ -377,6 +383,21 @@ public final class EconomyCoordinator {
             return false;
         }
         return ColdRamp.strikes(ledger.coldDays(kingdomId, villagerId), hearthConfig);
+    }
+
+    /** Gives the coordinator the hunger ledger, so a villager left unfed downs tools as a frozen one does. */
+    public void setHungerStrikeSource(HungerLedgerStore hungerLedger, GranaryConfig granaryConfig) {
+        this.hungerLedger = hungerLedger;
+        this.granaryConfig = granaryConfig != null ? granaryConfig : GranaryConfig.defaults();
+    }
+
+    /** A villager the realm's ration never reached downs tools, on the same strike as any other. */
+    private boolean isHungryEnoughToStrike(String kingdomId, UUID villagerId) {
+        HungerLedgerStore ledger = this.hungerLedger;
+        if (ledger == null) {
+            return false;
+        }
+        return HungerRamp.strikes(ledger.hungryDays(kingdomId, villagerId), granaryConfig);
     }
 
     private boolean isTerritoryMember(UUID playerId, Optional<String> territoryKingdomId) {

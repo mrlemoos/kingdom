@@ -298,3 +298,33 @@ hearth:
   cold-yield-factor: 0.5
   # Cold days before the villager downs tools, on the same strike as any unpaid one. 0 never strikes.
   cold-strike-days: 3
+
+# The granary: the region a kingdom keeps its grain in, linked with /kingdom granary setregion.
+# Its stock is nothing but the hay standing in it and its capacity nothing but the air the builders
+# left, so neither is set here. The daily villager sweep counts the realm's farmers, credits their
+# wheat at the season's outdoor yield, takes up any loose wheat left on the granary floor, and lays
+# a bale of hay in the lowest free course for every bale's worth. Winter's fields give nothing.
+granary:
+  # Wheat one farmer-profession villager in territory brings in over a realm day, before the
+  # season's outdoor-yield factor is reckoned in.
+  wheat-per-farmer-day: 3.0
+  # Wheat to a bale of hay. The remainder under a bale waits in data.yml for the next day.
+  wheat-per-bale: 9
+  # Villagers one bale of hay feeds through one winter day. The day's ration is the territory's
+  # head-count divided by this and rounded up, drawn off the top of the granary on each of the
+  # ninety winter days. Players are never fed from the granary.
+  heads-per-hay: 4
+  # What a hungry villager yields, as a share of a fed one's. Cold and hunger keep separate ledgers
+  # and both bite: a villager frozen and starving at once yields this times the cold's own factor.
+  hunger-yield-factor: 0.5
+  # Hungry days before the yield is cut, before the villager downs tools (told on its nametag as
+  # [starving]), and before it stands in the lot that takes one villager a day. Nought turns a step
+  # off altogether. Seated villager MPs, the Premier villager, the villager Speaker, Lords of the
+  # Treasury and the Town Crier go hungry but never strike and never starve.
+  hunger-yield-days: 1
+  hunger-strike-days: 3
+  hunger-starve-days: 7
+  # Steps every subject's political loyalty falls while the realm's villagers starve, entered in
+  # Hansard as a grievance and cried to the realm once for the famine. Nought leaves loyalty alone.
+  # No motion is ever tabled for it: the House must choose that for itself.
+  famine-tier-steps: 1

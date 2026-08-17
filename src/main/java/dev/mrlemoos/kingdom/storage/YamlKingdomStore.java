@@ -49,6 +49,9 @@ import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.granary.FamineWatch;
+import dev.mrlemoos.kingdom.granary.HungerLedgerStore;
+import dev.mrlemoos.kingdom.granary.ShortfallWatch;
 import dev.mrlemoos.kingdom.hearth.ColdLedgerStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
@@ -92,8 +95,11 @@ public final class YamlKingdomStore {
     private StandingRosterStore standingRosterStore;
     private LevyArrearsStore levyArrearsStore;
     private ColdLedgerStore coldLedgerStore;
+    private HungerLedgerStore hungerLedgerStore;
+    private FamineWatch famineWatch;
     private MechanicalJusticeService mechanicalJusticeService;
     private RealmCalendarService calendarService;
+    private ShortfallWatch shortfallWatch;
 
     public YamlKingdomStore(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -124,12 +130,27 @@ public final class YamlKingdomStore {
         this.coldLedgerStore = coldLedgerStore;
     }
 
+    /** The run of hungry days behind each villager, kept apart from the cold ledger. */
+    public void setHungerLedgerStore(HungerLedgerStore hungerLedgerStore) {
+        this.hungerLedgerStore = hungerLedgerStore;
+    }
+
+    /** Keeps the day each realm's famine was announced, so a restart never announces it twice. */
+    public void setFamineWatch(FamineWatch famineWatch) {
+        this.famineWatch = famineWatch;
+    }
+
     public void setMechanicalJusticeService(MechanicalJusticeService mechanicalJusticeService) {
         this.mechanicalJusticeService = mechanicalJusticeService;
     }
 
     public void setCalendarService(RealmCalendarService calendarService) {
         this.calendarService = calendarService;
+    }
+
+    /** Keeps the day the granary shortfall was last cried, so a restart never cries it twice. */
+    public void setShortfallWatch(ShortfallWatch shortfallWatch) {
+        this.shortfallWatch = shortfallWatch;
     }
 
     /** Restores the realm clock; pins the epoch on first run. */
@@ -145,6 +166,9 @@ public final class YamlKingdomStore {
         calendarService.restore(
                 data.getLong("calendar.epoch-world-day", -1L), data.getLong("calendar.last-seen-realm-day", 0L));
         calendarService.seasonTurn().restore(data.getLong("calendar.last-season-turn-day", -1L));
+        if (shortfallWatch != null) {
+            shortfallWatch.restore(data.getLong("granary.last-shortfall-warning-day", -1L));
+        }
     }
 
     static List<ReignRecord> readReigns(ConfigurationSection section) {
@@ -230,6 +254,8 @@ public final class YamlKingdomStore {
                 Kingdom kingdom = new Kingdom(id, entry.getString("display-name", id));
                 kingdom.setWorldName(entry.getString("world"));
                 kingdom.setWorldGuardRegion(entry.getString("worldguard-region"));
+                kingdom.setGranaryRegion(entry.getString("granary-region"));
+                kingdom.setGranaryWheat(entry.getInt("granary-wheat", 0));
                 kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
                 readParliament(entry.getConfigurationSection("parliament"), kingdom);
                 readPolice(entry.getConfigurationSection("police"), kingdom);
@@ -294,6 +320,12 @@ public final class YamlKingdomStore {
         if (coldLedgerStore != null) {
             coldLedgerStore.replaceAll(readColdDays(data.getConfigurationSection("cold-days")));
         }
+        if (hungerLedgerStore != null) {
+            hungerLedgerStore.replaceAll(readHungryDays(data.getConfigurationSection("hungry-days")));
+        }
+        if (famineWatch != null) {
+            famineWatch.replaceAll(readFamineDays(data.getConfigurationSection("granary.famine-announced")));
+        }
     }
 
     public void saveFrom(KingdomService service) {
@@ -304,6 +336,10 @@ public final class YamlKingdomStore {
             data.set(path + ".display-name", kingdom.getDisplayName());
             data.set(path + ".world", kingdom.getWorldName());
             data.set(path + ".worldguard-region", kingdom.getWorldGuardRegion());
+            data.set(path + ".granary-region", kingdom.getGranaryRegion());
+            if (kingdom.getGranaryWheat() > 0) {
+                data.set(path + ".granary-wheat", kingdom.getGranaryWheat());
+            }
             writeTeleports(data, path + ".teleports", kingdom.getTeleportsView());
             writeParliament(data, path + ".parliament", kingdom);
             writePolice(data, path + ".police", kingdom);
@@ -333,6 +369,9 @@ public final class YamlKingdomStore {
             data.set("calendar.last-seen-realm-day", calendarService.currentRealmDay());
             data.set("calendar.last-season-turn-day", calendarService.seasonTurn().lastAnnouncedDay());
         }
+        if (shortfallWatch != null) {
+            data.set("granary.last-shortfall-warning-day", shortfallWatch.lastWarnedDay());
+        }
         if (loyaltyStore != null) {
             writeLoyalty(data, "loyalty", loyaltyStore.allTiersView());
             writeLoyaltyMarks(data, "loyalty-clocks", loyaltyStore.allMarksView());
@@ -353,6 +392,12 @@ public final class YamlKingdomStore {
         }
         if (coldLedgerStore != null) {
             writeColdDays(data, "cold-days", coldLedgerStore.allView());
+        }
+        if (hungerLedgerStore != null) {
+            writeHungryDays(data, "hungry-days", hungerLedgerStore.allView());
+        }
+        if (famineWatch != null) {
+            writeFamineDays(data, "granary.famine-announced", famineWatch.allView());
         }
 
         try {
@@ -1834,6 +1879,42 @@ public final class YamlKingdomStore {
             }
         }
         return coldDays;
+    }
+
+    /**
+     * The run of hungry days behind each villager, under a section of its own. Cold and hunger are
+     * two privations and are answered separately, so their ledgers never share a key.
+     */
+    static void writeHungryDays(FileConfiguration config, String path, Map<String, Map<UUID, Integer>> hungryDays) {
+        writeColdDays(config, path, hungryDays);
+    }
+
+    static Map<String, Map<UUID, Integer>> readHungryDays(ConfigurationSection section) {
+        return readColdDays(section);
+    }
+
+    /** The day each realm's famine was announced, so no realm hears of the same famine twice. */
+    static void writeFamineDays(FileConfiguration config, String path, Map<String, Long> famineDays) {
+        if (famineDays == null || famineDays.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, Long> entry : famineDays.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            config.set(path + "." + entry.getKey(), entry.getValue());
+        }
+    }
+
+    static Map<String, Long> readFamineDays(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, Long> famineDays = new HashMap<>();
+        for (String kingdomId : section.getKeys(false)) {
+            famineDays.put(kingdomId, Long.valueOf(section.getLong(kingdomId, -1L)));
+        }
+        return famineDays;
     }
 
     static void writeRosters(FileConfiguration config, String path, Map<String, Set<UUID>> rosters) {

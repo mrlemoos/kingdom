@@ -18,6 +18,8 @@ public final class DefaultActBreachCharge {
             case CURFEW -> new Suggestion(SentenceType.WARNING, 0, 0);
             case WAR_LIMIT -> new Suggestion(SentenceType.PRISON, 0, 15);
             case TREASON -> new Suggestion(SentenceType.PRISON, 0, 15);
+            // Grain taken out of the realm's winter store is paid for, not sat out.
+            case GRAIN_THEFT -> new Suggestion(SentenceType.FINE, 25.0, 0);
         };
     }
 }

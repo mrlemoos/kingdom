@@ -90,6 +90,26 @@ class KingdomInfoCommandTest {
     }
 
     @Test
+    void kingdomInfoSaysNoGranaryUntilTheCrownSitesOne() {
+        PlayerMock viewer = server.addPlayer("Viewer");
+
+        command.execute(viewer, new String[] {"info", "northmarch"});
+
+        assertTrue(drainedMessages(viewer).contains("Granary: none sited"));
+    }
+
+    @Test
+    void aSubjectBelowTheCrownIsRefusedTheGranary() {
+        PlayerMock subject = server.addPlayer("Subject");
+        kingdomService.joinKingdom(subject.getUniqueId(), "northmarch");
+
+        command.execute(subject, new String[] {"granary", "setregion", "north_granary"});
+
+        assertTrue(
+                drainedMessages(subject).contains("Only the King, Queen, or an operator may site the granary."));
+    }
+
+    @Test
     void playerInfoShowsLoyaltyTier() {
         PlayerMock member = server.addPlayer("Citizen");
         kingdomService.joinKingdom(member.getUniqueId(), "northmarch");

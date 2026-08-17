@@ -68,4 +68,27 @@ class VillagerTerritoryNametagReconciliationTest {
                 true,
                 false));
     }
+
+    @Test
+    void starvingIsTheWorseOfTheTwoAndOverridesTheStrike() {
+        assertEquals(
+                "[starving]",
+                VillagerTerritoryNametagReconciliation.labelFor("farmer", true, true));
+        assertEquals(
+                "[starving]",
+                VillagerTerritoryNametagReconciliation.labelFor("farmer", false, true));
+        assertEquals(
+                "[on strike]",
+                VillagerTerritoryNametagReconciliation.labelFor("farmer", true, false));
+    }
+
+    @Test
+    void reconcilesFromStrikeOntoStarvingAndBackToTheProfession() {
+        assertTrue(VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
+                "[on strike]", "farmer", true, true, true));
+        assertTrue(VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
+                "[starving]", "farmer", true, false, false));
+        assertFalse(VillagerTerritoryNametagReconciliation.shouldReconcileNametag(
+                "[starving]", "farmer", true, true, true));
+    }
 }

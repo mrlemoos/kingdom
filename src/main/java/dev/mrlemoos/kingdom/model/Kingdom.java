@@ -17,6 +17,10 @@ public final class Kingdom {
     private String displayName;
     private String worldName;
     private String worldGuardRegion;
+    /** The region the kingdom keeps its grain in; null until the Crown sites one. */
+    private String granaryRegion;
+    /** Wheat off the harvest tally left over under a bale, waiting on the next day's grain. */
+    private int granaryWheat;
     private final Map<String, TeleportPlace> teleports = new HashMap<>();
     private final ParliamentSites parliamentSites = new ParliamentSites();
     private final ParliamentState parliamentState = new ParliamentState();
@@ -63,6 +67,27 @@ public final class Kingdom {
 
     public void setWorldGuardRegion(String worldGuardRegion) {
         this.worldGuardRegion = worldGuardRegion;
+    }
+
+    public String getGranaryRegion() {
+        return granaryRegion;
+    }
+
+    public void setGranaryRegion(String granaryRegion) {
+        this.granaryRegion = granaryRegion;
+    }
+
+    public void clearGranaryRegion() {
+        this.granaryRegion = null;
+    }
+
+    /** The wheat under a bale carried over from the last harvest tally; never negative. */
+    public int getGranaryWheat() {
+        return granaryWheat;
+    }
+
+    public void setGranaryWheat(int granaryWheat) {
+        this.granaryWheat = Math.max(0, granaryWheat);
     }
 
     public Map<String, TeleportPlace> getTeleportsView() {

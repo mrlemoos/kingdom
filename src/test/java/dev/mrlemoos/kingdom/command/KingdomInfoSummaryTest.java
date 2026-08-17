@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import dev.mrlemoos.kingdom.granary.GranaryStock;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyTier;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
@@ -108,6 +109,51 @@ class KingdomInfoSummaryTest {
         assertEquals(
                 "Police: Constable none, Judge Bob, cells 0",
                 KingdomInfoSummary.policeLine(police, NAMES));
+    }
+
+    @Test
+    void granaryLineShowsStockAgainstCapacityAndWhatItCovers() {
+        assertEquals(
+                "Granary: 12/40 bales (covers 4 days of winter)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.of(new GranaryStock(12, 40)), 3));
+    }
+
+    @Test
+    void granaryLineCountsASingleDayInTheSingular() {
+        assertEquals(
+                "Granary: 3/40 bales (covers 1 day of winter)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.of(new GranaryStock(3, 40)), 3));
+    }
+
+    @Test
+    void granaryLineOwnsUpToAStockThatCoversNoDayAtAll() {
+        assertEquals(
+                "Granary: 2/40 bales (covers no day of winter)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.of(new GranaryStock(2, 40)), 3));
+    }
+
+    @Test
+    void granaryLineSaysTheWinterIsCoveredWhenItIs() {
+        assertEquals(
+                "Granary: 400/400 bales (covers the winter)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.of(new GranaryStock(400, 400)), 3));
+        // No mouths to feed: whatever stands in the granary sees the winter through.
+        assertEquals(
+                "Granary: 0/40 bales (covers the winter)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.of(new GranaryStock(0, 40)), 0));
+    }
+
+    @Test
+    void granaryLineNotesWhenNoneIsSited() {
+        assertEquals("Granary: none sited", KingdomInfoSummary.granaryLine(null, Optional.empty(), 3));
+        assertEquals("Granary: none sited", KingdomInfoSummary.granaryLine("  ", Optional.empty(), 3));
+    }
+
+    @Test
+    void granaryLineOwnsUpWhenTheStockCannotBeRead() {
+        assertEquals(
+                "Granary: north_granary (stock unreadable)",
+                KingdomInfoSummary.granaryLine("north_granary", Optional.empty(), 3));
     }
 
     @Test

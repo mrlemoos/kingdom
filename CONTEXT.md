@@ -1003,3 +1003,49 @@ _Avoid_: Holiday, adjournment, vacation, break
 **Villager jury**:
 A trial jury of three territory villagers claimed when fewer than three eligible players are online. They are released to their stored origins when the trial ends. The verdict still comes from the realm-handled sentence table; the spectacle is bodies in seats, sound, and the trial bar. Excludes the accused (if a villager), seated MPs and the Premier, the Speaker, Treasury Lords, the villager judge, the **Town Crier**, and striking villagers. Fewer than three eligible villagers falls to the villager judge alone.
 _Avoid_: NPC jury, fake jury, auto jury
+
+## Granary
+
+**Granary**:
+The place a kingdom keeps its grain against the winter: a **granary region** the Crown links inside its own territory, which fills with hay through the growing year and is drawn down through winter. One to a kingdom. A kingdom that has sited none is fed exactly as one whose granary stands empty.
+_Avoid_: Silo, barn, warehouse, food store, stockpile
+
+**Granary region**:
+The WorldGuard region a **granary** occupies, linked by the **King or Queen** with `/kingdom granary setregion` and released with `/kingdom granary clear`. It must lie within the kingdom's linked territory. Nothing of the region is kept but its name.
+_Avoid_: Granary block, granary plot, claim, zone
+
+**Stock**:
+The hay standing in a **granary region**, counted off the blocks whenever it is asked for and never written down. New bales are laid on the lowest course first and drawn from the top, so the store visibly rises through the year and sinks through winter.
+_Avoid_: Balance, inventory, reserve, count
+
+**Capacity**:
+Whatever air the builders left inside the **granary region**. A granary with no room takes no more grain and the realm is told; a realm that wants to store more builds more.
+_Avoid_: Limit, cap, max stock, tier
+
+**Harvest tally**:
+The day's grain off the realm's fields: a count of the farmer-profession villagers in territory, each credited wheat at a rate moved by the **season profile**'s outdoor yield — richest in Harvest, nothing in winter. Every nine wheat lays one bale of hay in the **granary**; the remainder under nine waits on disk for the next day. Hay placed by hand and loose wheat left in the region count the same.
+_Avoid_: Farm output, crop yield, production, GDP
+
+**Winter ration**:
+The bales drawn out of the **granary** on each of the ninety winter days: one for every so many territory villagers, rounded up. Drawn in winter alone. Players are never fed from it — they keep vanilla hunger.
+_Avoid_: Upkeep, food cost, consumption, feeding
+
+**Shortfall**:
+How many bales a kingdom stands short of seeing the winter through at its present head-count. Cried by the **town crier** and hung on the **Gazette** on the **season turn** into Harvest and again on the last day of autumn, so a realm is warned twice before it starves.
+_Avoid_: Deficit, arrears, debt, warning
+
+**Hunger**:
+The state of a villager on a winter day whose kingdom could not draw its **winter ration**. It bites by degrees, on a ledger of its own kept beside **cold**: the first day costs part of its yield, the third sends it on **strike**, and from the seventh it may **starve**. A fed day wipes the slate. Cold and hunger both bite at once — their yield cuts multiply, either alone calls a strike — and the nametag shows the worse of the two.
+_Avoid_: Famine, malnutrition, food debuff, saturation
+
+**Starvation**:
+The death of one villager a day, chosen at random from those left **hungry** seven days or more. Seated **villager MPs**, the **Premier** villager, the **villager Speaker**, **Lords of the Treasury** and the **Town Crier** are spared, as they are spared the strike.
+_Avoid_: Culling, despawn, population decay
+
+**Famine grievance**:
+The political price of leaving the realm unfed: while villagers starve, subject loyalty falls a step, the grievance is entered in **Hansard** and the realm is told. It tables nothing — a **motion of no confidence** still needs two seated MPs to choose it — on the pattern of **winter censure**.
+_Avoid_: Famine penalty, unrest, riot, automatic no confidence
+
+**Grain theft**:
+Breaking hay out of a **granary region** by any hand but the **King or Queen** or a **Prince or Princess** of that kingdom. Members, holders of a **build permit** and operators alike commit it. Seen by the plugin itself, so no witness is wanted; it opens an ordinary **warrant** through the Crown-approval pipeline and is never **flagrant**.
+_Avoid_: Looting, plunder, raiding, stealing food

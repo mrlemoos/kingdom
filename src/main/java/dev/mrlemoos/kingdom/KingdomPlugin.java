@@ -96,6 +96,7 @@ import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
 import dev.mrlemoos.kingdom.parliament.HansardArchivist;
 import dev.mrlemoos.kingdom.parliament.WinterCensureConfig;
+import dev.mrlemoos.kingdom.parliament.FamineGrievanceService;
 import dev.mrlemoos.kingdom.parliament.WinterCensureService;
 import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
@@ -105,6 +106,13 @@ import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.task.ElectionTask;
 import dev.mrlemoos.kingdom.task.TerritoryVillagerDespawnTask;
 import dev.mrlemoos.kingdom.task.TerritoryWealthReconcileTask;
+import dev.mrlemoos.kingdom.granary.FamineWatch;
+import dev.mrlemoos.kingdom.granary.GranaryConfig;
+import dev.mrlemoos.kingdom.granary.GranaryTheftLog;
+import dev.mrlemoos.kingdom.granary.HungerDayService;
+import dev.mrlemoos.kingdom.granary.InMemoryHungerLedgerStore;
+import dev.mrlemoos.kingdom.granary.StarvationLot;
+import dev.mrlemoos.kingdom.granary.ShortfallWatch;
 import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.hearth.HearthDayService;
 import dev.mrlemoos.kingdom.hearth.InMemoryColdLedgerStore;
@@ -175,6 +183,14 @@ public final class KingdomPlugin extends JavaPlugin {
                 InMemoryColdLedgerStore coldLedgerStore = new InMemoryColdLedgerStore();
                 store.setColdLedgerStore(coldLedgerStore);
                 HearthConfig hearthConfig = HearthConfig.fromPluginConfig(getConfig());
+                GranaryConfig granaryConfig = GranaryConfig.fromPluginConfig(getConfig());
+                ShortfallWatch shortfallWatch = new ShortfallWatch();
+                store.setShortfallWatch(shortfallWatch);
+                InMemoryHungerLedgerStore hungerLedgerStore = new InMemoryHungerLedgerStore();
+                store.setHungerLedgerStore(hungerLedgerStore);
+                FamineWatch famineWatch = new FamineWatch();
+                store.setFamineWatch(famineWatch);
+                GranaryTheftLog granaryTheftLog = new GranaryTheftLog();
                 store.loadInto(kingdomService);
                 java.util.function.LongSupplier mcDayClock = () -> {
                         org.bukkit.World mainWorld = getServer().getWorlds().isEmpty()
@@ -266,6 +282,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 villagerMpEntityService.setVillagerStrikeSource(economyService, villagerEconomyConfig);
                 villagerMpEntityService.setColdStrikeSource(coldLedgerStore, hearthConfig);
                 economyCoordinator.setColdStrikeSource(coldLedgerStore, hearthConfig);
+                villagerMpEntityService.setHungerStrikeSource(hungerLedgerStore, granaryConfig);
+                economyCoordinator.setHungerStrikeSource(hungerLedgerStore, granaryConfig);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
                 parliamentService.setDivisionWindowMcDays(getConfig().getInt(
@@ -302,6 +320,13 @@ public final class KingdomPlugin extends JavaPlugin {
                                                                 "&e" + kingdom.getDisplayName() + ": " + message))));
                 electionService.setWinterCensureService(winterCensureService);
                 warService.setWinterCensureService(winterCensureService);
+                // A realm left to starve answers for it in the same coin, and by no motion either.
+                FamineGrievanceService famineGrievanceService =
+                                new FamineGrievanceService(kingdomService, loyaltyService, granaryConfig, famineWatch);
+                famineGrievanceService.setAnnouncer((kingdomId, message) -> kingdomService.getKingdom(kingdomId)
+                                .ifPresent(kingdom -> org.bukkit.Bukkit.broadcastMessage(
+                                                dev.mrlemoos.kingdom.helpers.ColourEncoder.c(
+                                                                "&e" + kingdom.getDisplayName() + ": " + message))));
                 VillagerPremierInauguralService villagerPremierInauguralService = new VillagerPremierInauguralService(
                                 kingdomService, economyService, electionService, parliamentService, professionVoteBias,
                                 electionConfig);
@@ -447,6 +472,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 kingdomCommand.setCalendarService(
                                 realmCalendarService,
                                 dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig()));
+                kingdomCommand.setGranaryConfig(granaryConfig);
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -572,6 +598,18 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.LoyaltyLedgerGuiListener(), this);
+                // A bale broken by any hand but the Crown's is grain theft; a bale right-clicked
+                // reads the realm's stores.
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.GranaryListener(
+                                                kingdomService,
+                                                territoryResolver,
+                                                mechanicalJusticeService,
+                                                granaryConfig,
+                                                granaryTheftLog,
+                                                hungerLedgerStore,
+                                                realmCalendarService),
+                                this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.SeasonalCropGrowthListener(
                                                 this, realmCalendarService),
@@ -617,6 +655,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new StandingRosterLevyRoster(standingRosterService));
                 gdpTask.setLevyUpkeep(levyUpkeepService, null);
                 gdpTask.setHearths(new HearthDayService(coldLedgerStore), hearthConfig, villagerMpEntityService);
+                gdpTask.setGranary(granaryConfig, store, shortfallWatch);
+                gdpTask.setHunger(
+                                new HungerDayService(hungerLedgerStore, StarvationLot.random(new java.util.Random())),
+                                famineGrievanceService);
                 gdpTask.setFieldMoraleDecay(
                                 new FieldMoraleDecayService(moraleService, militaryParticipantRegistry), warService);
                 gdpTask.schedule(gdpInterval);
