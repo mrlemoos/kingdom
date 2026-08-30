@@ -957,7 +957,7 @@ The licence a player must hold to place or break blocks inside a kingdom's linke
 _Avoid_: Build rights, build flag, planning permission, land claim
 
 **Horse permit**:
-The licence a **horse** stands on, entered on the realm's register the moment a member puts a saddle on it and shown beside their **build permit** in the permit register. It names one horse and one holder; saddling a horse afresh moves the permit to whoever saddled it last. Members only — a player in no kingdom claims nothing. Struck off when the horse dies, when the holder leaves the kingdom, and when the Crown revokes the holder's build permit in the register.
+The licence a **horse** stands on, entered on the realm's register the moment a member puts a saddle on it — a saddle in hand and a right-click is enough on a horse they have tamed, without opening its saddlebags. Shown beside their **build permit** in the permit register. It names one horse and one holder; saddling a horse afresh moves the permit to whoever saddled it last. Members only — a player in no kingdom claims nothing. Struck off when the horse dies, when the holder leaves the kingdom, and when the Crown revokes the holder's build permit in the register.
 _Avoid_: Horse deed, mount licence, stable claim, horse tag
 
 **Horse gate**:

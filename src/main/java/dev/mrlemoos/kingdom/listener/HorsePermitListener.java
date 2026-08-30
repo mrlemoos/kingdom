@@ -14,9 +14,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Sound;
 import org.bukkit.entity.AbstractHorse;
+import org.bukkit.entity.AnimalTamer;
+import org.bukkit.entity.Llama;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,6 +30,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -62,11 +67,40 @@ public final class HorsePermitListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (!holdsSaddle(event.getPlayer())) {
+        EquipmentSlot hand = saddleHand(event.getPlayer());
+        if (hand == null || hand != event.getHand()) {
             return;
+        }
+        if (saddleUp(event.getPlayer(), horse, hand)) {
+            event.setCancelled(true);
         }
         // The saddle goes on a tick after the click, so the register is read once it is there.
         plugin.getServer().getScheduler().runTask(plugin, () -> claim(event.getPlayer(), horse));
+    }
+
+    /**
+     * Vanilla makes a rider open the saddlebags to saddle a horse; here a saddle in hand is enough,
+     * on a horse the player has tamed and nobody else has claimed.
+     *
+     * @return whether the saddle was buckled on, and so whether the click is spent
+     */
+    private boolean saddleUp(Player player, AbstractHorse horse, EquipmentSlot hand) {
+        if (horse instanceof Llama || !horse.isTamed() || isSaddled(horse)) {
+            return false;
+        }
+        AnimalTamer owner = horse.getOwner();
+        if (owner != null && !player.getUniqueId().equals(owner.getUniqueId())) {
+            return false;
+        }
+        ItemStack held = player.getInventory().getItem(hand);
+        ItemStack saddle = held.clone();
+        saddle.setAmount(1);
+        horse.getInventory().setSaddle(saddle);
+        if (player.getGameMode() != GameMode.CREATIVE) {
+            held.setAmount(held.getAmount() - 1);
+        }
+        horse.getWorld().playSound(horse.getLocation(), Sound.ENTITY_HORSE_SADDLE, 1.0f, 1.0f);
+        return true;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -128,9 +162,15 @@ public final class HorsePermitListener implements Listener {
         player.sendMessage(c("&aThis horse now stands on your name in the realm's register."));
     }
 
-    private static boolean holdsSaddle(Player player) {
-        return player.getInventory().getItemInMainHand().getType() == Material.SADDLE
-                || player.getInventory().getItemInOffHand().getType() == Material.SADDLE;
+    /** The hand carrying a saddle, main hand first, or null when neither does. */
+    private static EquipmentSlot saddleHand(Player player) {
+        if (player.getInventory().getItemInMainHand().getType() == Material.SADDLE) {
+            return EquipmentSlot.HAND;
+        }
+        if (player.getInventory().getItemInOffHand().getType() == Material.SADDLE) {
+            return EquipmentSlot.OFF_HAND;
+        }
+        return null;
     }
 
     private static boolean isSaddled(AbstractHorse horse) {
