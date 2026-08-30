@@ -125,6 +125,7 @@ public final class KingdomCloudCommands {
         registerGreedySubcommand(manager, kingdomCommand, "election");
         registerGreedySubcommand(manager, kingdomCommand, "police");
         registerGreedySubcommand(manager, kingdomCommand, "whitelist");
+        registerGreedySubcommand(manager, kingdomCommand, "church");
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("capital")
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "capital" })));

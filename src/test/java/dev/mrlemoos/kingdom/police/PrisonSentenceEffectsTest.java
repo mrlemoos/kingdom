@@ -181,6 +181,23 @@ class PrisonSentenceEffectsTest {
                 trialService.lastRestoredSworn(SUSPECT));
     }
 
+    @Test
+    void aSwornPriestIsSuspendedByPrisonAndRestoredOnRelease() {
+        kingdomService
+                .getKingdom("northmarch")
+                .orElseThrow()
+                .getChurchState()
+                .swearPriest(SUSPECT);
+        openApproveAndArrest();
+
+        trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.PRISON, 0, 15);
+        assertFalse(policeService.isPriest("northmarch", SUSPECT));
+
+        trialService.releaseFromPrison(SUSPECT);
+        assertTrue(policeService.isPriest("northmarch", SUSPECT));
+        assertEquals(Optional.of(SwornRole.PRIEST), trialService.lastRestoredSworn(SUSPECT));
+    }
+
     private void openApproveAndArrest() {
         ActBreach breach = new ActBreach("northmarch", "northmarch-build", ConductKind.BUILD_BAN);
         justice.openFromActBreach(breach, SUSPECT);

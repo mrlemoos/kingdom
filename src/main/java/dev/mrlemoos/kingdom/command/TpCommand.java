@@ -32,6 +32,7 @@ public final class TpCommand {
     private final YamlKingdomStore store;
     private final KingdomTerritoryResolver territoryResolver;
     private final PoliceTrialService policeTrialService;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
 
     public TpCommand(
             TeleportService teleportService,
@@ -52,6 +53,11 @@ public final class TpCommand {
         this.store = store;
         this.territoryResolver = territoryResolver;
         this.policeTrialService = policeTrialService;
+    }
+
+    /** Wires the marriage perk; without it, spouses need the ordinary teleport permission. */
+    public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchService = churchService;
     }
 
     public void execute(CommandSender sender, String[] args) {
@@ -307,7 +313,9 @@ public final class TpCommand {
 
         Optional<Player> online = findOnlinePlayer(destinationName);
         if (online.isPresent()) {
-            if (!sender.hasPermission(PERM_TELEPORT)) {
+            // Spouses may go to one another without the teleport permission; the prison ban in
+            // teleportPlayer still stands over them both.
+            if (!sender.hasPermission(PERM_TELEPORT) && !isSpouse(player, online.get())) {
                 sender.sendMessage(error("You do not have permission to teleport."));
                 return;
             }
@@ -323,6 +331,19 @@ public final class TpCommand {
 
         sender.sendMessage(error("Unknown destination."));
         return;
+    }
+
+    /** True when these two are wed in the same realm — a perk of marriage, not a permission. */
+    private boolean isSpouse(Player player, Player other) {
+        if (churchService == null) {
+            return false;
+        }
+        return kingdomService
+                .getMembership(player.getUniqueId())
+                .flatMap(membership ->
+                        churchService.spouseOf(membership.getKingdomId(), player.getUniqueId()))
+                .filter(spouse -> spouse.equals(other.getUniqueId()))
+                .isPresent();
     }
 
     private void handleTargetToDestination(CommandSender sender, String targetName, String destinationName) {

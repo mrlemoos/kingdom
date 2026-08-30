@@ -593,6 +593,96 @@ Design decisions taken:
 
 ---
 
+## Phase 8 — Church and rites
+
+Ceremony layer per [`docs/adr/0008-a-priest-keeps-the-realms-rites.md`](adr/0008-a-priest-keeps-the-realms-rites.md). Entirely off in a kingdom with no **church**. No faith stat, no rival religions.
+
+### Slice 8.1 — Church point, consecration, and the cleric
+
+| | |
+|---|---|
+| **Goal** | Monarch sites a **church** inside linked territory; it is inert until **consecrated**; a **cleric** villager stands there whenever no player **priest** is sworn. |
+| **Domain** | `Church` value object (location, consecrated flag) on kingdom state; `data.yml` round-trip; consecration invariants (new point unconsecrates). |
+| **Bukkit** | `/kingdom church set|clear` (King/Queen, must be inside linked territory); cleric spawned fresh at the point, cleric profession, `[Cleric]` nametag, no profession label, reconciled on startup and by the 60s territory sweep; despawned when a priest is sworn. |
+| **Depends on** | Capital/Lord Mayor pattern (`city`), villager Speaker spawn/reconcile pattern, `WorldGuardBridge` territory check. |
+| **Acceptance (domain)** | Tests: set outside territory refused; clear removes point; re-set clears consecration; YAML round-trip. |
+| **Acceptance (Bukkit)** | On test server: set church, cleric appears within one sweep, survives restart and chunk reload, disappears on `clear`. |
+| **Spike vs flag** | **Feature** — no rites yet; the cleric is the tracer bullet. |
+
+### Slice 8.2 — Priest sworn office
+
+| | |
+|---|---|
+| **Goal** | One **priest** to a kingdom, sworn by the Crown, exclusive of police roles, suspended by prison. |
+| **Domain** | Extend sworn-role model with `PRIEST`; XOR against `CONSTABLE`/`JUDGE`; suspend-on-sentence and restore-on-release reuse the police path. |
+| **Bukkit** | `/kingdom church swear|unswear <player>`; bold `[Priest]` prefix in chat, tab and nametag; listed in `/kingdom info`; cleric despawns while the seat is filled and returns when vacated or the priest is gaoled. |
+| **Depends on** | 8.1; existing sworn-role and prison suspension machinery in `police`. |
+| **Acceptance (domain)** | Tests: swearing a constable as priest refused; second priest refused; sentence suspends and release restores; not resignable via `/resign`. |
+| **Acceptance (Bukkit)** | Swear, see prefix; gaol the priest, cleric returns; release, priest restored and cleric goes. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 8.3 — Consecration and blessing rites
+
+| | |
+|---|---|
+| **Goal** | The first two **rite**s: consecrating the church, and the free **blessing**. |
+| **Domain** | `Rite` dispatch with the standing preconditions (church set, consecrated, celebrant present at the point, subject a member); per-player blessing cooldown of one in-game day. |
+| **Bukkit** | Priest/cleric interaction at the church point performs consecration; priest right-clicks a member for Regeneration II + Resistance I (~2 min, config); broadcast lines in British spelling. |
+| **Depends on** | 8.1, 8.2. |
+| **Acceptance (domain)** | Tests: rite at unconsecrated church refused; blessing inside cooldown refused; non-member refused. The cooldown is memory-only, as open police cases are. |
+| **Acceptance (Bukkit)** | Consecrate, bless, observe effects and the refusal message on a second blessing the same day. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 8.4 — Marriage, divorce, and annulment
+
+| | |
+|---|---|
+| **Goal** | Two members wed at the church; spouses share a respawn point and may teleport to each other; the bond can be undone. |
+| **Domain** | `Marriage` record (pair, date) in `data.yml`; one spouse each; same-kingdom invariant; divorce needs both, annulment needs the Crown. |
+| **Bukkit** | Consent prompt at the church for both parties; `/tp <spouse>` routes through the existing teleport gate (prison bars it as it bars other teleports); shared respawn honoured on death. |
+| **Depends on** | 8.3; existing `/tp` and checkpoint machinery. |
+| **Acceptance (domain)** | Tests: second marriage refused; cross-kingdom refused; divorce without both refused; annulment by Crown succeeds; `/kingdom move` or leaving the kingdom ends the bond. |
+| **Acceptance (Bukkit)** | Marry two accounts, die and respawn at the shared point, `/tp` to spouse, divorce, both perks gone. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 8.5 — Player funeral and held experience
+
+| | |
+|---|---|
+| **Goal** | Death inside territory holds the dropped experience; the **funeral** returns half of it. |
+| **Domain** | `FuneralRecord` (player, XP, expiry three in-game days); one record to a player, overwritten by a later death; expiry swept on the daily tick. |
+| **Bukkit** | Death listener captures dropped XP inside linked territory only; rite requires the deceased present at the church; return share configurable (default 50%). |
+| **Depends on** | 8.3; calendar day tick. |
+| **Acceptance (domain)** | Tests: second death overwrites, does not stack; expired record returns nothing; death outside territory records nothing; share rounds down. |
+| **Acceptance (Bukkit)** | Die in territory, hold the rite, receive half back; wait out the window, rite refused. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 8.6 — Villager funeral and the tithe
+
+| | |
+|---|---|
+| **Goal** | A dead **productive villager**'s wallet waits **awaiting rites**; a funeral pays the treasury less a **tithe** to the priest; silence lets it escheat whole. |
+| **Domain** | New `awaiting rites` wallet state beside freeze/escheat; tithe rate on config; cleric-presided tithe goes to the treasury. |
+| **Bukkit** | Villager death listener marks the wallet; rite performed at the church names the deceased villager; escheat processor honours the window. |
+| **Depends on** | 8.5; villager wallet freeze/escheat processor in `economy`. |
+| **Acceptance (domain)** | Tests: funeral inside window splits correctly; outside window escheats whole; cleric funeral sends the tithe to the treasury; MPs and Treasury Lords follow the same path. |
+| **Acceptance (Bukkit)** | Kill a productive villager, hold the rite, see treasury and priest wallet move by the right amounts. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 8.7 — Coronation and the coronation gate
+
+| | |
+|---|---|
+| **Goal** | An uncrowned monarch cannot exercise ceremonial powers in a kingdom that has a consecrated church. |
+| **Domain** | `crowned` flag per kingdom monarch; gate checked on royal assent, **honours**, role swearing and title granting; gate inert where no consecrated church exists; flag cleared when the monarch changes. |
+| **Bukkit** | Coronation rite at the church with the rightful holder present; refusal messages name the gate; `/kingdom info` shows uncrowned status. |
+| **Depends on** | 8.3; Parliament assent path, honours, sworn-role and title commands. |
+| **Acceptance (domain)** | Tests: no church → gate inert; consecrated church + uncrowned → assent refused, permits still allowed; crowning a non-monarch refused; new monarch is uncrowned. |
+| **Acceptance (Bukkit)** | Set and consecrate a church, try assent uncrowned (refused), crown, assent succeeds. |
+| **Spike vs flag** | **Feature**. |
+
+---
+
 ## Not in scope yet
 
 The following are explicitly deferred per ADR, evaluation doc, or `CONTEXT.md`:
@@ -604,7 +694,8 @@ The following are explicitly deferred per ADR, evaluation doc, or `CONTEXT.md`:
 | **Client mod** / morale HUD / battle map UI | Plugin ceiling; optional server resource pack only |
 | Formation combat, siege engines, breach physics | Abstracted per ADR; not plugin-feasible at fidelity |
 | Supply lines, war exhaustion, diplomatic treaties | Not in glossary or ADR phase 1–7 |
-| Religion, legitimacy, succession crisis mechanics | Matrix marked undecided |
+| **Faith** stat, rival religions, conversion, worship services | Rejected in ADR 0008; religion is rites only |
+| Legitimacy and succession crisis mechanics | Titles stay operator-assigned; **coronation** gates powers only |
 | Trade **embargo** as separate from fiscal Acts | Corona + Acts partially cover; dedicated embargo TBD |
 | Espionage and spy networks | Social/play-led; no mechanical slice planned |
 | Anti-AFK for life events or muster | User preference: no AFK detection |
@@ -620,5 +711,5 @@ The following are explicitly deferred per ADR, evaluation doc, or `CONTEXT.md`:
 
 - [`docs/adr/0001-plugin-first-society-stack.md`](adr/0001-plugin-first-society-stack.md) — decision, build order, escape hatches  
 - [`docs/plugin-vs-mod-evaluation.md`](plugin-vs-mod-evaluation.md) — capability matrix, Q1–Q6 answers  
-- `CONTEXT.md` `## War`, `## Police`, `## Parliament` — authoritative glossary  
+- `CONTEXT.md` `## War`, `## Police`, `## Parliament`, `## Church` — authoritative glossary  
 - `AGENTS.md` — deploy path, existing built domains, police hops 1–2 status  

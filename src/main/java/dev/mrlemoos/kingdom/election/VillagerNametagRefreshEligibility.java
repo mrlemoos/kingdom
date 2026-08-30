@@ -2,8 +2,8 @@ package dev.mrlemoos.kingdom.election;
 
 /**
  * Which villagers wear a vanilla profession nametag. Plugin NPCs — Treasury Lords, MPs, the Town
- * Crier, the villager magistrate — carry a name the plugin gave them, so no sweep may relabel them
- * with their profession.
+ * Crier, the villager magistrate, the cleric — carry a name the plugin gave them, so no sweep may
+ * relabel them with their profession.
  */
 public final class VillagerNametagRefreshEligibility {
 
@@ -15,8 +15,9 @@ public final class VillagerNametagRefreshEligibility {
             boolean kingdomTaggedMp,
             boolean seatedMp,
             boolean townCrier,
-            boolean villagerMagistrate) {
-        return treasuryLord || kingdomTaggedMp || seatedMp || townCrier || villagerMagistrate;
+            boolean villagerMagistrate,
+            boolean cleric) {
+        return treasuryLord || kingdomTaggedMp || seatedMp || townCrier || villagerMagistrate || cleric;
     }
 
     public static boolean shouldRefreshOrdinaryTerritoryNametag(
@@ -25,8 +26,10 @@ public final class VillagerNametagRefreshEligibility {
             boolean seatedMp,
             boolean townCrier,
             boolean villagerMagistrate,
+            boolean cleric,
             boolean inKingdomTerritory) {
         return inKingdomTerritory
-                && !isPluginNpc(treasuryLord, kingdomTaggedMp, seatedMp, townCrier, villagerMagistrate);
+                && !isPluginNpc(
+                        treasuryLord, kingdomTaggedMp, seatedMp, townCrier, villagerMagistrate, cleric);
     }
 }

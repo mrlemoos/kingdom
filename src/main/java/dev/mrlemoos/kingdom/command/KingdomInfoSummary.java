@@ -41,6 +41,21 @@ public final class KingdomInfoSummary {
         };
     }
 
+    /** How the church stands: consecration, who is sworn, and whether the monarch is crowned. */
+    public static String churchLine(
+            dev.mrlemoos.kingdom.model.church.KingdomChurchState church, Function<UUID, String> playerName) {
+        if (!church.hasChurch()) {
+            return "Church: none";
+        }
+        String standing = church.isConsecrated() ? "consecrated" : "unconsecrated";
+        String priest = church.priestId()
+                .map(playerName)
+                .map(name -> "Priest " + name)
+                .orElse("the cleric presides");
+        String crown = church.crownedMonarchId().isPresent() ? "monarch crowned" : "monarch uncrowned";
+        return "Church: " + standing + ", " + priest + ", " + crown;
+    }
+
     public static String policeLine(KingdomPoliceState police, Function<UUID, String> playerName) {
         String constablePart = rolePart("Constable", "Constables", police.constablesView(), playerName);
         String judgePart = rolePart("Judge", "Judges", police.judgesView(), playerName);

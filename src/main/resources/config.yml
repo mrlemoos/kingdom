@@ -328,3 +328,23 @@ granary:
   # Hansard as a grievance and cried to the realm once for the famine. Nought leaves loyalty alone.
   # No motion is ever tabled for it: the House must choose that for itself.
   famine-tier-steps: 1
+
+# The church: the point a kingdom holds its rites at, sited with /kingdom church set inside your
+# own territory and brought into use by consecration. A kingdom that has sited no church has no
+# religion at all — no rites, and no coronation gate over its monarch. The priest is sworn by the
+# King or Queen; while the seat stands empty, or its holder is in a cell, a cleric villager
+# presides at the altar.
+church:
+  # How long a blessing's regeneration and resistance last, and how many realm days a subject must
+  # wait between blessings. A blessing is always free.
+  blessing-seconds: 120
+  blessing-cooldown-days: 1
+  # Realm days the dead wait on their rites. A member's held experience and a dead productive
+  # villager's frozen wallet both lapse after this: the experience is lost, and the wallet escheats
+  # to the treasury whole.
+  funeral-window-days: 3
+  # The share of a member's held experience a funeral returns to them.
+  funeral-experience-share: 0.5
+  # The share of a dead villager's wallet the priest keeps as his living. Where the cleric presides
+  # instead, this goes to the treasury with the rest.
+  tithe-share: 0.1

@@ -420,6 +420,22 @@ public final class KingdomPlugin extends JavaPlugin {
                 LordMayorService lordMayorService = new LordMayorService(this, kingdomService);
                 TownCrierService townCrierService = new TownCrierService(this, kingdomService);
                 GazetteService gazetteService = new GazetteService(kingdomService);
+                dev.mrlemoos.kingdom.church.ChurchConfig churchConfig =
+                                new dev.mrlemoos.kingdom.church.ChurchConfig(
+                                                getConfig().getInt("church.blessing-seconds", 120),
+                                                getConfig().getInt("church.blessing-cooldown-days", 1),
+                                                getConfig().getInt("church.funeral-window-days", 3),
+                                                getConfig().getDouble("church.funeral-experience-share", 0.5d),
+                                                getConfig().getDouble("church.tithe-share", 0.1d));
+                dev.mrlemoos.kingdom.church.ChurchService churchService =
+                                new dev.mrlemoos.kingdom.church.ChurchService(
+                                                kingdomService,
+                                                policeService,
+                                                policeTrialService::isUnderPrisonSentence,
+                                                realmCalendarService::currentRealmDay,
+                                                churchConfig);
+                dev.mrlemoos.kingdom.church.ClericService clericService =
+                                new dev.mrlemoos.kingdom.church.ClericService(this, kingdomService, churchService);
                 KingdomCityHandler cityHandler = new KingdomCityHandler(
                                 kingdomService,
                                 cityService,
@@ -427,6 +443,14 @@ public final class KingdomPlugin extends JavaPlugin {
                                 townCrierService,
                                 territoryResolver,
                                 store);
+                dev.mrlemoos.kingdom.command.KingdomChurchHandler churchHandler =
+                                new dev.mrlemoos.kingdom.command.KingdomChurchHandler(
+                                                kingdomService,
+                                                churchService,
+                                                clericService,
+                                                territoryResolver,
+                                                economyService,
+                                                store);
                 DemobilisationService demobilisationService = new DemobilisationService(warService);
                 demobilisationService.setMilitaryParticipantRegistry(militaryParticipantRegistry);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
@@ -468,6 +492,9 @@ public final class KingdomPlugin extends JavaPlugin {
                 coronationCeremony.setCalendarService(realmCalendarService);
                 kingdomCommand.setMoraleService(moraleService);
                 kingdomCommand.setCityHandler(cityHandler, cityService);
+                kingdomCommand.setChurchHandler(churchHandler, churchService);
+                policeHandler.setChurchService(churchService);
+                parliamentGuiListener.setChurchService(churchService);
                 kingdomCommand.setCoronationCeremony(coronationCeremony);
                 kingdomCommand.setCalendarService(
                                 realmCalendarService,
@@ -478,6 +505,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 TeleportService teleportService = new TeleportService(kingdomService);
                 TpCommand tpCommand = new TpCommand(
                                 teleportService, kingdomService, store, territoryResolver, policeTrialService);
+                tpCommand.setChurchService(churchService);
                 LocateCommand locateCommand = new LocateCommand(this, kingdomService, teleportService);
 
                 LegacyPaperCommandManager<CommandSender> commandManager = KingdomCloudManagerFactory.create(this);
@@ -492,6 +520,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                 teleportService);
 
                 getServer().getPluginManager().registerEvents(new ChatPrefixListener(prefixComposer),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.ChurchRitesListener(
+                                                kingdomService, churchService, economyService, territoryResolver),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new DeathMessageTitleListener(prefixComposer), this);
@@ -536,10 +568,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 lordMayorService, cityService, kingdomService, store,
                                                 economyService, realmWealthRates, nobleDisplay),
                                 this);
-                getServer().getPluginManager().registerEvents(
+                dev.mrlemoos.kingdom.listener.HonoursGuiListener honoursGuiListener =
                                 new dev.mrlemoos.kingdom.listener.HonoursGuiListener(
-                                                kingdomService, store, nobleDisplay),
-                                this);
+                                                kingdomService, store, nobleDisplay);
+                honoursGuiListener.setChurchService(churchService);
+                getServer().getPluginManager().registerEvents(honoursGuiListener, this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.TownCrierGuiListener(
                                                 townCrierService,
@@ -647,6 +680,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 VillagerGdpTask gdpTask = new VillagerGdpTask(
                                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
                 gdpTask.setCalendarService(realmCalendarService);
+                gdpTask.setChurchService(churchService);
                 LevyUpkeepService levyUpkeepService = new LevyUpkeepService(
                                 levyArrearsStore,
                                 LevyUpkeepConfig.fromPluginConfig(getConfig()),
@@ -688,12 +722,16 @@ public final class KingdomPlugin extends JavaPlugin {
                                 villagerMpEntityService);
                 territoryVillagerDespawnTask.setCityNpcServices(
                                 lordMayorService, townCrierService, kingdomService, store);
+                territoryVillagerDespawnTask.setClericService(clericService);
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
                 getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);
                 getServer().getScheduler().runTaskLater(this, () -> {
                         boolean changed = lordMayorService.reconcileAll();
+                        if (clericService.reconcileAll()) {
+                                changed = true;
+                        }
                         if (townCrierService.reconcileAll()) {
                                 changed = true;
                         }

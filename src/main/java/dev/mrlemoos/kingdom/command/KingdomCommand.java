@@ -62,6 +62,8 @@ public final class KingdomCommand {
     private final KingdomGranaryHandler granaryHandler;
     private MoraleService moraleService;
     private KingdomCityHandler cityHandler;
+    private KingdomChurchHandler churchHandler;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private CityService cityService;
     private CoronationCeremony coronationCeremony;
     private RealmCalendarService calendarService;
@@ -188,6 +190,13 @@ public final class KingdomCommand {
         this.cityService = cityService;
     }
 
+    /** Wires {@code /kingdom church} and the coronation gate over ceremonial powers. */
+    public void setChurchHandler(
+            KingdomChurchHandler churchHandler, dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchHandler = churchHandler;
+        this.churchService = churchService;
+    }
+
     /** Wires the military half of {@code /kingdom loyalty}; without it the ledger is unavailable. */
     public void setMoraleService(MoraleService moraleService) {
         this.moraleService = moraleService;
@@ -233,6 +242,7 @@ public final class KingdomCommand {
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
             case "capital" -> handleCapital(sender, args);
+            case "church" -> handleChurch(sender, args);
             case "granary" -> handleGranary(sender, args);
             case "crier" -> handleCrier(sender, args);
             case "permit" -> handlePermit(sender, args);
@@ -492,6 +502,8 @@ public final class KingdomCommand {
 
         String policeLine = KingdomInfoSummary.policeLine(kingdom.getPoliceState(), this::offlinePlayerName);
         sender.sendMessage(c("&7" + policeLine));
+        sender.sendMessage(c("&7"
+                + KingdomInfoSummary.churchLine(kingdom.getChurchState(), this::offlinePlayerName)));
     }
 
     /**
@@ -580,6 +592,10 @@ public final class KingdomCommand {
             // Leaving a kingdom surrenders its build permit; the new realm's must be applied for.
             if (cityService != null) {
                 cityService.revokeAllPermits(target.getUniqueId());
+            }
+            // A marriage is between two subjects of one realm; leaving it ends the bond.
+            if (churchService != null) {
+                churchService.endMarriagesFor(target.getUniqueId());
             }
             store.saveFrom(service);
             refreshDisplayIfOnline(target.getUniqueId());
@@ -776,6 +792,15 @@ public final class KingdomCommand {
         cityHandler.handleCapital(sender, subArgs);
     }
 
+    private void handleChurch(CommandSender sender, String[] args) {
+        if (churchHandler == null) {
+            sender.sendMessage(error("Church commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        churchHandler.handle(sender, subArgs);
+    }
+
     private void handleGranary(CommandSender sender, String[] args) {
         String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
         granaryHandler.handle(sender, subArgs);
@@ -869,6 +894,10 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — site the Town Crier apart from city hall");
             builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
             builder.append(c("&7")).append(" — build permits");
+        }
+        if (churchHandler != null) {
+            builder.append("\n").append(c("&e")).append("/kingdom church set|clear|swear|unswear");
+            builder.append(c("&7")).append(" — the church, its priest and its rites");
         }
         builder.append("\n").append(c("&e")).append("/kingdom granary setregion <region>|clear");
         builder.append(c("&7")).append(" — the realm's grain store");

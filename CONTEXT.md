@@ -1049,3 +1049,61 @@ _Avoid_: Famine penalty, unrest, riot, automatic no confidence
 **Grain theft**:
 Breaking hay out of a **granary region** by any hand but the **King or Queen** or a **Prince or Princess** of that kingdom. Members, holders of a **build permit** and operators alike commit it. Seen by the plugin itself, so no witness is wanted; it opens an ordinary **warrant** through the Crown-approval pipeline and is never **flagrant**.
 _Avoid_: Looting, plunder, raiding, stealing food
+
+## Church
+
+**Church**:
+The place a kingdom holds its **rite**s: a point the **King or Queen** sets inside linked territory with `/kingdom church set` and clears with `/kingdom church clear`. One to a kingdom. It does nothing until **consecrated**, and a kingdom that has sited none has no religion at all — no rites, no **coronation gate**.
+_Avoid_: Temple, cathedral, shrine, chapel, altar
+
+**Consecration**:
+The **rite** that brings a **church** into use. Performed once at the church point by the **priest** or the **cleric**. An unconsecrated church refuses every other rite. Setting a new church point unconsecrates it.
+_Avoid_: Activation, dedication, blessing the church, enabling
+
+**Priest**:
+A sworn office of the realm, one to a kingdom, sworn and unsworn by the **King or Queen**. Exclusive of **constable** and **judge**. Suspended by a prison sentence and restored on release. Wears a bold `[Priest]` prefix in chat, tab and nametag, and is listed in `/kingdom info` beside the police. Performs every **rite** and keeps the **tithe**.
+_Avoid_: Bishop, cleric (the villager), chaplain, monk
+
+**Cleric**:
+The villager who presides at the **church** while the **priest**'s seat is empty or its holder is in a cell. Spawned fresh at the church point on the pattern of the **villager Speaker**, cleric profession, `[Cleric]` nametag, never claimed off the territory and never given a **villager wallet**. Reconciled on startup and by the 60-second territory sweep, and despatched when a player is sworn priest. Its **tithe** goes to the **kingdom treasury**.
+_Avoid_: Villager priest, NPC priest, acolyte
+
+**Rite**:
+A ceremony the **priest** or **cleric** performs in person at a **consecrated** **church**: **marriage**, **divorce**, **funeral**, **blessing**, **coronation** or **consecration**. There is no faith score behind them — a rite is worth holding for what it does, not for what it scores.
+_Avoid_: Ritual, spell, service, sacrament, prayer
+
+**Marriage**:
+The **rite** binding two consenting members of the same kingdom, both present at the **church**, one spouse each. Married players share a respawn point and may `/tp` to one another.
+_Avoid_: Wedding, partnership, bond, pairing
+
+**Divorce**:
+The **rite** undoing a **marriage**, with both spouses consenting at the **church**. Where one will not consent, the **King or Queen** may grant an **annulment** instead. Either way the shared respawn and spouse teleport end.
+_Avoid_: Separation, unmarry, split
+
+**Held experience**:
+The experience a member dropped dying inside linked territory, kept against a **funeral** for three in-game days. One record to a player — a later death overwrites the earlier one — and half of it is returned by the rite.
+_Avoid_: XP bank, soul, escrow, death record
+
+**Funeral**:
+The **rite** for the dead. Held over a member standing at the **church**, it returns half their **held experience**. Held over a dead **productive villager** **awaiting rites**, it releases the frozen **villager wallet** to the **kingdom treasury** less the **tithe**.
+_Avoid_: Burial, memorial, wake, last rites
+
+**Awaiting rites**:
+The state of a dead **productive villager**'s **villager wallet**: frozen, and released to the **kingdom treasury** less the **tithe** if a **funeral** is held inside the window. Left alone, it escheats to the treasury whole, as **villager wallet escheatment** does.
+_Avoid_: Pending funeral, unburied, limbo, dead wallet
+
+**Tithe**:
+The share of a **funeral**'s released **villager wallet** kept by the **priest**, paid straight to his player wallet. Where a **cleric** presides it goes to the **kingdom treasury** instead. The church holds no purse of its own.
+_Avoid_: Fee, commission, church funds, offering, donation
+
+**Blessing**:
+The **rite** the **priest** lays on a member at the **church**: regeneration and resistance for a couple of minutes, free, once an in-game day to a player. Never sold.
+_Avoid_: Buff, potion, boon, charm
+
+**Coronation**:
+The **rite** crowning the rightful **King or Queen** at the **church**. Titles stay operator-assigned — the priest crowns the holder, he never chooses one. Until crowned, a monarch is subject to the **coronation gate**.
+_Avoid_: Investiture, enthronement, appointment, election
+
+**Coronation gate**:
+The bar on an uncrowned monarch's ceremonial powers: no royal assent, no **honours**, no swearing of roles and no granting of titles. Everyday powers — **build permit**s, the whitelist, `/kingdom` administration — are untouched, and the gate applies only in a kingdom that has a **consecrated** **church** to be crowned in. A realm without one cannot be locked out.
+_Avoid_: Regency, interregnum, lockout, suspension

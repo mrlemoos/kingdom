@@ -536,7 +536,12 @@ public final class PoliceTrialService {
         }
 
         Optional<SwornRole> sworn = Optional.empty();
-        if (policeService.isConstable(kingdomId, accusedId)) {
+        if (policeService.isPriest(kingdomId, accusedId)) {
+            sworn = Optional.of(SwornRole.PRIEST);
+            kingdomService
+                    .getKingdom(kingdomId)
+                    .ifPresent(kingdom -> kingdom.getChurchState().unswearPriest());
+        } else if (policeService.isConstable(kingdomId, accusedId)) {
             sworn = Optional.of(SwornRole.CONSTABLE);
             policeService.dismissConstable(kingdomId, NobleRank.KING, accusedId);
         } else if (policeService.isJudge(kingdomId, accusedId)) {
@@ -560,6 +565,16 @@ public final class PoliceTrialService {
                 policeService.appointConstable(kingdomId, NobleRank.KING, convictId);
             } else if (role == SwornRole.JUDGE) {
                 policeService.appointJudge(kingdomId, NobleRank.KING, convictId);
+            } else if (role == SwornRole.PRIEST) {
+                // Only where the Crown has sworn nobody else meanwhile, and never over a
+                // constable or judge: the priesthood is exclusive of both.
+                boolean policeOffice = policeService.isConstable(kingdomId, convictId)
+                        || policeService.isJudge(kingdomId, convictId);
+                kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
+                    if (!policeOffice && kingdom.getChurchState().priestId().isEmpty()) {
+                        kingdom.getChurchState().swearPriest(convictId);
+                    }
+                });
             }
             lastRestoredSworn.put(convictId, role);
         }

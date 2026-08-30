@@ -47,8 +47,14 @@ public final class ParliamentGuiListener implements Listener {
     private final ParliamentHandler handler;
     private final ParliamentService parliamentService;
     private final ResignCommand resignCommand;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private final ParliamentChatSessions chatSessions = new ParliamentChatSessions();
     private final Map<UUID, MintLocation> pendingMintLocations = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Wires the coronation gate; without it an uncrowned monarch may still grant assent. */
+    public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchService = churchService;
+    }
 
     public ParliamentGuiListener(ParliamentHandler handler, ResignCommand resignCommand) {
         this.handler = handler;
@@ -591,6 +597,14 @@ public final class ParliamentGuiListener implements Listener {
     }
 
     private void grantAssent(Player player, PlayerMembership membership) {
+        if (churchService != null) {
+            Optional<String> uncrowned = churchService.ceremonialRefusal(
+                    membership.getKingdomId(), membership.getPlayerId(), membership.getRank());
+            if (uncrowned.isPresent()) {
+                player.sendMessage(handler.error(uncrowned.get()));
+                return;
+            }
+        }
         ParliamentResult result = parliamentService.assent(membership.getKingdomId(), membership.getRank());
         if (result instanceof ParliamentResult.Failure failure) {
             player.sendMessage(handler.error(failure.message()));

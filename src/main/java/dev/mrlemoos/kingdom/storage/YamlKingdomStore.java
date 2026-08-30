@@ -34,6 +34,11 @@ import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionBlocKind;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
+import dev.mrlemoos.kingdom.model.church.ChurchSite;
+import dev.mrlemoos.kingdom.model.church.FuneralRecord;
+import dev.mrlemoos.kingdom.model.church.KingdomChurchState;
+import dev.mrlemoos.kingdom.model.church.Marriage;
+import dev.mrlemoos.kingdom.model.church.VillagerFuneralRecord;
 import dev.mrlemoos.kingdom.model.city.CapitalLocation;
 import dev.mrlemoos.kingdom.model.city.GazettePost;
 import dev.mrlemoos.kingdom.model.city.GazettePost.GazetteCurfewWindow;
@@ -260,6 +265,7 @@ public final class YamlKingdomStore {
                 readParliament(entry.getConfigurationSection("parliament"), kingdom);
                 readPolice(entry.getConfigurationSection("police"), kingdom);
                 readCity(entry.getConfigurationSection("city"), kingdom);
+                readChurch(entry.getConfigurationSection("church"), kingdom);
                 kingdom.getReignHistory().replaceAll(readReigns(entry.getConfigurationSection("reigns")));
                 kingdoms.put(kingdom.getId(), kingdom);
             }
@@ -344,6 +350,7 @@ public final class YamlKingdomStore {
             writeParliament(data, path + ".parliament", kingdom);
             writePolice(data, path + ".police", kingdom);
             writeCity(data, path + ".city", kingdom);
+            writeChurch(data, path + ".church", kingdom);
             writeReigns(data, path + ".reigns", kingdom.getReignHistory().view());
             if (mechanicalJusticeService != null) {
                 writeWarrants(
@@ -1381,6 +1388,123 @@ public final class YamlKingdomStore {
             guardGolems.add(UUID.fromString(id));
         }
         police.replaceGuardGolems(guardGolems);
+    }
+
+    static void writeChurch(FileConfiguration config, String path, Kingdom kingdom) {
+        KingdomChurchState church = kingdom.getChurchState();
+        Optional<ChurchSite> site = church.church();
+        if (site.isPresent()) {
+            ChurchSite altar = site.get();
+            config.set(path + ".site.world", altar.worldName());
+            config.set(path + ".site.x", altar.x());
+            config.set(path + ".site.y", altar.y());
+            config.set(path + ".site.z", altar.z());
+            config.set(path + ".site.yaw", (double) altar.yaw());
+            config.set(path + ".site.pitch", (double) altar.pitch());
+            config.set(path + ".consecrated", church.isConsecrated());
+        }
+        church.priestId().ifPresent(priest -> config.set(path + ".priest", priest.toString()));
+        church.clericEntityId().ifPresent(cleric -> config.set(path + ".cleric-entity", cleric.toString()));
+        church.crownedMonarchId().ifPresent(monarch -> config.set(path + ".crowned", monarch.toString()));
+
+        List<Marriage> marriages = church.marriagesView();
+        for (int i = 0; i < marriages.size(); i++) {
+            String marriagePath = path + ".marriages." + i;
+            config.set(marriagePath + ".first", marriages.get(i).first().toString());
+            config.set(marriagePath + ".second", marriages.get(i).second().toString());
+            config.set(marriagePath + ".wedded-at", marriages.get(i).weddedAtMs());
+        }
+        for (var entry : church.funeralRecordsView().entrySet()) {
+            String recordPath = path + ".funerals." + entry.getKey();
+            config.set(recordPath + ".experience", entry.getValue().heldExperience());
+            config.set(recordPath + ".died-on-day", entry.getValue().diedOnDay());
+        }
+        for (var entry : church.villagerFuneralRecordsView().entrySet()) {
+            String recordPath = path + ".villager-funerals." + entry.getKey();
+            config.set(recordPath + ".balance", entry.getValue().heldBalance());
+            config.set(recordPath + ".died-on-day", entry.getValue().diedOnDay());
+        }
+    }
+
+    static void readChurch(ConfigurationSection section, Kingdom kingdom) {
+        if (section == null) {
+            return;
+        }
+        KingdomChurchState church = kingdom.getChurchState();
+        ConfigurationSection site = section.getConfigurationSection("site");
+        if (site != null) {
+            String world = site.getString("world");
+            if (world != null) {
+                church.setChurch(new ChurchSite(
+                        world,
+                        site.getDouble("x"),
+                        site.getDouble("y"),
+                        site.getDouble("z"),
+                        (float) site.getDouble("yaw"),
+                        (float) site.getDouble("pitch")));
+                church.restoreConsecration(section.getBoolean("consecrated", false));
+            }
+        }
+        String priest = section.getString("priest");
+        if (priest != null && !priest.isBlank()) {
+            church.swearPriest(UUID.fromString(priest));
+        }
+        String cleric = section.getString("cleric-entity");
+        if (cleric != null && !cleric.isBlank()) {
+            church.setClericEntityId(UUID.fromString(cleric));
+        }
+        String crowned = section.getString("crowned");
+        if (crowned != null && !crowned.isBlank()) {
+            church.crown(UUID.fromString(crowned));
+        }
+
+        ConfigurationSection marriages = section.getConfigurationSection("marriages");
+        if (marriages != null) {
+            List<Marriage> loaded = new ArrayList<>();
+            for (String key : marriages.getKeys(false)) {
+                ConfigurationSection entry = marriages.getConfigurationSection(key);
+                if (entry == null) {
+                    continue;
+                }
+                String first = entry.getString("first");
+                String second = entry.getString("second");
+                if (first == null || second == null) {
+                    continue;
+                }
+                loaded.add(new Marriage(
+                        UUID.fromString(first), UUID.fromString(second), entry.getLong("wedded-at")));
+            }
+            church.replaceMarriages(loaded);
+        }
+
+        ConfigurationSection funerals = section.getConfigurationSection("funerals");
+        if (funerals != null) {
+            Map<UUID, FuneralRecord> loaded = new LinkedHashMap<>();
+            for (String key : funerals.getKeys(false)) {
+                ConfigurationSection entry = funerals.getConfigurationSection(key);
+                if (entry != null) {
+                    loaded.put(
+                            UUID.fromString(key),
+                            new FuneralRecord(entry.getInt("experience"), entry.getLong("died-on-day")));
+                }
+            }
+            church.replaceFuneralRecords(loaded);
+        }
+
+        ConfigurationSection villagerFunerals = section.getConfigurationSection("villager-funerals");
+        if (villagerFunerals != null) {
+            Map<UUID, VillagerFuneralRecord> loaded = new LinkedHashMap<>();
+            for (String key : villagerFunerals.getKeys(false)) {
+                ConfigurationSection entry = villagerFunerals.getConfigurationSection(key);
+                if (entry != null) {
+                    loaded.put(
+                            UUID.fromString(key),
+                            new VillagerFuneralRecord(
+                                    entry.getDouble("balance"), entry.getLong("died-on-day")));
+                }
+            }
+            church.replaceVillagerFuneralRecords(loaded);
+        }
     }
 
     static void writeCity(FileConfiguration config, String path, Kingdom kingdom) {

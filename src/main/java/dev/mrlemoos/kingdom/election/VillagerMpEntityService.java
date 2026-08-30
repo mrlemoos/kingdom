@@ -54,6 +54,7 @@ public final class VillagerMpEntityService {
     private final NamespacedKey mpOriginKey;
     private final NamespacedKey treasuryLordTagKey;
     private final NamespacedKey townCrierTagKey;
+    private final NamespacedKey clericTagKey;
     private final NamespacedKey villagerMagistrateTagKey;
     private EconomyService economyService;
     private VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.defaults();
@@ -75,6 +76,7 @@ public final class VillagerMpEntityService {
         this.mpOriginKey = new NamespacedKey(plugin, "kingdom_mp_origin");
         this.treasuryLordTagKey = new NamespacedKey(plugin, "treasury_lord");
         this.townCrierTagKey = new NamespacedKey(plugin, "town_crier");
+        this.clericTagKey = new NamespacedKey(plugin, "church_cleric");
         // Written by PoliceCourtService; read here so no sweep relabels the magistrate.
         this.villagerMagistrateTagKey = new NamespacedKey(plugin, "police_judge");
     }
@@ -209,6 +211,10 @@ public final class VillagerMpEntityService {
     }
 
     public void reconcileTerritoryVillagerDespawn(Villager villager) {
+        if (isClericVillager(villager)) {
+            // The cleric keeps its own persistence; the territory sweep has no business with it.
+            return;
+        }
         boolean treasuryLord = isTreasuryLord(villager);
         boolean seatedMp = isSeatedMpVillager(villager.getUniqueId());
         boolean kingdomTaggedMp = isMpVillager(villager);
@@ -263,7 +269,8 @@ public final class VillagerMpEntityService {
                     isMpVillager(villager),
                     seatedMpIds.contains(villager.getUniqueId()),
                     isTownCrier(villager),
-                    isVillagerMagistrate(villager))) {
+                    isVillagerMagistrate(villager),
+                    isClericVillager(villager))) {
                 continue;
             }
             if (!isInKingdomTerritory(villager, kingdom)) {
@@ -510,7 +517,7 @@ public final class VillagerMpEntityService {
                 kingdom,
                 seat.profession().orElse("none"),
                 reservedEntityIds,
-                villager -> isTreasuryLord(villager) || isMpVillager(villager));
+                villager -> isTreasuryLord(villager) || isMpVillager(villager) || isClericVillager(villager));
         if (candidate.isPresent()) {
             claimExistingVillager(kingdom, seat, seatLocation, candidate.get());
             return;
@@ -762,6 +769,7 @@ public final class VillagerMpEntityService {
                 isSeatedMpVillager(villager.getUniqueId()),
                 isTownCrier(villager),
                 isVillagerMagistrate(villager),
+                isClericVillager(villager),
                 isInAnyKingdomTerritory(villager));
     }
 
@@ -938,7 +946,14 @@ public final class VillagerMpEntityService {
                 isMpVillager(villager),
                 isSeatedMpVillager(villager.getUniqueId()),
                 isTownCrier(villager),
-                isVillagerMagistrate(villager));
+                isVillagerMagistrate(villager),
+                isClericVillager(villager));
+    }
+
+    /** The cleric stands at the church and is no part of the villager economy or the Commons. */
+    public boolean isClericVillager(Villager villager) {
+        Byte tag = villager.getPersistentDataContainer().get(clericTagKey, PersistentDataType.BYTE);
+        return tag != null && tag == 1;
     }
 
     private boolean isTownCrier(Villager villager) {

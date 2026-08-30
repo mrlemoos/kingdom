@@ -89,6 +89,7 @@ public final class VillagerGdpTask implements Runnable {
     private FamineGrievanceService famineGrievanceService;
     private YamlKingdomStore kingdomStore;
     private ShortfallWatch shortfallWatch;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
     /**
      * Kingdoms already told their granary is full. Memory only, and deliberately so: nothing of the
      * tally is written down but the wheat under a bale, and a restart may say it again.
@@ -99,6 +100,11 @@ public final class VillagerGdpTask implements Runnable {
      * standing in the granary, so tomorrow's sweep reads the truth again whatever happened overnight.
      */
     private final WinterLarder winterLarder = new WinterLarder();
+
+    /** Wires the church's escheat of villagers buried by nobody. */
+    public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchService = churchService;
+    }
 
     public VillagerGdpTask(
             JavaPlugin plugin,
@@ -251,6 +257,14 @@ public final class VillagerGdpTask implements Runnable {
                     chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season),
                     yieldFactors);
             readTheDayToTheRealm(kingdom, participants, economyService, day, treasuryBefore, taxBefore);
+            // Villagers whose rites were never held: the whole estate escheats to the Crown.
+            if (churchService != null) {
+                double lapsed = churchService.escheatLapsedVillagerFunerals(kingdom.getId());
+                if (lapsed > 0.0d) {
+                    economyService.creditTreasury(kingdom.getId(), lapsed);
+                    granaryDirty = true;
+                }
+            }
             decayFieldMorale(kingdom, season);
             dirty = true;
         }
@@ -670,8 +684,13 @@ public final class VillagerGdpTask implements Runnable {
         String worldName = world.getName();
         int position = 0;
 
+        VillagerMpEntityService villagers = this.villagerMpEntityService;
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
             if (!isProductiveVillager(villager, worldName, regionId)) {
+                continue;
+            }
+            // The cleric holds no wallet and takes no part in the villager economy.
+            if (villagers != null && villagers.isClericVillager(villager)) {
                 continue;
             }
             String profession = professionName(villager);

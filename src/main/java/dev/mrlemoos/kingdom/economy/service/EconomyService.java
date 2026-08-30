@@ -326,6 +326,19 @@ public class EconomyService {
         }
     }
 
+    /**
+     * Takes a villager's wallet off the ledger and hands back what stood in it — used when the
+     * villager dies and its estate passes to the church's keeping.
+     */
+    public double takeVillagerWallet(String kingdomId, UUID villagerId) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null || villagerId == null) {
+            return 0.0;
+        }
+        VillagerWalletState wallet = kingdomWallets.remove(villagerId);
+        return wallet == null ? 0.0 : wallet.balance();
+    }
+
     public double escheatFrozenWallets(String kingdomId, long currentEpochDay, int escheatMcDays) {
         Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
         if (kingdomWallets == null || escheatMcDays <= 0) {

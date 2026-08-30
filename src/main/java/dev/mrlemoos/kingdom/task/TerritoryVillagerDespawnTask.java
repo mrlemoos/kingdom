@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.task;
 
+import dev.mrlemoos.kingdom.church.ClericService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
 import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
@@ -15,6 +16,7 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     private final JavaPlugin plugin;
     private final VillagerMpEntityService villagerMpEntityService;
     private LordMayorService lordMayorService;
+    private ClericService clericService;
     private TownCrierService townCrierService;
     private KingdomService kingdomService;
     private YamlKingdomStore store;
@@ -36,6 +38,11 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
         this.store = store;
     }
 
+    /** The same sweep stands the cleric back up at the church whenever one is wanted. */
+    public void setClericService(ClericService clericService) {
+        this.clericService = clericService;
+    }
+
     public void schedule(long intervalTicks) {
         long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
@@ -50,6 +57,9 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
             changed = true;
         }
         if (townCrierService != null && townCrierService.reconcileAll()) {
+            changed = true;
+        }
+        if (clericService != null && clericService.reconcileAll()) {
             changed = true;
         }
         if (changed && store != null && kingdomService != null) {

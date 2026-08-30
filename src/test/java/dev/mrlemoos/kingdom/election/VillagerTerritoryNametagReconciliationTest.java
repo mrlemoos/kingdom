@@ -14,7 +14,7 @@ class VillagerTerritoryNametagReconciliationTest {
                 "Commoner",
                 "farmer",
                 VillagerNametagRefreshEligibility.shouldRefreshOrdinaryTerritoryNametag(
-                        false, false, false, false, false, true),
+                        false, false, false, false, false, false, true),
                 false));
     }
 
@@ -24,7 +24,7 @@ class VillagerTerritoryNametagReconciliationTest {
                 "Farmer",
                 "farmer",
                 VillagerNametagRefreshEligibility.shouldRefreshOrdinaryTerritoryNametag(
-                        false, false, false, false, false, true),
+                        false, false, false, false, false, false, true),
                 false));
     }
 
@@ -34,7 +34,7 @@ class VillagerTerritoryNametagReconciliationTest {
                 "Commoner",
                 "farmer",
                 VillagerNametagRefreshEligibility.shouldRefreshOrdinaryTerritoryNametag(
-                        true, false, false, false, false, true),
+                        true, false, false, false, false, false, true),
                 false));
     }
 

@@ -44,6 +44,9 @@ public final class PoliceService {
                 .isPresent()) {
             return PoliceResult.fail("That player is not a member of this kingdom.");
         }
+        if (kingdom.get().getChurchState().isPriest(playerId)) {
+            return PoliceResult.fail("A priest cannot also serve as constable.");
+        }
         KingdomPoliceState police = kingdom.get().getPoliceState();
         if (police.isJudge(playerId)) {
             return PoliceResult.fail("A judge cannot also serve as constable.");
@@ -83,6 +86,9 @@ public final class PoliceService {
                 .filter(m -> kingdom.get().getId().equals(m.getKingdomId()))
                 .isPresent()) {
             return PoliceResult.fail("That player is not a member of this kingdom.");
+        }
+        if (kingdom.get().getChurchState().isPriest(playerId)) {
+            return PoliceResult.fail("A priest cannot also serve as judge.");
         }
         KingdomPoliceState police = kingdom.get().getPoliceState();
         if (police.isConstable(playerId)) {
@@ -265,6 +271,12 @@ public final class PoliceService {
         return kingdom.get().getPoliceState().isConstable(playerId);
     }
 
+    /** The priest is a sworn office too, and wears its prefix beside the constable and judge. */
+    public boolean isPriest(String kingdomId, UUID playerId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        return kingdom.isPresent() && kingdom.get().getChurchState().isPriest(playerId);
+    }
+
     public boolean isJudge(String kingdomId, UUID playerId) {
         Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
@@ -290,6 +302,9 @@ public final class PoliceService {
     }
 
     public String swornChatPrefix(String kingdomId, UUID playerId) {
+        if (isPriest(kingdomId, playerId)) {
+            return dev.mrlemoos.kingdom.church.ChurchAppearance.PRIEST_PREFIX;
+        }
         if (isConstable(kingdomId, playerId)) {
             return "[Constable] ";
         }
@@ -300,6 +315,9 @@ public final class PoliceService {
     }
 
     public String colouredSwornChatPrefix(String kingdomId, UUID playerId) {
+        if (isPriest(kingdomId, playerId)) {
+            return dev.mrlemoos.kingdom.church.ChurchAppearance.colouredPriestPrefix();
+        }
         if (isConstable(kingdomId, playerId)) {
             return CONSTABLE_CHAT_COLOR + "[Constable] ";
         }

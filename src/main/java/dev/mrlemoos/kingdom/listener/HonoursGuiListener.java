@@ -31,12 +31,18 @@ public final class HonoursGuiListener implements Listener {
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
     private final NoblePrefixDisplay nobleDisplay;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
 
     public HonoursGuiListener(
             KingdomService kingdomService, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.store = store;
         this.nobleDisplay = nobleDisplay;
+    }
+
+    /** Wires the coronation gate: an uncrowned monarch grants no honours. */
+    public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchService = churchService;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -89,6 +95,16 @@ public final class HonoursGuiListener implements Listener {
             monarch.sendMessage(c("&cThat player is no subject of your realm."));
             monarch.closeInventory();
             return;
+        }
+
+        if (churchService != null) {
+            Optional<String> uncrowned = churchService.ceremonialRefusal(
+                    crown.get().getKingdomId(), monarch.getUniqueId(), crown.get().getRank());
+            if (uncrowned.isPresent()) {
+                monarch.sendMessage(c("&c" + uncrowned.get()));
+                monarch.closeInventory();
+                return;
+            }
         }
 
         int slot = event.getSlot();

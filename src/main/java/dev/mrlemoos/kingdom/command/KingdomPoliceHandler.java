@@ -53,6 +53,7 @@ public final class KingdomPoliceHandler {
     private final ArrestRewardService arrestRewardService;
     private final PoliceConfig config;
     private PoliceTrialService trialService;
+    private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private TrialJuryRuntime trialJuryRuntime;
 
     public KingdomPoliceHandler(
@@ -122,6 +123,11 @@ public final class KingdomPoliceHandler {
         store.saveFrom(kingdomService);
     }
 
+    /** Wires the coronation gate over sworn appointments. */
+    public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
+        this.churchService = churchService;
+    }
+
     private boolean handleAppoint(CommandSender sender, String[] args) {
         if (args.length < 3) {
             sender.sendMessage(error("Usage: /kingdom police appoint <constable|judge> <player>"));
@@ -140,6 +146,14 @@ public final class KingdomPoliceHandler {
         UUID targetId = target.getUniqueId();
         String kingdomId = membership.get().getKingdomId();
         NobleRank rank = membership.get().getRank();
+        if (churchService != null) {
+            Optional<String> uncrowned =
+                    churchService.ceremonialRefusal(kingdomId, player.get().getUniqueId(), rank);
+            if (uncrowned.isPresent()) {
+                sender.sendMessage(error(uncrowned.get()));
+                return true;
+            }
+        }
         PoliceResult result = switch (args[1].toLowerCase(Locale.ROOT)) {
             case "constable" -> policeService.appointConstable(kingdomId, rank, targetId);
             case "judge" -> policeService.appointJudge(kingdomId, rank, targetId);
