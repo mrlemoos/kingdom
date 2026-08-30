@@ -31,6 +31,7 @@ class YamlKingdomStoreChurchTest {
         church.swearPriest(PRIEST);
         church.setClericEntityId(CLERIC);
         church.crown(MONARCH);
+        church.setLastMassDay(21L);
         church.wed(new Marriage(GROOM, BRIDE, 1_700_000_000_000L));
         church.holdFuneralRecord(GROOM, new FuneralRecord(60, 12L));
         church.holdVillagerFuneralRecord(VILLAGER, new VillagerFuneralRecord(42.5d, 13L));
@@ -48,6 +49,7 @@ class YamlKingdomStoreChurchTest {
         assertEquals(PRIEST, restored.priestId().orElseThrow());
         assertEquals(CLERIC, restored.clericEntityId().orElseThrow());
         assertEquals(MONARCH, restored.crownedMonarchId().orElseThrow());
+        assertEquals(21L, restored.lastMassDay().orElseThrow());
         assertEquals(BRIDE, restored.spouseOf(GROOM).orElseThrow());
         assertEquals(60, restored.funeralRecord(GROOM).orElseThrow().heldExperience());
         assertEquals(12L, restored.funeralRecord(GROOM).orElseThrow().diedOnDay());

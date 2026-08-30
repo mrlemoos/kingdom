@@ -1069,7 +1069,7 @@ The villager who presides at the **church** while the **priest**'s seat is empty
 _Avoid_: Villager priest, NPC priest, acolyte
 
 **Rite**:
-A ceremony the **priest** or **cleric** performs in person at a **consecrated** **church**: **marriage**, **divorce**, **funeral**, **blessing**, **coronation** or **consecration**. There is no faith score behind them — a rite is worth holding for what it does, not for what it scores.
+A ceremony the **priest** or **cleric** performs in person at a **consecrated** **church**: **mass**, **marriage**, **divorce**, **funeral**, **coronation** or **consecration**. There is no faith score behind them — a rite is worth holding for what it does, not for what it scores.
 _Avoid_: Ritual, spell, service, sacrament, prayer
 
 **Marriage**:
@@ -1096,8 +1096,12 @@ _Avoid_: Pending funeral, unburied, limbo, dead wallet
 The share of a **funeral**'s released **villager wallet** kept by the **priest**, paid straight to his player wallet. Where a **cleric** presides it goes to the **kingdom treasury** instead. The church holds no purse of its own.
 _Avoid_: Fee, commission, church funds, offering, donation
 
+**Mass**:
+The weekly **rite** the whole realm is called to. It falls due every seventh in-game day, is called at the **church** by the **priest** or **cleric** the moment it does, and stands open for the rest of that day. The bell tolls over the realm, the celebrant speaks the liturgy above his own head, and every member who comes to the altar while it sits takes the **blessing** — once to a mass. No **church**, no **consecration** or nobody to celebrate it means no mass that week; the clock simply waits.
+_Avoid_: Service, sermon, congregation, prayer meeting, church event
+
 **Blessing**:
-The **rite** the **priest** lays on a member at the **church**: regeneration and resistance for a couple of minutes, free, once an in-game day to a player. Never sold.
+What attending **mass** confers: regeneration and resistance for a couple of minutes, free, once to a mass. It is not asked for and cannot be commanded — the only way to it is to be there.
 _Avoid_: Buff, potion, boon, charm
 
 **Coronation**:

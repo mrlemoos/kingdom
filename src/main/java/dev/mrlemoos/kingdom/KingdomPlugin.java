@@ -424,7 +424,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 dev.mrlemoos.kingdom.church.ChurchConfig churchConfig =
                                 new dev.mrlemoos.kingdom.church.ChurchConfig(
                                                 getConfig().getInt("church.blessing-seconds", 120),
-                                                getConfig().getInt("church.blessing-cooldown-days", 1),
+                                                getConfig().getInt("church.mass-interval-days", 7),
                                                 getConfig().getInt("church.funeral-window-days", 3),
                                                 getConfig().getDouble("church.funeral-experience-share", 0.5d),
                                                 getConfig().getDouble("church.tithe-share", 0.1d));
@@ -727,6 +727,15 @@ public final class KingdomPlugin extends JavaPlugin {
                                 lordMayorService, townCrierService, kingdomService, store);
                 territoryVillagerDespawnTask.setClericService(clericService);
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
+
+                dev.mrlemoos.kingdom.task.MassTask massTask = new dev.mrlemoos.kingdom.task.MassTask(
+                                this,
+                                kingdomService,
+                                churchService,
+                                new dev.mrlemoos.kingdom.church.MassCeremony(
+                                                this, kingdomService, churchService, clericService),
+                                store);
+                massTask.schedule(dev.mrlemoos.kingdom.task.MassTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
                 getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);

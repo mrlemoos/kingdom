@@ -18,6 +18,7 @@ public final class KingdomChurchState {
     private UUID priestId;
     private UUID clericEntityId;
     private UUID crownedMonarchId;
+    private Long lastMassDay;
     private final List<Marriage> marriages = new ArrayList<>();
     private final Map<UUID, FuneralRecord> funerals = new LinkedHashMap<>();
     private final Map<UUID, VillagerFuneralRecord> villagerFunerals = new LinkedHashMap<>();
@@ -57,6 +58,17 @@ public final class KingdomChurchState {
     /** Restores persisted consecration without re-running the rite. */
     public void restoreConsecration(boolean value) {
         consecrated = value && church != null;
+    }
+
+    // --- mass ------------------------------------------------------------
+
+    /** The realm day the last mass was called on, if one ever was. */
+    public Optional<Long> lastMassDay() {
+        return Optional.ofNullable(lastMassDay);
+    }
+
+    public void setLastMassDay(long day) {
+        lastMassDay = day;
     }
 
     // --- the priesthood --------------------------------------------------

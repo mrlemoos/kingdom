@@ -1,23 +1,23 @@
 package dev.mrlemoos.kingdom.church;
 
 /**
- * The dials on the church: how long a blessing lasts, how long the dead wait on their rites, and
- * what share of them the treasury and the priest take.
+ * The dials on the church: how long a blessing lasts, how often mass falls due, how long the dead
+ * wait on their rites, and what share of them the treasury and the priest take.
  */
 public record ChurchConfig(
         int blessingSeconds,
-        int blessingCooldownDays,
+        int massIntervalDays,
         int funeralWindowDays,
         double funeralExperienceShare,
         double titheShare) {
 
     public ChurchConfig() {
-        this(120, 1, 3, 0.5d, 0.1d);
+        this(120, 7, 3, 0.5d, 0.1d);
     }
 
     public ChurchConfig {
         blessingSeconds = Math.max(1, blessingSeconds);
-        blessingCooldownDays = Math.max(1, blessingCooldownDays);
+        massIntervalDays = Math.max(1, massIntervalDays);
         funeralWindowDays = Math.max(1, funeralWindowDays);
         funeralExperienceShare = clampShare(funeralExperienceShare);
         titheShare = clampShare(titheShare);

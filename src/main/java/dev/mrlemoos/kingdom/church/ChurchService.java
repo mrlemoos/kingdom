@@ -13,16 +13,18 @@ import dev.mrlemoos.kingdom.police.PoliceAuthority;
 import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
 
 /**
  * The church and its rites. A kingdom that has sited no church is not gated at all; once a church
  * stands and has been consecrated, the sworn priest — or the cleric villager in his place — may
- * marry, bury, bless and crown.
+ * hold mass, marry, bury and crown.
  */
 public final class ChurchService {
 
@@ -30,7 +32,8 @@ public final class ChurchService {
     private final PoliceService policeService;
     private final LongSupplier realmDay;
     private final ChurchConfig config;
-    private final Map<UUID, Long> lastBlessedDay = new HashMap<>();
+    /** Who has already been blessed at the mass now in session, by kingdom. */
+    private final Map<String, Set<UUID>> massAttendance = new HashMap<>();
     private PrisonStatusPort prisonStatusPort;
 
     public ChurchService(
@@ -207,25 +210,71 @@ public final class ChurchService {
         return priestAtChurch ? Celebrant.PRIEST : Celebrant.NONE;
     }
 
-    // --- blessing ---------------------------------------------------------
+    // --- mass and blessing -------------------------------------------------
 
-    public ChurchResult bless(String kingdomId, Celebrant celebrant, UUID subjectId) {
+    /** True when this realm's church is consecrated and its week between masses has run out. */
+    public boolean massDue(String kingdomId) {
+        Optional<KingdomChurchState> state = churchState(kingdomId);
+        if (state.isEmpty() || !state.get().isConsecrated()) {
+            return false;
+        }
+        Optional<Long> last = state.get().lastMassDay();
+        return last.isEmpty() || realmDay.getAsLong() - last.get() >= config.massIntervalDays();
+    }
+
+    /** Mass stands open for the rest of the realm day it was called on, and no longer. */
+    public boolean massInSession(String kingdomId) {
+        Optional<KingdomChurchState> state = churchState(kingdomId);
+        if (state.isEmpty()) {
+            return false;
+        }
+        Optional<Long> last = state.get().lastMassDay();
+        return last.isPresent() && last.get() == realmDay.getAsLong();
+    }
+
+    /** Realm days until the next mass falls due, where a consecrated church stands to hold one. */
+    public Optional<Long> daysUntilMass(String kingdomId) {
+        Optional<KingdomChurchState> state = churchState(kingdomId);
+        if (state.isEmpty() || !state.get().isConsecrated()) {
+            return Optional.empty();
+        }
+        Optional<Long> last = state.get().lastMassDay();
+        if (last.isEmpty()) {
+            return Optional.of(0L);
+        }
+        long due = last.get() + config.massIntervalDays() - realmDay.getAsLong();
+        return Optional.of(Math.max(0L, due));
+    }
+
+    /** Calls the week's mass. The celebrant holds it; the realm is welcome to come. */
+    public ChurchResult callMass(String kingdomId, Celebrant celebrant) {
         Optional<ChurchResult.Failure> refusal = riteRefusal(kingdomId, celebrant);
         if (refusal.isPresent()) {
             return refusal.get();
         }
-        if (subjectId == null || !isMember(kingdomId, subjectId)) {
-            return ChurchResult.fail("Only a subject of this realm may be blessed.");
+        if (!massDue(kingdomId)) {
+            return ChurchResult.fail("Mass has already been held this week.");
         }
-        long today = realmDay.getAsLong();
-        Long last = lastBlessedDay.get(subjectId);
-        if (last != null && today - last < config.blessingCooldownDays()) {
-            return ChurchResult.fail("That subject has already been blessed today.");
-        }
-        lastBlessedDay.put(subjectId, today);
-        return ChurchResult.ok("A blessing is laid upon you.");
+        churchState(kingdomId).orElseThrow().setLastMassDay(realmDay.getAsLong());
+        massAttendance.put(kingdomId, new HashSet<>());
+        return ChurchResult.ok("Mass is called at the church.");
     }
 
+    /** A subject come to the altar during mass: the blessing is laid on them, once to a mass. */
+    public ChurchResult attend(String kingdomId, UUID subjectId) {
+        if (!massInSession(kingdomId)) {
+            return ChurchResult.fail("No mass is being held.");
+        }
+        if (subjectId == null || !isMember(kingdomId, subjectId)) {
+            return ChurchResult.fail("Only a subject of this realm may attend mass.");
+        }
+        // ponytail: attendance is memory-only — a restart mid-mass lets a subject be blessed twice,
+        // which is cheaper than a persisted register for a once-a-week rite.
+        if (!massAttendance.computeIfAbsent(kingdomId, id -> new HashSet<>()).add(subjectId)) {
+            return ChurchResult.fail("You have already attended this mass.");
+        }
+        return ChurchResult.ok("A blessing is laid upon you.");
+    }
 
     // --- marriage ---------------------------------------------------------
 

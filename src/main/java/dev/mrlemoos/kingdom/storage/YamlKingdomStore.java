@@ -1406,6 +1406,7 @@ public final class YamlKingdomStore {
         church.priestId().ifPresent(priest -> config.set(path + ".priest", priest.toString()));
         church.clericEntityId().ifPresent(cleric -> config.set(path + ".cleric-entity", cleric.toString()));
         church.crownedMonarchId().ifPresent(monarch -> config.set(path + ".crowned", monarch.toString()));
+        church.lastMassDay().ifPresent(day -> config.set(path + ".last-mass", day));
 
         List<Marriage> marriages = church.marriagesView();
         for (int i = 0; i < marriages.size(); i++) {
@@ -1456,6 +1457,9 @@ public final class YamlKingdomStore {
         String crowned = section.getString("crowned");
         if (crowned != null && !crowned.isBlank()) {
             church.crown(UUID.fromString(crowned));
+        }
+        if (section.contains("last-mass")) {
+            church.setLastMassDay(section.getLong("last-mass"));
         }
 
         ConfigurationSection marriages = section.getConfigurationSection("marriages");

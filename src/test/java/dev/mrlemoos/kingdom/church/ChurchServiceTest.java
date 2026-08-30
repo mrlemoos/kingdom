@@ -195,32 +195,71 @@ class ChurchServiceTest {
         assertEquals(Celebrant.NONE, churchService.presidingCelebrant("northmarch", true));
     }
 
-    // --- blessing ---------------------------------------------------------
+    // --- mass and blessing ------------------------------------------------
 
     @Test
     void aRiteNeedsAConsecratedChurch() {
         churchService.setChurch("northmarch", NobleRank.KING, CHURCH);
+        assertFalse(churchService.massDue("northmarch"));
         assertInstanceOf(
-                ChurchResult.Failure.class, churchService.bless("northmarch", Celebrant.CLERIC, CITIZEN));
+                ChurchResult.Failure.class, churchService.callMass("northmarch", Celebrant.CLERIC));
     }
 
     @Test
-    void blessingIsRefusedTwiceInOneDay() {
+    void massFallsDueEverySeventhDay() {
         siteAndConsecrate();
+        assertTrue(churchService.massDue("northmarch"));
         assertInstanceOf(
-                ChurchResult.Success.class, churchService.bless("northmarch", Celebrant.CLERIC, CITIZEN));
+                ChurchResult.Success.class, churchService.callMass("northmarch", Celebrant.CLERIC));
+        assertFalse(churchService.massDue("northmarch"));
         assertInstanceOf(
-                ChurchResult.Failure.class, churchService.bless("northmarch", Celebrant.CLERIC, CITIZEN));
+                ChurchResult.Failure.class, churchService.callMass("northmarch", Celebrant.CLERIC));
+
+        today += 6;
+        assertFalse(churchService.massDue("northmarch"));
         today += 1;
-        assertInstanceOf(
-                ChurchResult.Success.class, churchService.bless("northmarch", Celebrant.CLERIC, CITIZEN));
+        assertTrue(churchService.massDue("northmarch"));
     }
 
     @Test
-    void aForeignerMayNotBeBlessed() {
+    void massSitsOnlyForTheDayItIsCalled() {
         siteAndConsecrate();
-        assertInstanceOf(
-                ChurchResult.Failure.class, churchService.bless("northmarch", Celebrant.CLERIC, FOREIGNER));
+        assertFalse(churchService.massInSession("northmarch"));
+        churchService.callMass("northmarch", Celebrant.CLERIC);
+        assertTrue(churchService.massInSession("northmarch"));
+        today += 1;
+        assertFalse(churchService.massInSession("northmarch"));
+    }
+
+    @Test
+    void attendingMassBlessesASubjectOnce() {
+        siteAndConsecrate();
+        churchService.callMass("northmarch", Celebrant.CLERIC);
+        assertInstanceOf(ChurchResult.Success.class, churchService.attend("northmarch", CITIZEN));
+        assertInstanceOf(ChurchResult.Failure.class, churchService.attend("northmarch", CITIZEN));
+
+        today += 7;
+        churchService.callMass("northmarch", Celebrant.CLERIC);
+        assertInstanceOf(ChurchResult.Success.class, churchService.attend("northmarch", CITIZEN));
+    }
+
+    @Test
+    void thereIsNoBlessingOutsideMass() {
+        siteAndConsecrate();
+        assertInstanceOf(ChurchResult.Failure.class, churchService.attend("northmarch", CITIZEN));
+    }
+
+    @Test
+    void aForeignerMayNotAttendMass() {
+        siteAndConsecrate();
+        churchService.callMass("northmarch", Celebrant.CLERIC);
+        assertInstanceOf(ChurchResult.Failure.class, churchService.attend("northmarch", FOREIGNER));
+    }
+
+    @Test
+    void massNeedsSomebodyToCelebrateIt() {
+        siteAndConsecrate();
+        assertInstanceOf(ChurchResult.Failure.class, churchService.callMass("northmarch", Celebrant.NONE));
     }
 
     // --- marriage ---------------------------------------------------------

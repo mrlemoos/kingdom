@@ -483,10 +483,12 @@ granary:
 # King or Queen; while the seat stands empty, or its holder is in a cell, a cleric villager
 # presides at the altar.
 church:
-  # How long a blessing's regeneration and resistance last, and how many realm days a subject must
-  # wait between blessings. A blessing is always free.
+  # How long a blessing's regeneration and resistance last. The blessing is laid on every subject
+  # who attends mass, and is always free.
   blessing-seconds: 120
-  blessing-cooldown-days: 1
+  # Realm days between masses. Mass is called at the church on the day it falls due, stands open
+  # for the rest of that day, and blesses each subject who comes to it once.
+  mass-interval-days: 7
   # Realm days the dead wait on their rites. A member's held experience and a dead productive
   # villager's frozen wallet both lapse after this: the experience is lost, and the wallet escheats
   # to the treasury whole.

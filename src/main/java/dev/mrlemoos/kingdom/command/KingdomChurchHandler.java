@@ -4,7 +4,7 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.church.Celebrant;
 import dev.mrlemoos.kingdom.church.ChurchConsentBook;
-import dev.mrlemoos.kingdom.church.ChurchProximity;
+import dev.mrlemoos.kingdom.church.ChurchPresence;
 import dev.mrlemoos.kingdom.church.ChurchResult;
 import dev.mrlemoos.kingdom.church.ChurchService;
 import dev.mrlemoos.kingdom.church.ClericService;
@@ -27,8 +27,6 @@ import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 /** {@code /kingdom church …}: siting, the priesthood, and every rite held at the altar. */
 public final class KingdomChurchHandler {
@@ -71,7 +69,6 @@ public final class KingdomChurchHandler {
             case "swear" -> handleSwear(sender, args);
             case "unswear" -> handleUnswear(sender);
             case "consecrate" -> handleConsecrate(sender);
-            case "bless" -> handleBless(sender, args);
             case "marry" -> handleMarry(sender, args);
             case "divorce" -> handleDivorce(sender, args);
             case "annul" -> handleAnnul(sender, args);
@@ -217,36 +214,6 @@ public final class KingdomChurchHandler {
         report(sender, result);
         if (result instanceof ChurchResult.Success) {
             store.saveFrom(kingdomService);
-        }
-        return true;
-    }
-
-    private boolean handleBless(CommandSender sender, String[] args) {
-        Optional<RiteContext> rite = riteContext(sender, true);
-        if (rite.isEmpty()) {
-            return true;
-        }
-        Player subject = rite.get().player();
-        if (args.length > 1) {
-            Player named = Bukkit.getPlayerExact(args[1]);
-            if (named == null) {
-                sender.sendMessage(error("That player is not here to be blessed."));
-                return true;
-            }
-            subject = named;
-        }
-        if (!atChurch(rite.get().kingdomId(), subject)) {
-            sender.sendMessage(error("The subject must stand at the church."));
-            return true;
-        }
-        ChurchResult result =
-                churchService.bless(rite.get().kingdomId(), rite.get().celebrant(), subject.getUniqueId());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            int ticks = churchService.config().blessingSeconds() * 20;
-            subject.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, ticks, 1));
-            subject.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, ticks, 0));
-            subject.sendMessage(success("A blessing is laid upon you."));
         }
         return true;
     }
@@ -444,6 +411,16 @@ public final class KingdomChurchHandler {
         sender.sendMessage(info(churchService.isConsecrated(kingdomId)
                 ? "The church stands consecrated."
                 : "The church stands unconsecrated; no rite may be held."));
+        if (churchService.massInSession(kingdomId)) {
+            sender.sendMessage(info("Mass is being held. Come to the church for the blessing."));
+        } else {
+            Optional<Long> days = churchService.daysUntilMass(kingdomId);
+            if (days.isPresent()) {
+                sender.sendMessage(info(days.get() == 0L
+                        ? "Mass falls due today."
+                        : "Mass falls due in " + days.get() + " realm day(s)."));
+            }
+        }
         sender.sendMessage(info(churchService.priest(kingdomId)
                 .map(priest -> "Priest: " + Bukkit.getOfflinePlayer(priest).getName())
                 .orElse("No priest is sworn; the cleric presides.")));
@@ -485,24 +462,12 @@ public final class KingdomChurchHandler {
         return Optional.of(new RiteContext(player.get(), kingdomId, celebrant));
     }
 
-    /** The sworn priest counts as presiding only while he is standing at his own church. */
     private boolean priestAtChurch(String kingdomId) {
-        Optional<UUID> priestId = churchService.priest(kingdomId);
-        if (priestId.isEmpty()) {
-            return false;
-        }
-        Player priest = Bukkit.getPlayer(priestId.get());
-        return priest != null && atChurch(kingdomId, priest);
+        return ChurchPresence.priestAtChurch(churchService, kingdomId);
     }
 
     private boolean atChurch(String kingdomId, Player player) {
-        Optional<ChurchSite> site = churchService.church(kingdomId);
-        if (site.isEmpty()) {
-            return false;
-        }
-        Location location = player.getLocation();
-        return ChurchProximity.isAtChurch(
-                site.get(), worldName(location), location.getX(), location.getY(), location.getZ());
+        return ChurchPresence.atChurch(churchService, kingdomId, player);
     }
 
     private void reconcileCleric(String kingdomId) {
@@ -566,7 +531,6 @@ public final class KingdomChurchHandler {
                 + "\n" + c("&e/kingdom church set|clear") + c("&7 — King or Queen, inside your territory")
                 + "\n" + c("&e/kingdom church swear|unswear <player>") + c("&7 — the priesthood")
                 + "\n" + c("&e/kingdom church consecrate") + c("&7 — bring a new church into use")
-                + "\n" + c("&e/kingdom church bless [player]") + c("&7 — a blessing, once a day")
                 + "\n" + c("&e/kingdom church marry <player>") + c("&7 — both parties must ask")
                 + "\n" + c("&e/kingdom church divorce") + c("&7 — both parties must ask")
                 + "\n" + c("&e/kingdom church annul <player>") + c("&7 — the Crown's remedy")
