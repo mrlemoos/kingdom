@@ -1098,7 +1098,11 @@ _Avoid_: Fee, commission, church funds, offering, donation
 
 **Mass**:
 The weekly **rite** the whole realm is called to. It falls due every seventh in-game day, is called at the **church** by the **priest** or **cleric** the moment it does, and stands open for the rest of that day. The bell tolls over the realm, the celebrant speaks the liturgy above his own head, and every member who comes to the altar while it sits takes the **blessing** — once to a mass. No **church**, no **consecration** or nobody to celebrate it means no mass that week; the clock simply waits.
-_Avoid_: Service, sermon, congregation, prayer meeting, church event
+_Avoid_: Service, sermon, prayer meeting, church event
+
+**Congregation**:
+The realm's own villagers, called in to the **mass**. While a mass sits, every ordinary villager standing inside the kingdom's linked territory and within earshot of the altar (48 blocks) walks to the church and turns to face it; plugin office-holders — villager MPs, the Speaker, the cleric, Treasury Lords, the Town Crier, the magistrate — stay at their posts. When the mass closes they go back to their fields. Villagers take no **blessing**; only members do.
+_Avoid_: Flock, worshippers, crowd, parishioners
 
 **Blessing**:
 What attending **mass** confers: regeneration and resistance for a couple of minutes, free, once to a mass. It is not asked for and cannot be commanded — the only way to it is to be there.

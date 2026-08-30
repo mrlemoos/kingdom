@@ -735,6 +735,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new dev.mrlemoos.kingdom.church.MassCeremony(
                                                 this, kingdomService, churchService, clericService),
                                 store);
+                massTask.setCongregationSource(villagerMpEntityService, territoryResolver);
                 massTask.schedule(dev.mrlemoos.kingdom.task.MassTask.DEFAULT_INTERVAL_TICKS);
 
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
