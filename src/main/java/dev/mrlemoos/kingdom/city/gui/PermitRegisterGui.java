@@ -20,8 +20,13 @@ public final class PermitRegisterGui implements InventoryHolder {
 
     public static final Component TITLE = component("&6Permit Register");
 
-    /** One holder of the roll: who they are and when the permit was issued. */
-    public record Entry(UUID holderId, long grantedAtMs) {}
+    /** One holder of the roll: who they are, when the permit was issued, and how many horses. */
+    public record Entry(UUID holderId, long grantedAtMs, int horses) {
+
+        public Entry(UUID holderId, long grantedAtMs) {
+            this(holderId, grantedAtMs, 0);
+        }
+    }
 
     private final String kingdomId;
     private final int page;
@@ -108,7 +113,8 @@ public final class PermitRegisterGui implements InventoryHolder {
                 .skullOwner(entry.holderId())
                 .displayAs(c("&f" + (name == null ? entry.holderId().toString() : name)))
                 .lore(c("&7Granted " + PermitRegisterLayout.grantedAgo(entry.grantedAtMs(), nowMs)))
-                .lore(c("&7Click to revoke this permit"))
+                .lore(c("&7Horses stabled: " + entry.horses()))
+                .lore(c("&7Click to revoke this permit and its horses"))
                 .build();
     }
 

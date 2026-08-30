@@ -258,6 +258,63 @@ public final class CityService {
         return revoked;
     }
 
+    // --- horse permits ----------------------------------------------------
+
+    /** Entered on the register the moment a subject saddles a horse. Members only. */
+    public CityResult grantHorsePermit(String kingdomId, UUID horseId, UUID ownerId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return CityResult.fail("Unknown kingdom.");
+        }
+        if (horseId == null || ownerId == null) {
+            return CityResult.fail("Unknown horse.");
+        }
+        if (!isMember(kingdom.get().getId(), ownerId)) {
+            return CityResult.fail("Foreigners may not hold a horse permit in this kingdom.");
+        }
+        // A horse changes hands with its saddle, so any earlier permit elsewhere is struck off first.
+        revokeHorsePermitEverywhere(horseId);
+        kingdom.get().getCityState().grantHorsePermit(horseId, ownerId);
+        return CityResult.ok("Horse permit granted.");
+    }
+
+    /** The holder of this horse's permit, whichever realm's register carries it. */
+    public Optional<UUID> horseOwner(UUID horseId) {
+        if (horseId == null) {
+            return Optional.empty();
+        }
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            Optional<UUID> owner = kingdom.getCityState().horseOwner(horseId);
+            if (owner.isPresent()) {
+                return owner;
+            }
+        }
+        return Optional.empty();
+    }
+
+    public int horsePermitCount(String kingdomId, UUID ownerId) {
+        Optional<KingdomCityState> city = cityState(kingdomId);
+        return city.isEmpty() ? 0 : city.get().horsePermitCount(ownerId);
+    }
+
+    /** Strikes every horse off a holder's name in every realm; returns how many were taken. */
+    public int revokeHorsePermits(UUID ownerId) {
+        int revoked = 0;
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            revoked += kingdom.getCityState().revokeHorsePermitsOf(ownerId);
+        }
+        return revoked;
+    }
+
+    /** Struck off when the horse dies, or when it is saddled afresh by somebody else. */
+    public boolean revokeHorsePermitEverywhere(UUID horseId) {
+        boolean revoked = false;
+        for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            revoked |= kingdom.getCityState().revokeHorsePermit(horseId);
+        }
+        return revoked;
+    }
+
     // --- the gate --------------------------------------------------------
 
     /** Resolves membership and rank from the roll, then applies {@link #mayBuild}. */

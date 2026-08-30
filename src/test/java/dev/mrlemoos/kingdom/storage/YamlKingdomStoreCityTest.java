@@ -29,6 +29,7 @@ class YamlKingdomStoreCityTest {
         var city = kingdom.getCityState();
         city.setCapital(new CapitalLocation("world", 10.5, 64.0, -20.25, 90.5f, -12.5f));
         city.grantPermit(holder, 1_700_000_000_000L);
+        city.grantHorsePermit(UUID.fromString("00000000-0000-0000-0000-000000000031"), holder);
         city.setLordMayorEntityId(mayor);
         city.setTownCrierEntityId(crier);
         city.setTownCrierStand(new CapitalLocation("world", 22.0, 65.0, -8.0, 45.0f, 0.0f));
@@ -55,6 +56,9 @@ class YamlKingdomStoreCityTest {
         YamlKingdomStore.readCity(config.getConfigurationSection("kingdoms.northmarch.city"), loaded);
 
         var loadedCity = loaded.getCityState();
+        assertEquals(
+                Optional.of(holder),
+                loadedCity.horseOwner(UUID.fromString("00000000-0000-0000-0000-000000000031")));
         assertTrue(loadedCity.hasCapital());
         CapitalLocation capital = loadedCity.capital().orElseThrow();
         assertEquals("world", capital.worldName());

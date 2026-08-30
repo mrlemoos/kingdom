@@ -590,8 +590,10 @@ public final class KingdomCommand {
         sender.sendMessage(format(result));
         if (result instanceof KingdomResult.Success) {
             // Leaving a kingdom surrenders its build permit; the new realm's must be applied for.
+            // The stable goes with it: horses stay behind for the realm that licensed them.
             if (cityService != null) {
                 cityService.revokeAllPermits(target.getUniqueId());
+                cityService.revokeHorsePermits(target.getUniqueId());
             }
             // A marriage is between two subjects of one realm; leaving it ends the bond.
             if (churchService != null) {

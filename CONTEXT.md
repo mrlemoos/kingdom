@@ -956,6 +956,14 @@ _Avoid_: Mayor NPC, town crier, clerk, magistrate
 The licence a player must hold to place or break blocks inside a kingdom's linked territory. Free, granted on the spot by the **lord mayor**, kingdom-wide, and persisted in `data.yml`. Held only by members of that kingdom; **foreigners** cannot obtain one. Revoked by a **prison sentence**, by leaving the kingdom, and by the monarch through `/kingdom permit revoke`.
 _Avoid_: Build rights, build flag, planning permission, land claim
 
+**Horse permit**:
+The licence a **horse** stands on, entered on the realm's register the moment a member puts a saddle on it and shown beside their **build permit** in the permit register. It names one horse and one holder; saddling a horse afresh moves the permit to whoever saddled it last. Members only — a player in no kingdom claims nothing. Struck off when the horse dies, when the holder leaves the kingdom, and when the Crown revokes the holder's build permit in the register.
+_Avoid_: Horse deed, mount licence, stable claim, horse tag
+
+**Horse gate**:
+Who may ride a permitted horse, open its saddlebags or lead it: its holder, and the **King, Queen or Prince** of the holder's realm. Everybody else is refused, operators and foreign royalty included; the refusal is throttled to roughly one message every thirty seconds. A horse on no register is anybody's, as vanilla has it.
+_Avoid_: Horse lock, mount protection, anti-theft
+
 **Permit exemption**:
 The standing right of the **King or Queen** and the **Princes or Princesses** to build inside **their own** kingdom without a **build permit**. It does not travel: royalty in another realm is a **foreigner** and cannot build there at all. Operators are not exempt from this gate, unlike the **build-ban Act** gate.
 _Avoid_: Admin bypass, OP override, royal decree

@@ -1544,6 +1544,9 @@ public final class YamlKingdomStore {
         for (var entry : city.permitsView().entrySet()) {
             config.set(path + ".permits." + entry.getKey(), entry.getValue());
         }
+        for (var entry : city.horsePermitsView().entrySet()) {
+            config.set(path + ".horse-permits." + entry.getKey(), entry.getValue().toString());
+        }
         List<GazettePost> posts = city.gazettePostsView();
         for (int i = 0; i < posts.size(); i++) {
             GazettePost post = posts.get(i);
@@ -1618,6 +1621,18 @@ public final class YamlKingdomStore {
                 permits.put(UUID.fromString(key), permitsSection.getLong(key));
             }
             city.replacePermits(permits);
+        }
+
+        ConfigurationSection horsePermitsSection = section.getConfigurationSection("horse-permits");
+        if (horsePermitsSection != null) {
+            Map<UUID, UUID> horsePermits = new LinkedHashMap<>();
+            for (String key : horsePermitsSection.getKeys(false)) {
+                String ownerId = horsePermitsSection.getString(key);
+                if (ownerId != null && !ownerId.isBlank()) {
+                    horsePermits.put(UUID.fromString(key), UUID.fromString(ownerId));
+                }
+            }
+            city.replaceHorsePermits(horsePermits);
         }
 
         ConfigurationSection gazetteSection = section.getConfigurationSection("gazette");

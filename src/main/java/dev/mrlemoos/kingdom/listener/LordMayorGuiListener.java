@@ -268,6 +268,8 @@ public final class LordMayorGuiListener implements Listener {
 
         CityResult result = cityService.revokePermit(gui.kingdomId(), gui.holderId());
         if (result instanceof CityResult.Success) {
+            // One act of the Crown: the licence and the stable are taken together.
+            cityService.revokeHorsePermits(gui.holderId());
             player.sendMessage(c("&a" + result.message()));
             save();
             notifyHolder(gui.holderId());
@@ -301,7 +303,10 @@ public final class LordMayorGuiListener implements Listener {
     private void openRegister(Player player, String kingdomId, int page) {
         List<PermitRegisterGui.Entry> entries = new ArrayList<>();
         for (Map.Entry<UUID, Long> permit : cityService.permitsView(kingdomId).entrySet()) {
-            entries.add(new PermitRegisterGui.Entry(permit.getKey(), permit.getValue()));
+            entries.add(new PermitRegisterGui.Entry(
+                    permit.getKey(),
+                    permit.getValue(),
+                    cityService.horsePermitCount(kingdomId, permit.getKey())));
         }
         entries.sort(Comparator.comparingLong(PermitRegisterGui.Entry::grantedAtMs));
         player.openInventory(PermitRegisterGui

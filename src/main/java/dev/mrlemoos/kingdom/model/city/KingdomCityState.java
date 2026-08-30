@@ -19,6 +19,8 @@ public final class KingdomCityState {
     private UUID lordMayorEntityId;
     private UUID townCrierEntityId;
     private final Map<UUID, Long> permits = new LinkedHashMap<>();
+    /** Horse entity id → the subject whose permit it stands on. */
+    private final Map<UUID, UUID> horsePermits = new LinkedHashMap<>();
     private final List<GazettePost> gazettePosts = new ArrayList<>();
     /** Empty → plugin fallback; present and disabled → lifted; present and enabled → decree window. */
     private CurfewEnforcementConfig decreeCurfew;
@@ -156,6 +158,57 @@ public final class KingdomCityState {
     /** @return true when a permit was actually removed. */
     public boolean revokePermit(UUID playerId) {
         return playerId != null && permits.remove(playerId) != null;
+    }
+
+    // --- horse permits ---
+
+    public Map<UUID, UUID> horsePermitsView() {
+        return Map.copyOf(horsePermits);
+    }
+
+    public Optional<UUID> horseOwner(UUID horseId) {
+        return horseId == null ? Optional.empty() : Optional.ofNullable(horsePermits.get(horseId));
+    }
+
+    /** A horse answers to whoever saddled it last, so this overwrites any earlier holder. */
+    public void grantHorsePermit(UUID horseId, UUID ownerId) {
+        if (horseId != null && ownerId != null) {
+            horsePermits.put(horseId, ownerId);
+        }
+    }
+
+    public boolean revokeHorsePermit(UUID horseId) {
+        return horseId != null && horsePermits.remove(horseId) != null;
+    }
+
+    /** @return how many horses were struck off this holder's name */
+    public int revokeHorsePermitsOf(UUID ownerId) {
+        if (ownerId == null) {
+            return 0;
+        }
+        int before = horsePermits.size();
+        horsePermits.values().removeIf(ownerId::equals);
+        return before - horsePermits.size();
+    }
+
+    public int horsePermitCount(UUID ownerId) {
+        if (ownerId == null) {
+            return 0;
+        }
+        int held = 0;
+        for (UUID owner : horsePermits.values()) {
+            if (ownerId.equals(owner)) {
+                held++;
+            }
+        }
+        return held;
+    }
+
+    public void replaceHorsePermits(Map<UUID, UUID> loadedHorsePermits) {
+        horsePermits.clear();
+        if (loadedHorsePermits != null) {
+            horsePermits.putAll(loadedHorsePermits);
+        }
     }
 
     public void replacePermits(Map<UUID, Long> loadedPermits) {

@@ -588,6 +588,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig())),
                                 this);
                 getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.HorsePermitListener(
+                                                this, kingdomService, cityService, store),
+                                this);
+                getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.CurfewEnforcementListener(
                                                 this,
                                                 kingdomService,
