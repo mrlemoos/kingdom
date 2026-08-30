@@ -44,14 +44,162 @@ economy:
       - buyer: none
         seller: farmer
         flat-corona: 0.20
+  # Each villager stocks at most max-offers of its profession's Corona offers, reshuffled
+  # every period-hours. max-offers: 0 stocks the lot.
+  corona-merchant-rotation:
+    max-offers: 6
+    period-hours: 24
+  # Corona-priced villager offers, by profession. Optional keys: amount (default 1),
+  # max-uses (default 12), enchantment + enchantment-level (enchanted_book stores it,
+  # any other item wears it). Defining this section replaces the built-in offer list.
   corona-merchant-offers:
     farmer:
       - item: bread
+        amount: 4
         corona-price: 3
         max-uses: 12
+      - item: golden_carrot
+        amount: 2
+        corona-price: 8
+        max-uses: 8
+      - item: cake
+        corona-price: 12
+        max-uses: 4
     librarian:
       - item: book
+        amount: 4
         corona-price: 5
+        max-uses: 12
+      - item: bookshelf
+        amount: 2
+        corona-price: 12
+        max-uses: 8
+      - item: name_tag
+        corona-price: 24
+        max-uses: 4
+      - item: enchanted_book
+        enchantment: mending
+        enchantment-level: 1
+        corona-price: 96
+        max-uses: 1
+      - item: enchanted_book
+        enchantment: unbreaking
+        enchantment-level: 3
+        corona-price: 72
+        max-uses: 2
+      - item: enchanted_book
+        enchantment: efficiency
+        enchantment-level: 4
+        corona-price: 64
+        max-uses: 2
+      - item: enchanted_book
+        enchantment: fortune
+        enchantment-level: 3
+        corona-price: 88
+        max-uses: 1
+      - item: enchanted_book
+        enchantment: silk_touch
+        enchantment-level: 1
+        corona-price: 80
+        max-uses: 1
+      - item: enchanted_book
+        enchantment: protection
+        enchantment-level: 4
+        corona-price: 64
+        max-uses: 2
+      - item: enchanted_book
+        enchantment: sharpness
+        enchantment-level: 4
+        corona-price: 60
+        max-uses: 2
+      - item: enchanted_book
+        enchantment: looting
+        enchantment-level: 3
+        corona-price: 72
+        max-uses: 1
+      - item: enchanted_book
+        enchantment: feather_falling
+        enchantment-level: 4
+        corona-price: 48
+        max-uses: 2
+      - item: enchanted_book
+        enchantment: infinity
+        enchantment-level: 1
+        corona-price: 80
+        max-uses: 1
+    cleric:
+      - item: experience_bottle
+        amount: 4
+        corona-price: 16
+        max-uses: 8
+      - item: ender_pearl
+        corona-price: 20
+        max-uses: 6
+      - item: glowstone
+        amount: 4
+        corona-price: 14
+        max-uses: 8
+    toolsmith:
+      - item: iron_pickaxe
+        corona-price: 24
+        max-uses: 6
+      - item: diamond_pickaxe
+        corona-price: 96
+        max-uses: 2
+    weaponsmith:
+      - item: iron_sword
+        corona-price: 20
+        max-uses: 6
+      - item: diamond_sword
+        corona-price: 96
+        max-uses: 2
+    armorer:
+      - item: iron_chestplate
+        corona-price: 32
+        max-uses: 4
+      - item: shield
+        corona-price: 18
+        max-uses: 6
+    cartographer:
+      - item: map
+        amount: 2
+        corona-price: 6
+        max-uses: 8
+      - item: compass
+        corona-price: 18
+        max-uses: 4
+    fletcher:
+      - item: arrow
+        amount: 16
+        corona-price: 6
+        max-uses: 12
+      - item: bow
+        corona-price: 22
+        max-uses: 4
+    butcher:
+      - item: cooked_beef
+        amount: 6
+        corona-price: 6
+        max-uses: 12
+    shepherd:
+      - item: white_wool
+        amount: 8
+        corona-price: 6
+        max-uses: 12
+    mason:
+      - item: stone_bricks
+        amount: 16
+        corona-price: 8
+        max-uses: 12
+    fisherman:
+      - item: cooked_salmon
+        amount: 6
+        corona-price: 6
+        max-uses: 12
+    leatherworker:
+      - item: leather
+        amount: 6
+        corona-price: 8
         max-uses: 12
   realm-wealth:
     materials:

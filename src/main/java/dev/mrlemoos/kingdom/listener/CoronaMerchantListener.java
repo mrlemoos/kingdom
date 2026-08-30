@@ -181,9 +181,7 @@ public final class CoronaMerchantListener implements Listener {
             if (!CoronaMerchantRecipeFactory.isCoronaRecipe(recipe)) {
                 continue;
             }
-            if (recipe.getResult().getType() != selected.getResult().getType()
-                    || CoronaMerchantRecipeFactory.coronaPrice(recipe) != CoronaMerchantRecipeFactory
-                            .coronaPrice(selected)) {
+            if (!CoronaMerchantRecipeFactory.sameOffer(recipe, selected)) {
                 continue;
             }
             int remainingUses = recipe.getUses();

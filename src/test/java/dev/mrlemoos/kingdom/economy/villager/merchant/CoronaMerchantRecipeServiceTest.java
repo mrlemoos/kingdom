@@ -51,8 +51,32 @@ class CoronaMerchantRecipeServiceTest {
 
         recipeService.refreshRecipes(villager);
 
-        assertEquals(2, villager.getRecipes().size());
+        assertEquals(
+                1 + CoronaMerchantOfferConfig.defaults().offersFor("farmer").size(),
+                villager.getRecipes().size());
         assertTrue(villager.getRecipes().stream().anyMatch(CoronaMerchantRecipeFactory::isCoronaRecipe));
+    }
+
+    @Test
+    void refreshKeepsConsumedUsesOfExistingCoronaOffers() {
+        Villager villager = new VillagerMock(server, UUID.randomUUID());
+        villager.setProfession(Villager.Profession.LIBRARIAN);
+        recipeService.refreshRecipes(villager);
+
+        List<MerchantRecipe> recipes = new java.util.ArrayList<>(villager.getRecipes());
+        MerchantRecipe used = recipes.getFirst();
+        used.setUses(1);
+        villager.setRecipes(recipes);
+
+        recipeService.refreshRecipes(villager);
+
+        assertEquals(
+                1,
+                villager.getRecipes().stream()
+                        .filter(recipe -> CoronaMerchantRecipeFactory.sameOffer(recipe, used))
+                        .findFirst()
+                        .orElseThrow()
+                        .getUses());
     }
 
     private static MerchantRecipe vanillaEmeraldTrade() {

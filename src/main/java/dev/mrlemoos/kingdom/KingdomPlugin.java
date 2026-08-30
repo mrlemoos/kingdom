@@ -29,6 +29,7 @@ import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
 import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantOfferConfig;
 import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeService;
+import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantStockRotation;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
 import dev.mrlemoos.kingdom.listener.BuildConductListener;
@@ -545,7 +546,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 economyCoordinator,
                                                 villagerMpEntityService,
                                                 territoryResolver,
-                                                new CoronaMerchantRecipeService(coronaMerchantOfferConfig)),
+                                                new CoronaMerchantRecipeService(
+                                                                coronaMerchantOfferConfig,
+                                                                CoronaMerchantStockRotation.fromPluginConfig(getConfig()))),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new TerritoryWealthListener(this, economyService, territoryResolver, economyStore),

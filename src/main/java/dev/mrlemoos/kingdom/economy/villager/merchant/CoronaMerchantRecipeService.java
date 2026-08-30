@@ -11,9 +11,15 @@ import org.bukkit.inventory.MerchantRecipe;
 public final class CoronaMerchantRecipeService {
 
     private final CoronaMerchantOfferConfig offerConfig;
+    private final CoronaMerchantStockRotation rotation;
 
     public CoronaMerchantRecipeService(CoronaMerchantOfferConfig offerConfig) {
+        this(offerConfig, CoronaMerchantStockRotation.defaults());
+    }
+
+    public CoronaMerchantRecipeService(CoronaMerchantOfferConfig offerConfig, CoronaMerchantStockRotation rotation) {
         this.offerConfig = offerConfig != null ? offerConfig : CoronaMerchantOfferConfig.defaults();
+        this.rotation = rotation != null ? rotation : CoronaMerchantStockRotation.defaults();
     }
 
     public void refreshRecipes(Villager villager) {
@@ -28,14 +34,22 @@ public final class CoronaMerchantRecipeService {
             villager.setRecipes(List.of());
             return;
         }
+        List<MerchantRecipe> existingCorona = new ArrayList<>();
         List<MerchantRecipe> merged = new ArrayList<>();
         for (MerchantRecipe recipe : villager.getRecipes()) {
-            if (!CoronaMerchantRecipeFactory.isCoronaRecipe(recipe)) {
+            if (CoronaMerchantRecipeFactory.isCoronaRecipe(recipe)) {
+                existingCorona.add(recipe);
+            } else {
                 merged.add(recipe);
             }
         }
-        merged.addAll(CoronaMerchantRecipeFactory.build(
-                offerConfig.offersFor(VillagerMpProfessionMatcher.professionName(villager))));
+        for (MerchantRecipe offer : CoronaMerchantRecipeFactory.build(rotation.stock(
+                villager.getUniqueId(), offerConfig.offersFor(VillagerMpProfessionMatcher.professionName(villager))))) {
+            merged.add(existingCorona.stream()
+                    .filter(existing -> CoronaMerchantRecipeFactory.sameOffer(existing, offer))
+                    .findFirst()
+                    .orElse(offer));
+        }
         villager.setRecipes(merged);
     }
 
@@ -45,14 +59,7 @@ public final class CoronaMerchantRecipeService {
         }
         return villager.getRecipes().stream()
                 .filter(CoronaMerchantRecipeFactory::isCoronaRecipe)
-                .filter(recipe -> recipesMatch(recipe, selected))
+                .filter(recipe -> CoronaMerchantRecipeFactory.sameOffer(recipe, selected))
                 .findFirst();
-    }
-
-    private static boolean recipesMatch(MerchantRecipe left, MerchantRecipe right) {
-        if (left.getResult().getType() != right.getResult().getType()) {
-            return false;
-        }
-        return CoronaMerchantRecipeFactory.coronaPrice(left) == CoronaMerchantRecipeFactory.coronaPrice(right);
     }
 }
