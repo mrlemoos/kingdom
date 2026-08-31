@@ -1112,6 +1112,10 @@ _Avoid_: Service, sermon, prayer meeting, church event
 The realm's own villagers, called in to the **mass**. While a mass sits, every ordinary villager standing inside the kingdom's linked territory and within earshot of the altar (48 blocks) walks to the church and turns to face it; plugin office-holders — villager MPs, the Speaker, the cleric, Treasury Lords, the Town Crier, the magistrate — stay at their posts. When the mass closes they go back to their fields. Villagers take no **blessing**; only members do.
 _Avoid_: Flock, worshippers, crowd, parishioners
 
+**Coronation window**:
+The cleric's own GUI, opened by right-clicking the **cleric** — and only by the King, Queen or Prince of the realm the cleric serves. It shows the rite, names the realm's rightful monarch and offers the crown; pressing it holds the **coronation**, with the monarch standing at the altar. It is the only road to a crowning — there is no command for it. Any other subject is told the cleric is at prayer, and the cleric's vanilla trading window never opens for anybody.
+_Avoid_: Crown menu, coronation shop, cleric trades
+
 **Blessing**:
 What attending **mass** confers: regeneration and resistance for a couple of minutes, free, once to a mass. It is not asked for and cannot be commanded — the only way to it is to be there.
 _Avoid_: Buff, potion, boon, charm

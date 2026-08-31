@@ -73,7 +73,6 @@ public final class KingdomChurchHandler {
             case "divorce" -> handleDivorce(sender, args);
             case "annul" -> handleAnnul(sender, args);
             case "funeral" -> handleFuneral(sender, args);
-            case "crown" -> handleCrown(sender);
             case "info" -> handleInfo(sender);
             default -> {
                 sender.sendMessage(help());
@@ -368,33 +367,6 @@ public final class KingdomChurchHandler {
         return true;
     }
 
-    private boolean handleCrown(CommandSender sender) {
-        Optional<RiteContext> rite = riteContext(sender, true);
-        if (rite.isEmpty()) {
-            return true;
-        }
-        String kingdomId = rite.get().kingdomId();
-        Optional<UUID> monarch = kingdomService.findMonarch(kingdomId).map(PlayerMembership::getPlayerId);
-        if (monarch.isEmpty()) {
-            sender.sendMessage(error("This realm has no monarch to crown."));
-            return true;
-        }
-        Player crowned = Bukkit.getPlayer(monarch.get());
-        if (crowned == null || !atChurch(kingdomId, crowned)) {
-            sender.sendMessage(error("The monarch must stand at the church to be crowned."));
-            return true;
-        }
-        ChurchResult result = churchService.crown(kingdomId, rite.get().celebrant(), monarch.get());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            Bukkit.broadcastMessage(c("&6")
-                    + kingdomService.getKingdom(kingdomId).map(Kingdom::getDisplayName).orElse(kingdomId)
-                    + " has crowned its monarch.");
-            store.saveFrom(kingdomService);
-        }
-        return true;
-    }
-
     private boolean handleInfo(CommandSender sender) {
         Optional<PlayerMembership> membership = sender instanceof Player player
                 ? kingdomService.getMembership(player.getUniqueId())
@@ -535,7 +507,6 @@ public final class KingdomChurchHandler {
                 + "\n" + c("&e/kingdom church divorce") + c("&7 — both parties must ask")
                 + "\n" + c("&e/kingdom church annul <player>") + c("&7 — the Crown's remedy")
                 + "\n" + c("&e/kingdom church funeral [player|villager]") + c("&7 — the rites of the dead")
-                + "\n" + c("&e/kingdom church crown") + c("&7 — crown the rightful monarch")
                 + "\n" + c("&e/kingdom church info") + c("&7 — how the church stands");
     }
 
