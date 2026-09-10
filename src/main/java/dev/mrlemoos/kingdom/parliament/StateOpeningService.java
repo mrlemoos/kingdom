@@ -18,21 +18,21 @@ import java.util.UUID;
  */
 public final class StateOpeningService {
 
-    public static final int DEFAULT_COMMISSION_DELAY_MC_DAYS = 3;
+    public static final int DEFAULT_COMMISSION_DELAY_SITTING_DAYS = 3;
 
     private final KingdomService kingdomService;
     private final ParliamentService parliamentService;
-    private final int commissionDelayMcDays;
+    private final int commissionDelaySittingDays;
 
     public StateOpeningService(KingdomService kingdomService, ParliamentService parliamentService) {
-        this(kingdomService, parliamentService, DEFAULT_COMMISSION_DELAY_MC_DAYS);
+        this(kingdomService, parliamentService, DEFAULT_COMMISSION_DELAY_SITTING_DAYS);
     }
 
     public StateOpeningService(
-            KingdomService kingdomService, ParliamentService parliamentService, int commissionDelayMcDays) {
+            KingdomService kingdomService, ParliamentService parliamentService, int commissionDelaySittingDays) {
         this.kingdomService = kingdomService;
         this.parliamentService = parliamentService;
-        this.commissionDelayMcDays = Math.max(commissionDelayMcDays, 0);
+        this.commissionDelaySittingDays = Math.max(commissionDelaySittingDays, 0);
     }
 
     /** Summons the Crown once a government has formed. */
@@ -68,7 +68,11 @@ public final class StateOpeningService {
                 .isPresent();
     }
 
-    public ParliamentResult open(String kingdomId, UUID playerId) {
+    /** The Crown opens Parliament in person, and only on a sitting day. */
+    public ParliamentResult open(String kingdomId, UUID playerId, long realmDay) {
+        if (!SittingCalendar.isSittingDay(realmDay)) {
+            return ParliamentResult.fail("Parliament may only be opened on a sitting day.");
+        }
         if (!isAwaitingStateOpening(kingdomId)) {
             return ParliamentResult.fail("Parliament is not waiting to be opened.");
         }
@@ -79,11 +83,11 @@ public final class StateOpeningService {
     }
 
     /**
-     * Opens the session by royal commission once the Crown has failed to attend for the delay
-     * period. Returns the announcement when it fires.
+     * Opens the session by royal commission once the Crown has let the delay run out in sitting
+     * days, and then only on a sitting day itself. Returns the announcement when it fires.
      */
-    public Optional<String> commissionIfOverdue(String kingdomId, long currentMcDay) {
-        if (!isAwaitingStateOpening(kingdomId)) {
+    public Optional<String> commissionIfOverdue(String kingdomId, long currentMcDay, long realmDay) {
+        if (!SittingCalendar.isSittingDay(realmDay) || !isAwaitingStateOpening(kingdomId)) {
             return Optional.empty();
         }
         OptionalLong pendingSince = kingdomService
@@ -91,7 +95,13 @@ public final class StateOpeningService {
                 .orElseThrow()
                 .getParliamentState()
                 .stateOpeningPendingSinceMcDay();
-        if (pendingSince.isEmpty() || currentMcDay < pendingSince.getAsLong() + commissionDelayMcDays) {
+        if (pendingSince.isEmpty()) {
+            return Optional.empty();
+        }
+        // The summons is stamped in world days; sitting days are counted off the realm calendar, so
+        // the stamp is shifted by the same epoch before the sitting days between are counted.
+        long pendingRealmDay = pendingSince.getAsLong() - (currentMcDay - realmDay);
+        if (SittingCalendar.sittingDaysBetween(pendingRealmDay, realmDay) < commissionDelaySittingDays) {
             return Optional.empty();
         }
         ParliamentResult opened = parliamentService.openSession(kingdomId);

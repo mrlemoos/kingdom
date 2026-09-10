@@ -56,6 +56,8 @@ public final class StateOpeningCeremony {
     private final CommonsReturnAnnouncer commonsReturnAnnouncer;
     private final VillagerMpEntityService villagerMpEntityService;
     private PoliceTrialService policeTrialService;
+    /** Day 0 sits, so an unwired clock leaves the sitting-day gate open rather than shut. */
+    private java.util.function.LongSupplier realmDayClock = () -> 0L;
     private final Map<String, Map<UUID, Location>> summonedOrigins = new ConcurrentHashMap<>();
     private final Map<String, Map<UUID, Location>> summonedVillagerOrigins = new ConcurrentHashMap<>();
 
@@ -78,6 +80,15 @@ public final class StateOpeningCeremony {
 
     public void setPoliceTrialService(PoliceTrialService policeTrialService) {
         this.policeTrialService = policeTrialService;
+    }
+
+    public void setRealmDayClock(java.util.function.LongSupplier realmDayClock) {
+        this.realmDayClock = realmDayClock;
+    }
+
+    /** Parliament gathers only on a sitting day. */
+    public boolean isSittingDay() {
+        return SittingCalendar.isSittingDay(realmDayClock.getAsLong());
     }
 
     public StateOpeningService stateOpeningService() {
@@ -139,6 +150,10 @@ public final class StateOpeningCeremony {
 
     /** Gathers every online member of the kingdom around the Lords chamber. */
     public void summon(Player crown, String kingdomId) {
+        if (!isSittingDay()) {
+            crown.sendMessage(c("&cThe House does not sit today. The realm may only be summoned on a sitting day."));
+            return;
+        }
         Optional<ChamberSite> lords =
                 kingdomService.getKingdom(kingdomId).flatMap(k -> k.getParliamentSites().lords());
         if (lords.isEmpty()) {
@@ -206,7 +221,7 @@ public final class StateOpeningCeremony {
             return;
         }
 
-        ParliamentResult opened = stateOpeningService.open(kingdomId, crown.getUniqueId());
+        ParliamentResult opened = stateOpeningService.open(kingdomId, crown.getUniqueId(), realmDayClock.getAsLong());
         if (opened instanceof ParliamentResult.Failure failure) {
             crown.sendMessage(c("&c" + failure.message()));
             return;

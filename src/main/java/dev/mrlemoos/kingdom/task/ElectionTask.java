@@ -139,6 +139,7 @@ public final class ElectionTask implements Runnable {
         if (stateOpeningCeremony == null) {
             return;
         }
+        long realmDay = calendarService != null ? calendarService.currentRealmDay() : 0L;
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
             World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
             if (world == null) {
@@ -147,7 +148,7 @@ public final class ElectionTask implements Runnable {
             long currentMcDay = world.getFullTime() / 24000L;
             stateOpeningCeremony
                     .stateOpeningService()
-                    .commissionIfOverdue(kingdom.getId(), currentMcDay)
+                    .commissionIfOverdue(kingdom.getId(), currentMcDay, realmDay)
                     .ifPresent(announcement -> {
                         store.saveFrom(kingdomService);
                         stateOpeningCeremony.commissionOpened(kingdom.getId());

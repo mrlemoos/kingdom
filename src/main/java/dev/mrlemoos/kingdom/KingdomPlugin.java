@@ -349,6 +349,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this, kingdomService, stateOpeningService, store, speechFromThroneItem,
                                 commonsReturnAnnouncer, villagerMpEntityService);
                 stateOpeningCeremony.setPoliceTrialService(policeTrialService);
+                stateOpeningCeremony.setRealmDayClock(realmCalendarService::currentRealmDay);
                 electionHandler.setStateOpeningCeremony(stateOpeningCeremony);
                 electionHandler.setCommonsReturnAnnouncer(commonsReturnAnnouncer);
                 KingdomFiscalHandler fiscalHandler = new KingdomFiscalHandler(

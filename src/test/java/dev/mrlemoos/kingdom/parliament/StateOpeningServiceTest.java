@@ -71,7 +71,7 @@ class StateOpeningServiceTest {
         stateOpeningService.requestStateOpening("northmarch", 40L);
 
         assertTrue(stateOpeningService.canOpen("northmarch", PRINCE));
-        assertInstanceOf(ParliamentResult.Success.class, stateOpeningService.open("northmarch", PRINCE));
+        assertInstanceOf(ParliamentResult.Success.class, stateOpeningService.open("northmarch", PRINCE, 40L));
         assertTrue(parliamentService.isSessionOpen("northmarch"));
     }
 
@@ -82,7 +82,7 @@ class StateOpeningServiceTest {
 
         assertFalse(stateOpeningService.canOpen("northmarch", PRINCE));
         assertTrue(stateOpeningService.canOpen("northmarch", KING));
-        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", PRINCE));
+        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", PRINCE, 40L));
     }
 
     @Test
@@ -90,32 +90,58 @@ class StateOpeningServiceTest {
         stateOpeningService.requestStateOpening("northmarch", 40L);
 
         assertFalse(stateOpeningService.canOpen("northmarch", CITIZEN));
-        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", CITIZEN));
+        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", CITIZEN, 40L));
     }
 
     @Test
-    void commissionOpensParliamentOnceTheDelayHasPassed() {
+    void commissionOpensParliamentOnceThreeSittingDaysHavePassed() {
         stateOpeningService.requestStateOpening("northmarch", 40L);
 
-        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 42L).isEmpty());
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 44L, 44L).isEmpty());
         assertFalse(parliamentService.isSessionOpen("northmarch"));
 
-        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 43L).isPresent());
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 46L, 46L).isPresent());
         assertTrue(parliamentService.isSessionOpen("northmarch"));
         assertFalse(stateOpeningService.isAwaitingStateOpening("northmarch"));
     }
 
     @Test
+    void theCrownCannotOpenParliamentOnARecessDay() {
+        stateOpeningService.requestStateOpening("northmarch", 40L);
+
+        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", PRINCE, 41L));
+        assertFalse(parliamentService.isSessionOpen("northmarch"));
+        assertTrue(stateOpeningService.isAwaitingStateOpening("northmarch"));
+    }
+
+    @Test
+    void commissionWaitsForASittingDayEvenOnceTheDelayHasPassed() {
+        stateOpeningService.requestStateOpening("northmarch", 40L);
+
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 47L, 47L).isEmpty());
+        assertFalse(parliamentService.isSessionOpen("northmarch"));
+    }
+
+    @Test
+    void commissionCountsSittingDaysAcrossACalendarEpoch() {
+        // Realm day trails the world day by the epoch, so parity is read from the realm day.
+        stateOpeningService.requestStateOpening("northmarch", 41L);
+
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 46L, 45L).isEmpty());
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 47L, 46L).isPresent());
+    }
+
+    @Test
     void commissionDoesNothingWhenNoOpeningIsPending() {
-        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 99L).isEmpty());
+        assertTrue(stateOpeningService.commissionIfOverdue("northmarch", 99L, 99L).isEmpty());
     }
 
     @Test
     void openingTwiceFails() {
         stateOpeningService.requestStateOpening("northmarch", 40L);
-        stateOpeningService.open("northmarch", PRINCE);
+        stateOpeningService.open("northmarch", PRINCE, 40L);
 
-        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", PRINCE));
+        assertInstanceOf(ParliamentResult.Failure.class, stateOpeningService.open("northmarch", PRINCE, 40L));
     }
 
     private Kingdom kingdom() {

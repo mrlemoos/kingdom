@@ -21,6 +21,13 @@ public final class SittingCalendar {
         return !prorogued && isSittingDay(realmDay);
     }
 
+    /** How many sitting days have fallen since {@code fromRealmDay}, up to and including {@code toRealmDay}. */
+    public static long sittingDaysBetween(long fromRealmDay, long toRealmDay) {
+        long from = Math.max(0L, fromRealmDay);
+        long to = Math.max(0L, toRealmDay);
+        return to <= from ? 0L : to / 2L - from / 2L;
+    }
+
     /**
      * Ordinary villager MPs work their professions on recess days, and every day while
      * Parliament is prorogued. The Premier villager and Speaker stay at Parliament full-time.
