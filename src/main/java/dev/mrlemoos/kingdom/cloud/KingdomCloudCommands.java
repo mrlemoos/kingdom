@@ -6,6 +6,7 @@ import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.command.TpCommand;
+import dev.mrlemoos.kingdom.command.WorldGuardCaptureSpikeCommand;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.TeleportService;
 import org.bukkit.command.CommandSender;
@@ -34,10 +35,19 @@ public final class KingdomCloudCommands {
             KingdomService kingdomService,
             TeleportService teleportService) {
         registerKingdomCommands(manager, kingdomCommand, kingdomService);
+        registerWorldGuardCaptureSpike(manager, kingdomService);
         registerTpCommands(manager, tpCommand, kingdomService, teleportService);
         registerLocateCommands(manager, locateCommand, kingdomService, teleportService);
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudCoronaCommands(coronaCommand));
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudResignCommands(resignCommand));
+    }
+
+    private static void registerWorldGuardCaptureSpike(
+            LegacyPaperCommandManager<CommandSender> manager, KingdomService kingdomService) {
+        WorldGuardCaptureSpikeCommand spike = new WorldGuardCaptureSpikeCommand(kingdomService);
+        manager.command(manager.commandBuilder("kingdom-spike")
+                .required("args", StringParser.greedyStringParser())
+                .handler(ctx -> spike.execute(ctx.sender(), CommandArgTokenizer.tokenize(ctx.get("args")))));
     }
 
     private static void registerKingdomCommands(
@@ -130,12 +140,27 @@ public final class KingdomCloudCommands {
                 .literal("capital")
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "capital" })));
 
-        for (String action : new String[] { "set", "clear" }) {
+        for (String action : new String[] { "set", "clear", "clearregion" }) {
             manager.command(manager.commandBuilder("kingdom", "kdm")
                     .literal("capital")
                     .literal(action)
                     .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "capital", action })));
         }
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("capital")
+                .literal("setregion")
+                .required("region", StringParser.stringParser())
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
+                        "capital", "setregion", ctx.get("region")
+                })));
+
+        manager.command(manager.commandBuilder("kingdom", "kdm")
+                .literal("setcapital")
+                .required("region", StringParser.stringParser())
+                .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] {
+                        "setcapital", ctx.get("region")
+                })));
 
         manager.command(manager.commandBuilder("kingdom", "kdm")
                 .literal("crier")
@@ -179,6 +204,7 @@ public final class KingdomCloudCommands {
                 .literal("clear")
                 .handler(ctx -> kingdomCommand.execute(ctx.sender(), new String[] { "granary", "clear" })));
 
+        registerGreedySubcommand(manager, kingdomCommand, "tribute");
         registerGreedySubcommand(manager, kingdomCommand, "date");
         registerGreedySubcommand(manager, kingdomCommand, "almanac");
         registerGreedySubcommand(manager, kingdomCommand, "loyalty");

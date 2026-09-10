@@ -6,6 +6,7 @@ import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadEntityService;
 import java.util.Objects;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -20,6 +21,7 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     private TownCrierService townCrierService;
     private KingdomService kingdomService;
     private YamlKingdomStore store;
+    private CrownSquadEntityService crownSquadEntities;
 
     public TerritoryVillagerDespawnTask(JavaPlugin plugin, VillagerMpEntityService villagerMpEntityService) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -43,6 +45,10 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
         this.clericService = clericService;
     }
 
+    public void setCrownSquadEntities(CrownSquadEntityService crownSquadEntities) {
+        this.crownSquadEntities = crownSquadEntities;
+    }
+
     public void schedule(long intervalTicks) {
         long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
@@ -52,6 +58,7 @@ public final class TerritoryVillagerDespawnTask implements Runnable {
     public void run() {
         villagerMpEntityService.reconcileAllTerritoryVillagerDespawn();
         villagerMpEntityService.reconcileAllTerritoryVillagerNametags();
+        if (crownSquadEntities != null) crownSquadEntities.reconcileAll();
         boolean changed = false;
         if (lordMayorService != null && lordMayorService.reconcileAll()) {
             changed = true;

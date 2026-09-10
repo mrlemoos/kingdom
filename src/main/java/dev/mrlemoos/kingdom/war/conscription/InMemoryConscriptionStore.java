@@ -41,6 +41,18 @@ public final class InMemoryConscriptionStore implements ConscriptionStore {
     }
 
     @Override
+    public void replaceAll(Collection<PressedVillager> pressed) {
+        pressedByVillager.clear();
+        if (pressed != null) {
+            for (PressedVillager villager : pressed) {
+                if (villager != null) {
+                    pressedByVillager.put(villager.villagerId(), villager);
+                }
+            }
+        }
+    }
+
+    @Override
     public void release(UUID villagerId) {
         pressedByVillager.remove(villagerId);
     }

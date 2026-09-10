@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * In-memory {@link WarDebtStore}. YAML persistence in {@code economy.yml} follows in a later
- * slice per {@code docs/build-order.md} Slice 6.7.
+ * In-memory {@link WarDebtStore}. {@code YamlEconomyStore} persists {@link #allDebtsView()}
+ * under {@code war-debts} in {@code economy.yml}.
  */
 public final class InMemoryWarDebtStore implements WarDebtStore {
 
@@ -77,5 +77,16 @@ public final class InMemoryWarDebtStore implements WarDebtStore {
             }
         }
         return List.copyOf(debts);
+    }
+
+    @Override
+    public void replaceAll(Collection<WarDebt> debts) {
+        debtsByDebtor.clear();
+        if (debts == null) {
+            return;
+        }
+        for (WarDebt debt : debts) {
+            recordDebt(debt.debtorKingdomId(), debt.creditorKingdomId(), debt.amount());
+        }
     }
 }

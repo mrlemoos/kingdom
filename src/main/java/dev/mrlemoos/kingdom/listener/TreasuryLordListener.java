@@ -10,6 +10,12 @@ import dev.mrlemoos.kingdom.mint.TreasuryWithdrawGui;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
+import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.model.RankAuthority;
+import dev.mrlemoos.kingdom.war.WarResult;
+import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadEntityService;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadService;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +37,10 @@ public final class TreasuryLordListener implements Listener {
     private final EconomyService economyService;
     private final KingdomService kingdomService;
     private final YamlEconomyStore economyStore;
+    private final YamlKingdomStore kingdomStore;
+    private final CrownSquadService crownSquads;
+    private final CrownSquadEntityService crownSquadEntities;
+    private final WarService warService;
     private final Map<UUID, String> pendingCustomWithdrawals = new HashMap<>();
 
     public TreasuryLordListener(
@@ -38,10 +48,26 @@ public final class TreasuryLordListener implements Listener {
             EconomyService economyService,
             KingdomService kingdomService,
             YamlEconomyStore economyStore) {
+        this(treasuryLordService, economyService, kingdomService, economyStore, null, null, null, null);
+    }
+
+    public TreasuryLordListener(
+            TreasuryLordService treasuryLordService,
+            EconomyService economyService,
+            KingdomService kingdomService,
+            YamlEconomyStore economyStore,
+            YamlKingdomStore kingdomStore,
+            CrownSquadService crownSquads,
+            CrownSquadEntityService crownSquadEntities,
+            WarService warService) {
         this.treasuryLordService = treasuryLordService;
         this.economyService = economyService;
         this.kingdomService = kingdomService;
         this.economyStore = economyStore;
+        this.kingdomStore = kingdomStore;
+        this.crownSquads = crownSquads;
+        this.crownSquadEntities = crownSquadEntities;
+        this.warService = warService;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -83,8 +109,44 @@ public final class TreasuryLordListener implements Listener {
             return;
         }
 
+        if (player.isSneaking()) {
+            raiseCrownSquad(player, mintKingdomId.get(), mint.get(), villager.getLocation());
+            return;
+        }
+
         sendMintBriefing(player, mintKingdomId.get());
         openWithdrawGui(player, mintKingdomId.get());
+    }
+
+    private void raiseCrownSquad(Player player, String kingdomId, MintLocation mint, org.bukkit.Location location) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (crownSquads == null || crownSquadEntities == null || warService == null || !warService.config().enabled()) {
+            player.sendMessage(error("War is not enabled for this realm."));
+            return;
+        }
+        if (membership.isEmpty() || !kingdomId.equals(membership.get().getKingdomId())
+                || !RankAuthority.canRaiseCrownSquads(membership.get().getRank())) {
+            player.sendMessage(error("Only the King or Queen may raise crown squads."));
+            return;
+        }
+        if (!warService.isAtWar(kingdomId)) {
+            player.sendMessage(error("Crown squads may be raised only during an active war."));
+            return;
+        }
+        WarResult result = crownSquads.purchase(kingdomId);
+        if (result instanceof WarResult.Failure failure) {
+            player.sendMessage(error(failure.message()));
+            return;
+        }
+        var unit = crownSquads.unitsOf(kingdomId).get(crownSquads.countOf(kingdomId) - 1);
+        if (!crownSquadEntities.spawn(unit, location)) {
+            crownSquads.destroyUnit(kingdomId, unit.unitId());
+            player.sendMessage(error("Crown squad could not be raised."));
+            return;
+        }
+        economyStore.saveFrom(economyService);
+        if (kingdomStore != null) kingdomStore.saveFrom(kingdomService);
+        player.sendMessage(success("Crown squad raised. " + ((WarResult.Success) result).message()));
     }
 
     /** The balances the mint lectern used to print, now read out by the Lord itself. */

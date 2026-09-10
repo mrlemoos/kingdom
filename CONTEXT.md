@@ -599,7 +599,7 @@ A player tracked for loyalty—either a kingdom member or a **sworn outsider**. 
 _Avoid_: Citizen, member, ally tag
 
 **Oath of service**:
-A ceremony pledging military obligation to a kingdom—at a court lectern, throne checkpoint, or muster point. Early voluntary bind for members; required entry for **sworn outsiders**. Answering a **muster** binds military morale for members without a prior oath.
+A church ceremony before a realm's cleric that pledges military obligation to a kingdom. Early voluntary bind for members; required entry for **sworn outsiders**. Answering a **muster** binds military morale for members without a prior oath.
 _Avoid_: Join command, team accept, contract sign GUI
 
 **Sworn outsider**:
@@ -679,7 +679,7 @@ Contested control of map chunks inside a **siege**. Progress when attacker **mil
 _Avoid_: Claim plugin, land grab, faction power
 
 **Captured chunk**:
-A chunk inside enemy linked territory that has flipped to attacker control during **siege**. **Occupation** rules apply immediately; the linked WorldGuard region boundary is unchanged until **region merge**. Defenders may **recapture** the chunk using the same **chunk capture** presence rules.
+A chunk inside enemy linked territory that has flipped to attacker control during **siege**. **Occupation** rules apply immediately; linked territory is unchanged until **annexation**. Defenders may **recapture** the chunk using the same **chunk capture** presence rules.
 _Avoid_: World edit paste, instant border, faction claim
 
 **Recapture**:
@@ -691,7 +691,7 @@ The control state of a **captured chunk** during an active war. Attacker militar
 _Avoid_: Raid mode, grief permit, temp trust
 
 **Region merge**:
-The WorldGuard operation that redraws linked territory after **decisive victory** with an **annexation** outcome—or when a **territory threshold** aim completes—folding **captured** chunks into the attacker's region. Deferred during war in favour of per-chunk **occupation**.
+Retired term. Annexation adds a named WorldGuard region to the attacker's linked territory union; it does not redraw or merge an existing region.
 _Avoid_: //expand, manual redraw, faction merge command
 
 **Military participant**:
@@ -815,8 +815,12 @@ A **war aim** requiring the attacker to **capture** a named percentage of the de
 _Avoid_: Score limit, percent bar UI, faction power
 
 **Annexation**:
-A **decisive victory** outcome named in the war bill: captured enemy chunks are merged into the attacker's linked WorldGuard territory. Requires the war aim to be met first.
+A **decisive victory** outcome named in the war bill: a WorldGuard region made for captured enemy chunks is added to the attacker's linked territory union. Requires the war aim to be met first.
 _Avoid_: Land claim, region steal, faction absorb
+
+**Linked territory**:
+The ordered union of named WorldGuard regions belonging to one kingdom in its linked world. WorldGuard remains the authority for membership; no raw coordinate or custom chunk claim list represents territory.
+_Avoid_: Single region assumption, coordinate claim array, faction chunks
 
 **War tribute**:
 A **decisive victory** outcome named in the **war bill**: the defeated kingdom pays a configured Corona sum to the victor's treasury. Available balance transfers immediately on victory; any shortfall becomes **war debt** until cleared.
@@ -1011,6 +1015,10 @@ _Avoid_: Holiday, adjournment, vacation, break
 **Villager jury**:
 A trial jury of three territory villagers claimed when fewer than three eligible players are online. They are released to their stored origins when the trial ends. The verdict still comes from the realm-handled sentence table; the spectacle is bodies in seats, sound, and the trial bar. Excludes the accused (if a villager), seated MPs and the Premier, the Speaker, Treasury Lords, the villager judge, the **Town Crier**, and striking villagers. Fewer than three eligible villagers falls to the villager judge alone.
 _Avoid_: NPC jury, fake jury, auto jury
+
+**Realm Hub**:
+The single screen a bare `/kingdom` opens for a player: their realm, rank and style; the **loyalty ledger**; the **Gazette** and where the **Town Crier** stands; their **build permit**; whatever business is live in the realm this moment; every power delegated down the ladder; and where each of the realm's offices stands, with the reader's distance from it. Powers that are not the reader's are shown greyed and refused, naming who may — never hidden. The console keeps the written help.
+_Avoid_: Menu, main menu, dashboard, compass, help GUI
 
 ## Granary
 

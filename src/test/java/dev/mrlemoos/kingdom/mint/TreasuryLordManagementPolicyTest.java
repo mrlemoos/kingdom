@@ -28,4 +28,14 @@ class TreasuryLordManagementPolicyTest {
         assertFalse(TreasuryLordManagementPolicy.canDespawn(NobleRank.MP, false));
         assertFalse(TreasuryLordManagementPolicy.canDespawn(NobleRank.KNIGHT, false));
     }
+
+    @Test
+    void aLordMayDespawn() {
+        assertTrue(TreasuryLordManagementPolicy.canDespawn(NobleRank.LORD, false));
+    }
+
+    @Test
+    void aDukeMayNotDespawn() {
+        assertFalse(TreasuryLordManagementPolicy.canDespawn(NobleRank.DUKE, false));
+    }
 }

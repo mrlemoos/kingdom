@@ -105,6 +105,10 @@ public final class ConscriptionService {
         return store.find(villagerId).isPresent();
     }
 
+    public Optional<PressedVillager> pressedVillager(UUID villagerId) {
+        return store.find(villagerId);
+    }
+
     /**
      * Predicate for the villager economy's GDP tick (see {@code VillagerEconomyProcessor} /
      * {@code EconomyCoordinator}): a pressed villager is not economically active and must be

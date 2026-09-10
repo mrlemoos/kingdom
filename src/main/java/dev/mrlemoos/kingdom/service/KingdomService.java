@@ -166,10 +166,10 @@ public class KingdomService {
     }
 
     public Optional<String> territoryLabel(Kingdom kingdom) {
-        if (kingdom.getWorldGuardRegion() == null || kingdom.getWorldGuardRegion().isBlank()) {
+        if (!kingdom.hasWorldGuardRegions()) {
             return Optional.empty();
         }
-        return Optional.of(kingdom.getWorldGuardRegion() + " (" + resolveWorldName(kingdom) + ")");
+        return Optional.of(String.join(", ", kingdom.getWorldGuardRegions()) + " (" + resolveWorldName(kingdom) + ")");
     }
 
     public KingdomResult setKingdomRegion(String kingdomId, String regionName) {
@@ -179,6 +179,20 @@ public class KingdomService {
         }
         kingdom.get().setWorldGuardRegion(regionName);
         return KingdomResult.ok("Linked region " + regionName + " to " + kingdom.get().getDisplayName() + ".");
+    }
+
+    public KingdomResult addKingdomRegion(String kingdomId, String regionName) {
+        Optional<Kingdom> kingdom = getKingdom(kingdomId);
+        if (kingdom.isEmpty()) return KingdomResult.fail("Unknown kingdom.");
+        kingdom.get().addWorldGuardRegion(regionName);
+        return KingdomResult.ok("Added region " + regionName + " to " + kingdom.get().getDisplayName() + ".");
+    }
+
+    public KingdomResult removeKingdomRegion(String kingdomId, String regionName) {
+        Optional<Kingdom> kingdom = getKingdom(kingdomId);
+        if (kingdom.isEmpty()) return KingdomResult.fail("Unknown kingdom.");
+        if (!kingdom.get().removeWorldGuardRegion(regionName)) return KingdomResult.fail("That region is not linked to this kingdom.");
+        return KingdomResult.ok("Removed region " + regionName + " from " + kingdom.get().getDisplayName() + ".");
     }
 
     public KingdomResult setKingdomWorld(String kingdomId, String worldName) {

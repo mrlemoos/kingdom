@@ -99,6 +99,17 @@ class KingdomInfoCommandTest {
     }
 
     @Test
+    void kingdomInfoSaysWhenLinkedChunkCountCannotBeRead() {
+        kingdomService.getKingdom("northmarch").orElseThrow().setWorldName("world");
+        kingdomService.getKingdom("northmarch").orElseThrow().addWorldGuardRegion("northmarch_keep");
+        PlayerMock viewer = server.addPlayer("Viewer");
+
+        command.execute(viewer, new String[] {"info", "northmarch"});
+
+        assertTrue(drainedMessages(viewer).contains("Chunks: unavailable"));
+    }
+
+    @Test
     void aSubjectBelowTheCrownIsRefusedTheGranary() {
         PlayerMock subject = server.addPlayer("Subject");
         kingdomService.joinKingdom(subject.getUniqueId(), "northmarch");

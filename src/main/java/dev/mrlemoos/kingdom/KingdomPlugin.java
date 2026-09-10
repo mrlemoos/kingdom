@@ -7,6 +7,7 @@ import dev.mrlemoos.kingdom.city.GazetteService;
 import dev.mrlemoos.kingdom.city.LordMayorService;
 import dev.mrlemoos.kingdom.city.TownCrierService;
 import dev.mrlemoos.kingdom.command.KingdomCityHandler;
+import dev.mrlemoos.kingdom.command.KingdomTributeHandler;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.KingdomFiscalHandler;
 import dev.mrlemoos.kingdom.command.KingdomPoliceHandler;
@@ -49,6 +50,7 @@ import dev.mrlemoos.kingdom.listener.TerritoryWealthListener;
 import dev.mrlemoos.kingdom.listener.NobleDisplayListener;
 import dev.mrlemoos.kingdom.listener.TreasuryLordListener;
 import dev.mrlemoos.kingdom.listener.VillagerProfessionNametagListener;
+import dev.mrlemoos.kingdom.listener.ConscriptionListener;
 import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
 import dev.mrlemoos.kingdom.loyalty.InMemoryMoraleStore;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
@@ -119,6 +121,9 @@ import dev.mrlemoos.kingdom.hearth.HearthDayService;
 import dev.mrlemoos.kingdom.hearth.InMemoryColdLedgerStore;
 import dev.mrlemoos.kingdom.task.VillagerGdpTask;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
+import dev.mrlemoos.kingdom.war.tribute.InMemoryWarDebtStore;
+import dev.mrlemoos.kingdom.war.tribute.WarTributeConfig;
+import dev.mrlemoos.kingdom.war.tribute.WarTributeService;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.oath.InMemorySwornOutsiderStore;
@@ -133,6 +138,20 @@ import dev.mrlemoos.kingdom.war.levy.StandingRosterLevyRoster;
 import dev.mrlemoos.kingdom.war.roster.InMemoryStandingRosterStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterConfig;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
+import dev.mrlemoos.kingdom.war.muster.InMemoryMusterStore;
+import dev.mrlemoos.kingdom.war.muster.MusterConfig;
+import dev.mrlemoos.kingdom.war.muster.MusterService;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionConfig;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionService;
+import dev.mrlemoos.kingdom.war.conscription.InMemoryConscriptionStore;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadConfig;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadEntityService;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadService;
+import dev.mrlemoos.kingdom.war.crownsquad.InMemoryCrownSquadStore;
+import dev.mrlemoos.kingdom.war.capital.CapitalService;
+import dev.mrlemoos.kingdom.war.squad.OfficerEligibility;
+import dev.mrlemoos.kingdom.war.squad.SquadConfig;
+import dev.mrlemoos.kingdom.war.squad.SquadService;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 
 import org.bukkit.command.CommandSender;
@@ -174,11 +193,25 @@ public final class KingdomPlugin extends JavaPlugin {
                 MilitaryParticipantRegistry militaryParticipantRegistry = new MilitaryParticipantRegistry();
                 warService.setConfig(WarConfig.fromPluginConfig(getConfig()));
                 store.setWarService(warService);
+                CapitalService capitalService = new CapitalService();
+                store.setCapitalService(capitalService);
+                dev.mrlemoos.kingdom.war.capture.ChunkCaptureService chunkCaptureService =
+                                new dev.mrlemoos.kingdom.war.capture.ChunkCaptureService(
+                                                dev.mrlemoos.kingdom.war.capture.CaptureConfig.fromPluginConfig(
+                                                                getConfig()));
+                dev.mrlemoos.kingdom.war.occupation.OccupationBuildGate occupationBuildGate =
+                                new dev.mrlemoos.kingdom.war.occupation.OccupationBuildGate(chunkCaptureService);
                 InMemoryStandingRosterStore standingRosterStore = new InMemoryStandingRosterStore();
                 standingRosterService = new StandingRosterService(
                                 kingdomService, standingRosterStore, StandingRosterConfig.fromPluginConfig(getConfig()));
                 warService.setStandingRosterService(standingRosterService);
                 store.setStandingRosterStore(standingRosterStore);
+                InMemoryMusterStore musterStore = new InMemoryMusterStore();
+                store.setMusterStore(musterStore);
+                InMemoryConscriptionStore conscriptionStore = new InMemoryConscriptionStore();
+                store.setConscriptionStore(conscriptionStore);
+                InMemorySwornOutsiderStore swornOutsiderStore = new InMemorySwornOutsiderStore();
+                store.setSwornOutsiderStore(swornOutsiderStore);
                 InMemoryLevyArrearsStore levyArrearsStore = new InMemoryLevyArrearsStore();
                 store.setLevyArrearsStore(levyArrearsStore);
                 InMemoryColdLedgerStore coldLedgerStore = new InMemoryColdLedgerStore();
@@ -210,12 +243,25 @@ public final class KingdomPlugin extends JavaPlugin {
                 MoraleService moraleService = new MoraleService(
                                 moraleStore, MoraleConfig.fromPluginConfig(getConfig()));
                 this.moraleService = moraleService;
+                MusterService musterService = new MusterService(warService, kingdomService, musterStore, System::currentTimeMillis);
+                musterService.setConfig(MusterConfig.fromPluginConfig(getConfig()));
+                musterService.setStandingRosterService(standingRosterService);
+                musterService.setLoyaltyService(loyaltyService);
+                musterService.setMoraleServiceCreditHook(moraleService, realmCalendarService::currentRealmDay);
+                warService.setMusterService(musterService);
+                ConscriptionConfig conscriptionConfig = ConscriptionConfig.fromPluginConfig(getConfig());
+                ConscriptionService conscriptionService = new ConscriptionService(
+                                kingdomService,
+                                conscriptionStore,
+                                new ConscriptionConfig(
+                                                getConfig().getBoolean("war.enabled", false) && conscriptionConfig.enabled(),
+                                                conscriptionConfig.cap()));
                 loyaltyGateService = new LoyaltyGateService(loyaltyService);
                 oathService = new OathService(
                                 kingdomService,
                                 loyaltyService,
                                 moraleService,
-                                new InMemorySwornOutsiderStore(),
+                                swornOutsiderStore,
                                 OathConfig.fromPluginConfig(getConfig()));
                 PoliceService policeService = new PoliceService(kingdomService, PoliceConfig.defaults());
                 MechanicalJusticeService mechanicalJusticeService = new MechanicalJusticeService(
@@ -230,7 +276,36 @@ public final class KingdomPlugin extends JavaPlugin {
                 // Paying income tax while out of favour is an act of service on the political track.
                 economyService.setServiceCreditHook(loyaltyService, realmCalendarService::currentRealmDay);
                 economyStore = new YamlEconomyStore(this);
+                InMemoryWarDebtStore warDebtStore = new InMemoryWarDebtStore();
+                economyStore.setWarDebtStore(warDebtStore);
                 economyStore.loadInto(economyService);
+                WarTributeService warTributeService = new WarTributeService(economyService, warDebtStore);
+                WarTributeConfig warTributeConfig = WarTributeConfig.fromPluginConfig(getConfig());
+                InMemoryCrownSquadStore crownSquadStore = new InMemoryCrownSquadStore();
+                CrownSquadConfig crownSquadConfig = CrownSquadConfig.fromPluginConfig(getConfig());
+                CrownSquadService crownSquadService = new CrownSquadService(
+                                economyService, crownSquadConfig, crownSquadStore, java.util.UUID::randomUUID, System::currentTimeMillis);
+                store.setCrownSquadStore(crownSquadStore);
+                store.loadCrownSquads();
+                CrownSquadEntityService crownSquadEntityService = new CrownSquadEntityService(this, crownSquadService, economyService);
+                java.util.function.Predicate<java.util.UUID> squadOfficerEligibility =
+                                OfficerEligibility.standingRosterOrMuster(
+                                                standingRosterService,
+                                                musterService,
+                                                officerId -> {
+                                                    java.util.Optional<dev.mrlemoos.kingdom.model.PlayerMembership> membership =
+                                                            kingdomService.getMembership(officerId);
+                                                    if (membership.isEmpty()) return null;
+                                                    java.util.Optional<dev.mrlemoos.kingdom.model.war.ActiveWar> activeWar =
+                                                            warService.activeWarFor(membership.get().getKingdomId());
+                                                    return activeWar.isPresent() ? activeWar.get().id() : null;
+                                                });
+                SquadService squadService = new SquadService(
+                                SquadConfig.fromPluginConfig(getConfig()),
+                                squadOfficerEligibility,
+                                officerId -> moraleService.tierOf(officerId).orElse(dev.mrlemoos.kingdom.model.war.MoraleTier.STEADFAST));
+                squadService.setConscriptionService(conscriptionService);
+                squadService.setCrownSquadService(crownSquadService);
                 PoliceTrialService policeTrialService = new PoliceTrialService(
                                 kingdomService,
                                 policeService,
@@ -444,7 +519,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 lordMayorService,
                                 townCrierService,
                                 territoryResolver,
-                                store);
+                                store,
+                                capitalService);
                 dev.mrlemoos.kingdom.command.KingdomChurchHandler churchHandler =
                                 new dev.mrlemoos.kingdom.command.KingdomChurchHandler(
                                                 kingdomService,
@@ -454,7 +530,12 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 economyService,
                                                 store);
                 DemobilisationService demobilisationService = new DemobilisationService(warService);
+                demobilisationService.setMusterService(musterService);
+                demobilisationService.setStandingRosterService(standingRosterService);
                 demobilisationService.setMilitaryParticipantRegistry(militaryParticipantRegistry);
+                demobilisationService.setConscriptionService(conscriptionService);
+                demobilisationService.setCrownSquadService(crownSquadService);
+                crownSquadService.setDemobilisationObserver(crownSquadEntityService::remove);
                 ParliamentHandler parliamentHandler = new ParliamentHandler(
                                 parliamentService,
                                 kingdomService,
@@ -502,6 +583,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 realmCalendarService,
                                 dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig()));
                 kingdomCommand.setGranaryConfig(granaryConfig);
+                kingdomCommand.setTributeHandler(
+                                new KingdomTributeHandler(kingdomService, economyService, warTributeService, economyStore));
                 CoronaCommand coronaCommand = new CoronaCommand(economyService, kingdomService, economyStore,
                                 economyCoordinator);
                 TeleportService teleportService = new TeleportService(kingdomService);
@@ -565,19 +648,24 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 buildConductEnforcer,
                                                 mechanicalJusticeService,
                                                 loyaltyService,
-                                                cityService),
+                                                cityService,
+                                                warService,
+                                                occupationBuildGate),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.LordMayorGuiListener(
                                                 lordMayorService, cityService, kingdomService, store,
-                                                economyService, realmWealthRates, nobleDisplay),
+                                                economyService, realmWealthRates, nobleDisplay,
+                                                standingRosterService, getConfig().getBoolean("war.enabled", false)),
                                 this);
                 dev.mrlemoos.kingdom.listener.HonoursGuiListener honoursGuiListener =
                                 new dev.mrlemoos.kingdom.listener.HonoursGuiListener(
                                                 kingdomService, store, nobleDisplay);
                 honoursGuiListener.setChurchService(churchService);
                 getServer().getPluginManager().registerEvents(honoursGuiListener, this);
-                getServer().getPluginManager().registerEvents(
+                dev.mrlemoos.kingdom.calendar.PollingDay hubPollingDay =
+                                dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig());
+                dev.mrlemoos.kingdom.listener.TownCrierGuiListener townCrierGuiListener =
                                 new dev.mrlemoos.kingdom.listener.TownCrierGuiListener(
                                                 townCrierService,
                                                 gazetteService,
@@ -586,11 +674,167 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 economyService,
                                                 mechanicalJusticeService,
                                                 realmCalendarService,
-                                                dev.mrlemoos.kingdom.calendar.PollingDay.fromPluginConfig(getConfig())),
+                                                hubPollingDay);
+                getServer().getPluginManager().registerEvents(townCrierGuiListener, this);
+
+                dev.mrlemoos.kingdom.listener.MusterGuiListener musterGuiListener =
+                                new dev.mrlemoos.kingdom.listener.MusterGuiListener(
+                                                warService, musterService, store, kingdomService);
+                getServer().getPluginManager().registerEvents(musterGuiListener, this);
+                ConscriptionListener conscriptionListener = new ConscriptionListener(
+                                this, kingdomService, territoryResolver, conscriptionService,
+                                () -> store.saveFrom(kingdomService));
+                getServer().getPluginManager().registerEvents(conscriptionListener, this);
+                getServer().getScheduler().runTaskTimer(this, conscriptionListener::reconcileLoadedVillagers, 20L, 1200L);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.SquadControlListener(
+                                                kingdomService,
+                                                warService,
+                                                conscriptionService,
+                                                crownSquadService,
+                                                squadService,
+                                                squadOfficerEligibility),
+                                this);
+                dev.mrlemoos.kingdom.war.siege.SiegeZoneResolver siegeZones =
+                                new dev.mrlemoos.kingdom.war.siege.SiegeZoneResolver(
+                                                dev.mrlemoos.kingdom.war.siege.SiegeConfig.fromPluginConfig(getConfig()));
+                dev.mrlemoos.kingdom.war.siege.TerritoryPort siegeTerritory =
+                                (kingdomId, chunk) -> territoryResolver
+                                                .owningKingdomId(
+                                                                chunk.worldName(),
+                                                                chunk.chunkX() * 16 + 8,
+                                                                64,
+                                                                chunk.chunkZ() * 16 + 8)
+                                                .filter(foundKingdomId -> kingdomId.equals(foundKingdomId))
+                                                .isPresent();
+                demobilisationService.setChunkCaptureService(chunkCaptureService);
+                dev.mrlemoos.kingdom.war.capital.WarAimEvaluator warAimEvaluator =
+                                new dev.mrlemoos.kingdom.war.capital.WarAimEvaluator(
+                                                dev.mrlemoos.kingdom.war.capital.WarAimConfig.fromPluginConfig(
+                                                                getConfig()));
+                dev.mrlemoos.kingdom.war.victory.VictoryEvaluator victoryEvaluator =
+                                new dev.mrlemoos.kingdom.war.victory.VictoryEvaluator(warAimEvaluator);
+                victoryEvaluator.setDemobilisationService(demobilisationService);
+                dev.mrlemoos.kingdom.war.victory.DefaultVictoryOutcomeDispatcher outcomeDispatcher =
+                                new dev.mrlemoos.kingdom.war.victory.DefaultVictoryOutcomeDispatcher();
+                java.io.File annexBackups = new java.io.File(getDataFolder(), "annexation-backups");
+                java.io.File annexAudit = new java.io.File(getDataFolder(), "annexation-audit.log");
+                outcomeDispatcher.setRegionMergeExecutor(
+                                new dev.mrlemoos.kingdom.war.annexation.WorldGuardAnnexationExecutor(
+                                                new dev.mrlemoos.kingdom.war.annexation.DomainRegionMergeExecutor(
+                                                                dev.mrlemoos.kingdom.war.annexation.AnnexationConfig
+                                                                                .fromPluginConfig(getConfig())),
+                                                kingdomService,
+                                                new dev.mrlemoos.kingdom.war.annexation.AnnexationTerritoryLink(),
+                                                dev.mrlemoos.kingdom.worldguard.WorldGuardBridge::createCuboidRegion,
+                                                (key, body) -> {
+                                                    try {
+                                                        annexBackups.mkdirs();
+                                                        java.nio.file.Files.writeString(
+                                                                        new java.io.File(annexBackups, key + ".txt")
+                                                                                        .toPath(),
+                                                                        body);
+                                                    } catch (Exception ex) {
+                                                        getLogger().warning("Annexation backup failed: "
+                                                                        + ex.getMessage());
+                                                    }
+                                                },
+                                                line -> {
+                                                    getLogger().info(line);
+                                                    try {
+                                                        java.nio.file.Files.writeString(
+                                                                        annexAudit.toPath(),
+                                                                        line + System.lineSeparator(),
+                                                                        java.nio.file.StandardOpenOption.CREATE,
+                                                                        java.nio.file.StandardOpenOption.APPEND);
+                                                    } catch (Exception ex) {
+                                                        getLogger().warning("Annexation audit failed: "
+                                                                        + ex.getMessage());
+                                                    }
+                                                },
+                                                () -> store.saveFrom(kingdomService)));
+                outcomeDispatcher.setWarTributeService(warTributeService);
+                outcomeDispatcher.setWarTributeConfig(warTributeConfig);
+                victoryEvaluator.setOutcomeDispatcher(outcomeDispatcher);
+                dev.mrlemoos.kingdom.war.victory.VictoryTick victoryTick =
+                                new dev.mrlemoos.kingdom.war.victory.VictoryTick(
+                                                victoryEvaluator,
+                                                chunkCaptureService,
+                                                new dev.mrlemoos.kingdom.war.capital.WorldGuardLinkedTerritorySize(
+                                                                kingdomService),
+                                                dev.mrlemoos.kingdom.war.capital.CapitalFallMode.MAJORITY,
+                                                new dev.mrlemoos.kingdom.war.capital.WorldGuardCapitalTerritory(
+                                                                capitalService, kingdomService));
+                dev.mrlemoos.kingdom.war.capture.ChunkCapturePresenceTick chunkCaptureTick =
+                                new dev.mrlemoos.kingdom.war.capture.ChunkCapturePresenceTick(
+                                                siegeZones,
+                                                siegeTerritory,
+                                                militaryParticipantRegistry,
+                                                chunkCaptureService);
+                dev.mrlemoos.kingdom.war.siege.SiegePresenceService siegePresenceService =
+                                new dev.mrlemoos.kingdom.war.siege.SiegePresenceService(
+                                                siegeZones,
+                                                siegeTerritory,
+                                                militaryParticipantRegistry,
+                                                moraleService);
+                dev.mrlemoos.kingdom.listener.SiegePresenceListener siegePresenceListener =
+                                new dev.mrlemoos.kingdom.listener.SiegePresenceListener(
+                                                kingdomService,
+                                                warService,
+                                                standingRosterService,
+                                                musterService,
+                                                militaryParticipantRegistry,
+                                                siegePresenceService,
+                                                chunkCaptureTick);
+                siegePresenceListener.setVictoryTick(victoryTick);
+                siegePresenceListener.setOnDecisiveVictory(victory -> {
+                    store.saveFrom(kingdomService);
+                    economyStore.saveFrom(economyService);
+                });
+                getServer().getPluginManager().registerEvents(siegePresenceListener, this);
+                dev.mrlemoos.kingdom.hub.RealmHubSnapshotFactory realmHubSnapshots =
+                                new dev.mrlemoos.kingdom.hub.RealmHubSnapshotFactory(
+                                                kingdomService,
+                                                new dev.mrlemoos.kingdom.city.gui.GazetteLiveStateReader(
+                                                                economyService,
+                                                                mechanicalJusticeService,
+                                                                realmCalendarService,
+                                                                hubPollingDay))
+                                                .withCityService(cityService)
+                                                .withEconomyService(economyService)
+                                                .withJusticeService(mechanicalJusticeService)
+                                                .withParliamentService(parliamentService)
+                                                .withStandingRosterService(
+                                                        standingRosterService,
+                                                        getConfig().getBoolean("war.enabled", false))
+                                                .withOathService(oathService, moraleService)
+                                                .withMusterService(musterService, warService)
+                                                .withConscriptionService(conscriptionService)
+                                                .withSiegePresenceService(siegePresenceService)
+                                                .withChunkCaptureService(chunkCaptureService)
+                                                .withCapitalService(capitalService);
+                dev.mrlemoos.kingdom.listener.RealmHubListener realmHubListener =
+                                new dev.mrlemoos.kingdom.listener.RealmHubListener(kingdomService, realmHubSnapshots)
+                                                .withLoyaltyOpener(kingdomCommand::openLoyaltyLedger)
+                                                .withMusterOpener(player -> musterGuiListener.open(player))
+                                                .withParliamentOpener(parliamentGuiListener::openHubGui)
+                                                .withReferendumOpener(parliamentGuiListener::openReferendumBallotGui)
+                                                .withGazetteOpener(player -> kingdomService
+                                                                .getMembership(player.getUniqueId())
+                                                                .flatMap(membership -> kingdomService
+                                                                                .getKingdom(membership.getKingdomId()))
+                                                                .ifPresent(kingdom -> townCrierGuiListener.openGazette(
+                                                                                player, kingdom, 0)));
+                getServer().getPluginManager().registerEvents(realmHubListener, this);
+                kingdomCommand.setRealmHubOpener(realmHubListener::openHub);
+                // The morale pardon is heard at the court: right-click the judge's bench.
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.MoralePardonListener(
+                                                kingdomService, policeCourtService, moraleService),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.ClericGuiListener(
-                                                kingdomService, churchService, clericService, store),
+                                                kingdomService, churchService, clericService, store, oathService),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.HorsePermitListener(
@@ -621,7 +865,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new TreasuryLordListener(treasuryLordService, economyService, kingdomService,
-                                                economyStore),
+                                                economyStore, store, crownSquadService, crownSquadEntityService, warService),
                                 this);
                 getServer().getPluginManager().registerEvents(parliamentGuiListener, this);
                 getServer().getPluginManager().registerEvents(new RegistrarListener(kingdomService), this);
@@ -671,6 +915,13 @@ public final class KingdomPlugin extends JavaPlugin {
                 realmCalendarTask.setSeasonConfig(getConfig());
                 getServer().getScheduler().runTaskTimer(this, realmCalendarTask, 100L, 20L * 20);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
+                getServer().getScheduler().runTaskTimer(this, siegePresenceListener, 20L, 20L);
+                getServer().getScheduler().runTaskTimer(
+                                this,
+                                new dev.mrlemoos.kingdom.task.SquadAiTask(
+                                                squadService, kingdomService, warService, crownSquadEntityService),
+                                20L,
+                                20L);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickPatrolDetains, 60L, 20L);
                 getServer().getScheduler().runTaskTimer(
                                 this,
@@ -693,13 +944,14 @@ public final class KingdomPlugin extends JavaPlugin {
                                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
                 gdpTask.setCalendarService(realmCalendarService);
                 gdpTask.setChurchService(churchService);
+                gdpTask.setConscriptionService(conscriptionService);
                 LevyUpkeepService levyUpkeepService = new LevyUpkeepService(
                                 levyArrearsStore,
                                 LevyUpkeepConfig.fromPluginConfig(getConfig()),
                                 moraleService,
                                 economyService::debitTreasury,
                                 new StandingRosterLevyRoster(standingRosterService));
-                gdpTask.setLevyUpkeep(levyUpkeepService, null);
+                gdpTask.setLevyUpkeep(levyUpkeepService, musterService);
                 gdpTask.setHearths(new HearthDayService(coldLedgerStore), hearthConfig, villagerMpEntityService);
                 gdpTask.setGranary(granaryConfig, store, shortfallWatch);
                 gdpTask.setHunger(
@@ -722,6 +974,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 electionTask.setStateOpeningCeremony(stateOpeningCeremony);
                 divisionBossBarService = new DivisionBossBarService(kingdomService);
                 electionTask.setDivisionBossBarService(divisionBossBarService);
+                electionTask.setMusterService(musterService);
                 electionTask.schedule(ElectionTask.DEFAULT_INTERVAL_TICKS);
 
                 dev.mrlemoos.kingdom.display.RealmSidebarService realmSidebarService =
@@ -735,6 +988,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 territoryVillagerDespawnTask.setCityNpcServices(
                                 lordMayorService, townCrierService, kingdomService, store);
                 territoryVillagerDespawnTask.setClericService(clericService);
+                territoryVillagerDespawnTask.setCrownSquadEntities(crownSquadEntityService);
                 territoryVillagerDespawnTask.schedule(TerritoryVillagerDespawnTask.DEFAULT_INTERVAL_TICKS);
 
                 dev.mrlemoos.kingdom.task.MassTask massTask = new dev.mrlemoos.kingdom.task.MassTask(
@@ -750,6 +1004,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getScheduler().runTaskLater(this, villagerMpEntityService::scheduleStartupSync, 40L);
                 getServer().getScheduler().runTaskLater(this, royalStandardPlacer::raiseAll, 40L);
                 getServer().getScheduler().runTaskLater(this, () -> {
+                        crownSquadEntityService.reconcileAll();
                         boolean changed = lordMayorService.reconcileAll();
                         if (clericService.reconcileAll()) {
                                 changed = true;

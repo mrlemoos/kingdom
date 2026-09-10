@@ -114,6 +114,20 @@ class MusterServiceTest {
     }
 
     @Test
+    void activeMusterSurvivesServiceRestart() {
+        InMemoryMusterStore store = new InMemoryMusterStore();
+        MusterService first = new MusterService(warService, kingdomService, store, musterClock::get);
+        first.openMuster(war.id());
+        first.answer(war.id(), ATTACKER_MEMBER);
+
+        MusterService restarted = new MusterService(warService, kingdomService, store, musterClock::get);
+
+        assertTrue(restarted.isEligible(war.id(), DEFENDER_MEMBER));
+        assertEquals(MusterAnswer.ANSWERED, restarted.answerOf(war.id(), ATTACKER_MEMBER).orElseThrow());
+        assertEquals(MoraleTier.STEADFAST, restarted.levyMoraleTier(ATTACKER_MEMBER).orElseThrow());
+    }
+
+    @Test
     void cannotAnswerBeforeMusterIsOpened() {
         WarResult result = musterService.answer(war.id(), ATTACKER_MEMBER);
 

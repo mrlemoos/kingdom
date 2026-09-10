@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
+import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
+import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.service.ParliamentService.AssentedActDraft;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarResult;
@@ -24,6 +27,8 @@ import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
 import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
 import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
 import dev.mrlemoos.kingdom.war.capture.RegionMergePlan;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -217,6 +222,39 @@ class VictoryEvaluatorTest {
         demobilisationService.demobilise(war);
 
         assertTrue(regionMergeExecutor.lastExecutedPlan().isEmpty());
+        assertTrue(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
+    }
+
+    @Test
+    void annexationVictoryAlreadyEndedCannotBePeaceReverted() {
+        ActiveWar war = enactWar(WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION);
+        captureDefenderChunks(war, 2);
+        demobilisationService.setChunkCaptureService(chunkCaptureService);
+        DomainRegionMergeExecutor regionMergeExecutor = new DomainRegionMergeExecutor(AnnexationConfig.on());
+        DefaultVictoryOutcomeDispatcher dispatcher = new DefaultVictoryOutcomeDispatcher();
+        dispatcher.setRegionMergeExecutor(regionMergeExecutor);
+        victoryEvaluator.setOutcomeDispatcher(dispatcher);
+
+        victoryEvaluator.evaluateAndApply(war, chunkCaptureService, DEFENDER_LINKED_CHUNK_TOTAL, null, null);
+
+        WarResult peaceResult = ParliamentEnactment.enactPeace(
+                new AssentedActDraft(
+                        "northmarch",
+                        "bill-peace",
+                        "Treaty",
+                        BillType.PEACE,
+                        0L,
+                        List.of(),
+                        Map.of(),
+                        null,
+                        new BillPayload.Peace(war.id()),
+                        List.of()),
+                warService,
+                demobilisationService);
+
+        assertInstanceOf(WarResult.Failure.class, peaceResult);
+        assertTrue(((WarResult.Failure) peaceResult).message().toLowerCase().contains("no such active war"));
+        assertEquals(2, regionMergeExecutor.lastExecutedPlan().orElseThrow().chunksToMerge().size());
         assertTrue(chunkCaptureService.capturedBy(war.id(), "northmarch").isEmpty());
     }
 

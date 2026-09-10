@@ -25,8 +25,8 @@ public final class ProductiveVillagerScanner {
 
     public Map<String, Integer> professionCounts(Kingdom kingdom) {
         Map<String, Integer> counts = new HashMap<>();
-        String regionId = kingdom.getWorldGuardRegion();
-        if (regionId == null || regionId.isBlank()) {
+        Set<String> regionIds = Set.copyOf(kingdom.getWorldGuardRegions());
+        if (regionIds.isEmpty()) {
             return counts;
         }
         String worldName = kingdomService.resolveWorldName(kingdom);
@@ -36,7 +36,7 @@ public final class ProductiveVillagerScanner {
         }
 
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-            if (!isProductiveVillager(villager, worldName, regionId)) {
+            if (!isProductiveVillager(villager, worldName, regionIds)) {
                 continue;
             }
             String profession = professionName(villager);
@@ -47,8 +47,8 @@ public final class ProductiveVillagerScanner {
 
     public Optional<Villager> findCandidate(
             Kingdom kingdom, String profession, Set<UUID> excludedEntityIds, Predicate<Villager> extraExclusions) {
-        String regionId = kingdom.getWorldGuardRegion();
-        if (regionId == null || regionId.isBlank()) {
+        Set<String> regionIds = Set.copyOf(kingdom.getWorldGuardRegions());
+        if (regionIds.isEmpty()) {
             return Optional.empty();
         }
         String worldName = kingdomService.resolveWorldName(kingdom);
@@ -68,37 +68,36 @@ public final class ProductiveVillagerScanner {
             if (!VillagerMpProfessionMatcher.matches(profession, villager)) {
                 continue;
             }
-            if (isVillagerInRegion(villager, worldName, regionId)) {
+            if (isVillagerInRegion(villager, worldName, regionIds)) {
                 inRegion = Optional.of(villager);
             }
-            if (isProductiveVillager(villager, worldName, regionId)) {
+            if (isProductiveVillager(villager, worldName, regionIds)) {
                 return Optional.of(villager);
             }
         }
         return inRegion;
     }
 
-    private static boolean isVillagerInRegion(Villager villager, String worldName, String regionId) {
-        return isInRegion(villager.getLocation(), worldName, regionId, villager.getLocation());
+    private static boolean isVillagerInRegion(Villager villager, String worldName, Set<String> regionIds) {
+        return isInRegion(villager.getLocation(), worldName, regionIds, villager.getLocation());
     }
 
-    private static boolean isProductiveVillager(Villager villager, String worldName, String regionId) {
+    private static boolean isProductiveVillager(Villager villager, String worldName, Set<String> regionIds) {
         Location bedLocation = villager.getMemory(MemoryKey.HOME);
         Location workLocation = villager.getMemory(MemoryKey.JOB_SITE);
-        boolean bedInRegion = isInRegion(bedLocation, worldName, regionId, villager.getLocation());
-        boolean workInRegion = isInRegion(workLocation, worldName, regionId, villager.getLocation());
+        boolean bedInRegion = isInRegion(bedLocation, worldName, regionIds, villager.getLocation());
+        boolean workInRegion = isInRegion(workLocation, worldName, regionIds, villager.getLocation());
         return bedInRegion && workInRegion;
     }
 
-    private static boolean isInRegion(Location location, String worldName, String regionId, Location fallback) {
+    private static boolean isInRegion(Location location, String worldName, Set<String> regionIds, Location fallback) {
         Location check = location != null ? location : fallback;
         if (check.getWorld() == null || !worldName.equals(check.getWorld().getName())) {
             return false;
         }
         var foundRegions = WorldGuardBridge.regionsAt(
                 worldName, check.getBlockX(), check.getBlockY(), check.getBlockZ());
-        String normalised = Kingdom.normaliseId(regionId);
-        return foundRegions.stream().anyMatch(found -> Kingdom.normaliseId(found).equals(normalised));
+        return foundRegions.stream().anyMatch(found -> regionIds.contains(Kingdom.normaliseId(found)));
     }
 
     private static String professionName(Villager villager) {

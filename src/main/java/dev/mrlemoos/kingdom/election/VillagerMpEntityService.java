@@ -252,8 +252,7 @@ public final class VillagerMpEntityService {
     }
 
     public void refreshTerritoryVillagerNametags(Kingdom kingdom) {
-        String regionId = kingdom.getWorldGuardRegion();
-        if (regionId == null || regionId.isBlank()) {
+        if (!kingdom.hasWorldGuardRegions()) {
             return;
         }
         String worldName = kingdomService.resolveWorldName(kingdom);
@@ -742,8 +741,7 @@ public final class VillagerMpEntityService {
     }
 
     private boolean isInKingdomTerritory(Villager villager, Kingdom kingdom) {
-        String regionId = kingdom.getWorldGuardRegion();
-        if (regionId == null || regionId.isBlank()) {
+        if (!kingdom.hasWorldGuardRegions()) {
             return false;
         }
         Location location = villager.getLocation();

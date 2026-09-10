@@ -20,12 +20,30 @@ import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionBlocKind;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 class YamlKingdomStoreTest {
+
+    @Test
+    void territoryRegionsMigrateLegacyValueAndPersistUnion() {
+        YamlConfiguration legacy = new YamlConfiguration();
+        legacy.set("kingdom.worldguard-region", "north_hold");
+        assertEquals(List.of("north_hold"), YamlKingdomStore.readWorldGuardRegions(
+                legacy.getConfigurationSection("kingdom")));
+
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.addWorldGuardRegion("north_hold");
+        kingdom.addWorldGuardRegion("north_outpost");
+        YamlConfiguration data = new YamlConfiguration();
+        YamlKingdomStore.writeWorldGuardRegions(data, "kingdom", kingdom);
+
+        assertEquals(List.of("north_hold", "north_outpost"), data.getStringList("kingdom.worldguard-regions"));
+        assertTrue(!data.contains("kingdom.worldguard-region"));
+    }
 
     @Test
     void roundTripPreservesTeleportPlaces() {

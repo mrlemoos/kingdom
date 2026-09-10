@@ -15,6 +15,7 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.service.ParliamentResult;
 import dev.mrlemoos.kingdom.service.ParliamentService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.muster.MusterService;
 import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -37,6 +38,7 @@ public final class ElectionTask implements Runnable {
     private dev.mrlemoos.kingdom.feedback.DivisionBossBarService divisionBossBarService;
     private dev.mrlemoos.kingdom.calendar.RealmCalendarService calendarService;
     private dev.mrlemoos.kingdom.calendar.PollingDay pollingDay;
+    private MusterService musterService;
 
     public ElectionTask(
             JavaPlugin plugin,
@@ -77,6 +79,11 @@ public final class ElectionTask implements Runnable {
         this.divisionBossBarService = divisionBossBarService;
     }
 
+    /** Shares the established periodic sweep; musters use wall-clock deadlines. */
+    public void setMusterService(MusterService musterService) {
+        this.musterService = musterService;
+    }
+
     public void schedule(long intervalTicks) {
         long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
@@ -84,6 +91,7 @@ public final class ElectionTask implements Runnable {
 
     @Override
     public void run() {
+        sweepMusters();
         electionHandler.closeDueElections();
         electionHandler.checkVacancies();
         openOverdueParliaments();
@@ -92,6 +100,12 @@ public final class ElectionTask implements Runnable {
         closeDuePollingWindows();
         scheduleGeneralElections();
         syncDivisionBars();
+    }
+
+    private void sweepMusters() {
+        if (musterService != null && musterService.sweep(System.currentTimeMillis()) > 0) {
+            store.saveFrom(kingdomService);
+        }
     }
 
     /** Keeps the division bar over each kingdom in step with the bill before its House. */

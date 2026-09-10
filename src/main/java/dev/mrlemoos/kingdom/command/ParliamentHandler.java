@@ -13,6 +13,8 @@ import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.war.WarAim;
+import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
@@ -401,6 +403,11 @@ public final class ParliamentHandler {
         player.sendMessage(success(
                 ((AssentedEnactmentResult.Success) enacted).message() + " Act archived in the registrar."));
         broadcastParliament(kingdomId, c("&aRoyal assent granted: ")+ draft.get().title());
+        if (warService != null
+                && draft.get().payload() instanceof dev.mrlemoos.kingdom.model.parliament.BillPayload.War) {
+            warService.activeWarFor(kingdomId).ifPresent(war -> Bukkit.broadcastMessage(
+                    c("&4[War] " + warService.declarationMessage(war))));
+        }
         RealmFeedback.royalAssent(kingdomService, kingdomId);
         return true;
     }
@@ -491,6 +498,23 @@ public final class ParliamentHandler {
             String title) {
         return parliamentService.tableSpendStipend(
                 kingdomId, rank, proposerId, recipientId, amount, reason, title);
+    }
+
+    public ParliamentResult tableWar(
+            String kingdomId,
+            NobleRank rank,
+            UUID proposerId,
+            String targetKingdomId,
+            WarAim aim,
+            WarOutcome outcome,
+            int musterDeadlineMcDays,
+            String title) {
+        return parliamentService.tableWar(
+                kingdomId, rank, proposerId, targetKingdomId, aim, outcome, musterDeadlineMcDays, title);
+    }
+
+    public ParliamentResult tablePeace(String kingdomId, NobleRank rank, UUID proposerId, String title) {
+        return parliamentService.tablePeace(kingdomId, rank, proposerId, title);
     }
 
     /** Puts the confidence question and tells the House it awaits a seconder. */

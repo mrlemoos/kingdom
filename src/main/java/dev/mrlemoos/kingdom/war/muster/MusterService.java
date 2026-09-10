@@ -9,8 +9,6 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -44,17 +42,20 @@ public final class MusterService {
     private StandingRosterService standingRosterService;
     private LoyaltyService loyaltyService;
 
-    private final Map<String, Set<UUID>> eligibleByWar = new HashMap<>();
-    private final Map<String, Map<UUID, MusterAnswer>> answersByWar = new HashMap<>();
-    private final Map<UUID, MoraleTier> levyMoraleByPlayer = new HashMap<>();
+    private final MusterStore store;
 
     public MusterService(WarService warService, KingdomService kingdomService) {
         this(warService, kingdomService, System::currentTimeMillis);
     }
 
     public MusterService(WarService warService, KingdomService kingdomService, Supplier<Long> clockMs) {
+        this(warService, kingdomService, new InMemoryMusterStore(), clockMs);
+    }
+
+    public MusterService(WarService warService, KingdomService kingdomService, MusterStore store, Supplier<Long> clockMs) {
         this.warService = Objects.requireNonNull(warService, "warService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
+        this.store = Objects.requireNonNull(store, "store");
         this.clockMs = Objects.requireNonNull(clockMs, "clockMs");
     }
 
@@ -119,26 +120,21 @@ public final class MusterService {
         Set<UUID> eligible = new LinkedHashSet<>();
         eligible.addAll(membersOf(war.get().attackerKingdomId()));
         eligible.addAll(membersOf(war.get().defenderKingdomId()));
-        eligibleByWar.put(warId, eligible);
-        Map<UUID, MusterAnswer> answers = answersByWar.computeIfAbsent(warId, id -> new LinkedHashMap<>());
+        store.putEligible(warId, eligible);
         for (UUID playerId : eligible) {
             if (isOnDutyOnStandingRoster(playerId)) {
-                answers.put(playerId, MusterAnswer.ANSWERED);
+                store.putAnswer(warId, playerId, MusterAnswer.ANSWERED);
             }
         }
         return WarResult.ok("Muster called for war " + warId + ".");
     }
 
     public boolean isEligible(String warId, UUID playerId) {
-        return eligibleByWar.getOrDefault(warId, Set.of()).contains(playerId);
+        return store.eligibleFor(warId).contains(playerId);
     }
 
     public Optional<MusterAnswer> answerOf(String warId, UUID playerId) {
-        Map<UUID, MusterAnswer> answers = answersByWar.get(warId);
-        if (answers == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(answers.get(playerId));
+        return Optional.ofNullable(store.answersFor(warId).get(playerId));
     }
 
     /**
@@ -181,17 +177,17 @@ public final class MusterService {
             if (nowMs < war.musterDeadlineAtMs()) {
                 continue;
             }
-            Set<UUID> eligible = eligibleByWar.get(war.id());
-            if (eligible == null || eligible.isEmpty()) {
+            Set<UUID> eligible = store.eligibleFor(war.id());
+            if (eligible.isEmpty()) {
                 continue;
             }
-            Map<UUID, MusterAnswer> answers = answersByWar.computeIfAbsent(war.id(), id -> new LinkedHashMap<>());
+            Map<UUID, MusterAnswer> answers = store.answersFor(war.id());
             for (UUID playerId : eligible) {
                 if (answers.containsKey(playerId)) {
                     continue;
                 }
-                answers.put(playerId, MusterAnswer.IGNORED);
-                levyMoraleByPlayer.put(playerId, MoraleTier.SHAKEN);
+                store.putAnswer(war.id(), playerId, MusterAnswer.IGNORED);
+                store.putLevyMorale(playerId, MoraleTier.SHAKEN);
                 if (loyaltyService != null) {
                     loyaltyService.recordActBreach(playerId);
                 }
@@ -208,7 +204,7 @@ public final class MusterService {
     public Set<UUID> answeredMembers(String kingdomId) {
         Set<UUID> members = membersOf(kingdomId);
         Set<UUID> answered = new LinkedHashSet<>();
-        for (Map<UUID, MusterAnswer> answers : answersByWar.values()) {
+        for (Map<UUID, MusterAnswer> answers : store.answersByWarView().values()) {
             for (Map.Entry<UUID, MusterAnswer> entry : answers.entrySet()) {
                 if (entry.getValue() == MusterAnswer.ANSWERED && members.contains(entry.getKey())) {
                     answered.add(entry.getKey());
@@ -219,7 +215,7 @@ public final class MusterService {
     }
 
     public Optional<MoraleTier> levyMoraleTier(UUID playerId) {
-        return Optional.ofNullable(levyMoraleByPlayer.get(playerId));
+        return Optional.ofNullable(store.levyMoraleView().get(playerId));
     }
 
     /**
@@ -232,11 +228,12 @@ public final class MusterService {
         if (warId == null || warId.isBlank()) {
             return;
         }
-        Set<UUID> eligible = eligibleByWar.remove(warId);
-        Map<UUID, MusterAnswer> answers = answersByWar.remove(warId);
-        if (eligible != null) {
+        Set<UUID> eligible = store.eligibleFor(warId);
+        Map<UUID, MusterAnswer> answers = store.answersFor(warId);
+        store.clearWar(warId);
+        if (!eligible.isEmpty()) {
             for (UUID playerId : eligible) {
-                levyMoraleByPlayer.remove(playerId);
+                store.clearLevyMorale(playerId);
                 // Answered and saw the war out: an act of service on the military track.
                 if (answers != null && answers.get(playerId) == MusterAnswer.ANSWERED) {
                     creditServedMuster(playerId);
@@ -263,8 +260,8 @@ public final class MusterService {
     }
 
     private void recordAnswer(String warId, UUID playerId, MusterAnswer answer, MoraleTier moraleTier) {
-        answersByWar.computeIfAbsent(warId, id -> new LinkedHashMap<>()).put(playerId, answer);
-        levyMoraleByPlayer.put(playerId, moraleTier);
+        store.putAnswer(warId, playerId, answer);
+        store.putLevyMorale(playerId, moraleTier);
     }
 
     private boolean isOnDutyOnStandingRoster(UUID playerId) {

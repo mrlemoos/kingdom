@@ -252,6 +252,16 @@ public final class SquadService {
         return List.copyOf(matches);
     }
 
+    /** Current capped registry, for the main-thread Bukkit controller. */
+    public List<Squad> allView() {
+        return List.copyOf(squadsById.values());
+    }
+
+    /** Current officer morale for the Bukkit AI policy pass. */
+    public MoraleTier officerMorale(Squad squad) {
+        return officerMoraleTrack.apply(Objects.requireNonNull(squad, "squad").officerId());
+    }
+
     /**
      * Squad rout: pressed villagers are released back to the villager economy, crown units are
      * destroyed, and the squad is removed from the registry outright rather than left parked in

@@ -11,7 +11,6 @@ import dev.mrlemoos.kingdom.economy.villager.merchant.CoronaMerchantRecipeServic
 import dev.mrlemoos.kingdom.election.TerritoryVillagerCommercePolicy;
 import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.election.VillagerPlayerTradePolicy;
-import java.util.Map;
 import java.util.Optional;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -113,26 +112,43 @@ public final class CoronaMerchantListener implements Listener {
         if (CoronaItem.count(player.getInventory()) >= coronaPrice) {
             return;
         }
+        int remainingUses = recipeService.remainingUses(villager, selected);
+        if (remainingUses <= 0) {
+            event.setCancelled(true);
+            player.sendMessage(c("&cThat trade is out of stock."));
+            return;
+        }
 
         event.setCancelled(true);
+        ItemStack result = selected.getResult().clone();
+        int available = CoronaItem.count(player.getInventory())
+                + (int) Math.floor(coordinator.economyService().getWalletBalance(player.getUniqueId()));
+        int affordable = available / coronaPrice;
+        if (affordable <= 0) {
+            player.sendMessage(c("&cYou need ") + coronaPrice + " Corona to buy that.");
+            return;
+        }
+        int fits = CoronaMerchantPayment.spaceForResults(player.getInventory().getStorageContents(), result);
+        if (fits <= 0) {
+            player.sendMessage(c("&cMake inventory space for that trade."));
+            return;
+        }
+        int trades = Math.min(event.isShiftClick() ? remainingUses : 1, Math.min(affordable, fits));
+
         Optional<CoronaMerchantPayment.Result> payment = CoronaMerchantPayment.collect(
-                player.getInventory(), coordinator.economyService(), player.getUniqueId(), coronaPrice);
+                player.getInventory(), coordinator.economyService(), player.getUniqueId(), coronaPrice * trades);
         if (payment.isEmpty()) {
             player.sendMessage(c("&cYou need ") + coronaPrice + " Corona to buy that.");
             return;
         }
 
-        ItemStack result = selected.getResult().clone();
-        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(result);
-        if (!leftovers.isEmpty()) {
-            player.sendMessage(c("&cMake inventory space for that trade."));
-            return;
+        for (int given = 0; given < trades; given++) {
+            player.getInventory().addItem(result.clone());
         }
-
-        consumeRecipeUse(villager, selected);
+        recipeService.consumeUses(villager, selected, trades);
         coordinator.settleCoronaMerchantCommerce(
                 villager,
-                coronaPrice,
+                coronaPrice * trades,
                 villagerMpEntityService.isTreasuryLordVillager(villager),
                 villagerMpEntityService.isSeatedMpVillager(villager),
                 villagerMpEntityService.isKingdomTaggedMpVillager(villager),
@@ -174,36 +190,4 @@ public final class CoronaMerchantListener implements Listener {
                 villagerMpEntityService.isKingdomTaggedMpVillager(villager));
     }
 
-    private static void consumeRecipeUse(Villager villager, MerchantRecipe selected) {
-        var recipes = new java.util.ArrayList<>(villager.getRecipes());
-        for (int index = 0; index < recipes.size(); index++) {
-            MerchantRecipe recipe = recipes.get(index);
-            if (!CoronaMerchantRecipeFactory.isCoronaRecipe(recipe)) {
-                continue;
-            }
-            if (!CoronaMerchantRecipeFactory.sameOffer(recipe, selected)) {
-                continue;
-            }
-            int remainingUses = recipe.getUses();
-            if (remainingUses <= 0) {
-                return;
-            }
-            MerchantRecipe updated = cloneRecipe(recipe);
-            updated.setUses(remainingUses - 1);
-            recipes.set(index, updated);
-            villager.setRecipes(recipes);
-            return;
-        }
-    }
-
-    private static MerchantRecipe cloneRecipe(MerchantRecipe recipe) {
-        MerchantRecipe clone = new MerchantRecipe(recipe.getResult(), recipe.getUses());
-        clone.setMaxUses(recipe.getMaxUses());
-        clone.setVillagerExperience(recipe.getVillagerExperience());
-        clone.setExperienceReward(recipe.hasExperienceReward());
-        for (ItemStack ingredient : recipe.getIngredients()) {
-            clone.addIngredient(ingredient);
-        }
-        return clone;
-    }
 }

@@ -67,9 +67,19 @@ import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.capital.CapitalRegion;
+import dev.mrlemoos.kingdom.war.capital.CapitalService;
 import dev.mrlemoos.kingdom.war.levy.LevyArrears;
 import dev.mrlemoos.kingdom.war.levy.LevyArrearsStore;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterStore;
+import dev.mrlemoos.kingdom.war.oath.SwornOutsider;
+import dev.mrlemoos.kingdom.war.oath.SwornOutsiderStore;
+import dev.mrlemoos.kingdom.war.muster.MusterAnswer;
+import dev.mrlemoos.kingdom.war.muster.MusterStore;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionStore;
+import dev.mrlemoos.kingdom.war.conscription.PressedVillager;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadStore;
+import dev.mrlemoos.kingdom.war.crownsquad.CrownSquadUnit;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -92,12 +102,27 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class YamlKingdomStore {
 
+    static List<String> readWorldGuardRegions(ConfigurationSection entry) {
+        List<String> regions = entry.getStringList("worldguard-regions");
+        return regions.isEmpty() ? List.of(entry.getString("worldguard-region", "")) : regions;
+    }
+
+    static void writeWorldGuardRegions(FileConfiguration data, String path, Kingdom kingdom) {
+        data.set(path + ".worldguard-region", null);
+        data.set(path + ".worldguard-regions", kingdom.getWorldGuardRegions());
+    }
+
     private final JavaPlugin plugin;
     private final File dataFile;
     private LoyaltyStore loyaltyStore;
     private MoraleStore moraleStore;
     private WarService warService;
+    private CapitalService capitalService;
     private StandingRosterStore standingRosterStore;
+    private MusterStore musterStore;
+    private ConscriptionStore conscriptionStore;
+    private CrownSquadStore crownSquadStore;
+    private SwornOutsiderStore swornOutsiderStore;
     private LevyArrearsStore levyArrearsStore;
     private ColdLedgerStore coldLedgerStore;
     private HungerLedgerStore hungerLedgerStore;
@@ -123,8 +148,34 @@ public final class YamlKingdomStore {
         this.warService = warService;
     }
 
+    public void setCapitalService(CapitalService capitalService) {
+        this.capitalService = capitalService;
+    }
+
     public void setStandingRosterStore(StandingRosterStore standingRosterStore) {
         this.standingRosterStore = standingRosterStore;
+    }
+
+    public void setMusterStore(MusterStore musterStore) {
+        this.musterStore = musterStore;
+    }
+
+    public void setConscriptionStore(ConscriptionStore conscriptionStore) {
+        this.conscriptionStore = conscriptionStore;
+    }
+
+    public void setCrownSquadStore(CrownSquadStore crownSquadStore) {
+        this.crownSquadStore = crownSquadStore;
+    }
+
+    /** Crown squads depend on the economy, so their ledger joins after the initial kingdom load. */
+    public void loadCrownSquads() {
+        if (crownSquadStore == null || !dataFile.exists()) return;
+        crownSquadStore.replaceAll(readCrownSquads(YamlConfiguration.loadConfiguration(dataFile).getConfigurationSection("crown-squads")));
+    }
+
+    public void setSwornOutsiderStore(SwornOutsiderStore swornOutsiderStore) {
+        this.swornOutsiderStore = swornOutsiderStore;
     }
 
     public void setLevyArrearsStore(LevyArrearsStore levyArrearsStore) {
@@ -258,7 +309,7 @@ public final class YamlKingdomStore {
                 }
                 Kingdom kingdom = new Kingdom(id, entry.getString("display-name", id));
                 kingdom.setWorldName(entry.getString("world"));
-                kingdom.setWorldGuardRegion(entry.getString("worldguard-region"));
+                kingdom.replaceWorldGuardRegions(readWorldGuardRegions(entry));
                 kingdom.setGranaryRegion(entry.getString("granary-region"));
                 kingdom.setGranaryWheat(entry.getInt("granary-wheat", 0));
                 kingdom.replaceTeleports(readTeleports(entry.getConfigurationSection("teleports")));
@@ -315,10 +366,27 @@ public final class YamlKingdomStore {
         }
         if (warService != null) {
             warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
+            warService.replaceEndedWars(readWars(data.getConfigurationSection("ended-wars")));
+        }
+        if (capitalService != null) {
+            capitalService.replaceAll(readCapitals(data.getConfigurationSection("war-capitals")));
         }
         if (standingRosterStore != null) {
             standingRosterStore.replaceAllRosters(readRosters(data.getConfigurationSection("standing-roster")));
             standingRosterStore.replaceAllOnDutyStates(readOnDutyStates(data.getConfigurationSection("on-duty")));
+        }
+        if (musterStore != null) {
+            ConfigurationSection muster = data.getConfigurationSection("muster");
+            musterStore.replaceAll(readMusterEligible(muster), readMusterAnswers(muster), readMusterMorale(muster));
+        }
+        if (conscriptionStore != null) {
+            conscriptionStore.replaceAll(readPressedVillagers(data.getConfigurationSection("conscription")));
+        }
+        if (crownSquadStore != null) {
+            crownSquadStore.replaceAll(readCrownSquads(data.getConfigurationSection("crown-squads")));
+        }
+        if (swornOutsiderStore != null) {
+            swornOutsiderStore.replaceAll(readSwornOutsiders(data.getConfigurationSection("sworn-outsiders")));
         }
         if (levyArrearsStore != null) {
             levyArrearsStore.replaceAll(readLevyArrears(data.getConfigurationSection("levy-arrears")));
@@ -341,7 +409,7 @@ public final class YamlKingdomStore {
             String path = "kingdoms." + kingdom.getId();
             data.set(path + ".display-name", kingdom.getDisplayName());
             data.set(path + ".world", kingdom.getWorldName());
-            data.set(path + ".worldguard-region", kingdom.getWorldGuardRegion());
+            writeWorldGuardRegions(data, path, kingdom);
             data.set(path + ".granary-region", kingdom.getGranaryRegion());
             if (kingdom.getGranaryWheat() > 0) {
                 data.set(path + ".granary-wheat", kingdom.getGranaryWheat());
@@ -389,10 +457,26 @@ public final class YamlKingdomStore {
         }
         if (warService != null) {
             writeWars(data, "wars", warService.activeWarsView());
+            writeWars(data, "ended-wars", warService.endedWarsView());
+        }
+        if (capitalService != null) {
+            writeCapitals(data, "war-capitals", capitalService.allView());
         }
         if (standingRosterStore != null) {
             writeRosters(data, "standing-roster", standingRosterStore.allRostersView());
             writeOnDutyStates(data, "on-duty", standingRosterStore.allOnDutyStatesView());
+        }
+        if (musterStore != null) {
+            writeMuster(data, "muster", musterStore.eligibleByWarView(), musterStore.answersByWarView(), musterStore.levyMoraleView());
+        }
+        if (conscriptionStore != null) {
+            writePressedVillagers(data, "conscription", conscriptionStore.allView());
+        }
+        if (crownSquadStore != null) {
+            writeCrownSquads(data, "crown-squads", crownSquadStore.allView());
+        }
+        if (swornOutsiderStore != null) {
+            writeSwornOutsiders(data, "sworn-outsiders", swornOutsiderStore.allView());
         }
         if (levyArrearsStore != null) {
             writeLevyArrears(data, "levy-arrears", levyArrearsStore.allView());
@@ -1808,6 +1892,138 @@ public final class YamlKingdomStore {
         return wars;
     }
 
+    static void writeCapitals(FileConfiguration config, String path, Map<String, CapitalRegion> capitals) {
+        config.set(path, null);
+        for (Map.Entry<String, CapitalRegion> entry : capitals.entrySet()) {
+            config.set(path + "." + entry.getKey() + ".region", entry.getValue().regionId());
+            if (entry.getValue().worldName() != null && !entry.getValue().worldName().isBlank()) {
+                config.set(path + "." + entry.getKey() + ".world", entry.getValue().worldName());
+            }
+        }
+    }
+
+    static Map<String, CapitalRegion> readCapitals(ConfigurationSection section) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<String, CapitalRegion> capitals = new LinkedHashMap<>();
+        for (String kingdomId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(kingdomId);
+            if (entry == null) {
+                continue;
+            }
+            String regionId = entry.getString("region");
+            if (regionId == null || regionId.isBlank()) {
+                continue;
+            }
+            String worldName = entry.getString("world");
+            capitals.put(kingdomId, new CapitalRegion(regionId, worldName));
+        }
+        return capitals;
+    }
+
+    static void writeMuster(FileConfiguration config, String path, Map<String, Set<UUID>> eligibleByWar,
+            Map<String, Map<UUID, MusterAnswer>> answersByWar, Map<UUID, MoraleTier> levyMoraleByPlayer) {
+        if (eligibleByWar != null) for (Map.Entry<String, Set<UUID>> entry : eligibleByWar.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) config.set(path + ".wars." + entry.getKey() + ".eligible", entry.getValue().stream().map(UUID::toString).toList());
+        }
+        if (answersByWar != null) for (Map.Entry<String, Map<UUID, MusterAnswer>> war : answersByWar.entrySet()) {
+            if (war.getKey() == null || war.getValue() == null) continue;
+            for (Map.Entry<UUID, MusterAnswer> answer : war.getValue().entrySet()) {
+                if (answer.getKey() != null && answer.getValue() != null) config.set(path + ".wars." + war.getKey() + ".answers." + answer.getKey(), answer.getValue().name().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (levyMoraleByPlayer != null) for (Map.Entry<UUID, MoraleTier> entry : levyMoraleByPlayer.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) config.set(path + ".levy-morale." + entry.getKey(), entry.getValue().name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    static Map<String, Set<UUID>> readMusterEligible(ConfigurationSection section) {
+        if (section == null || section.getConfigurationSection("wars") == null) return Map.of();
+        ConfigurationSection wars = section.getConfigurationSection("wars");
+        Map<String, Set<UUID>> loaded = new HashMap<>();
+        for (String warId : wars.getKeys(false)) {
+            Set<UUID> eligible = new LinkedHashSet<>();
+            for (String value : wars.getStringList(warId + ".eligible")) try { eligible.add(UUID.fromString(value)); } catch (IllegalArgumentException ignored) { }
+            if (!eligible.isEmpty()) loaded.put(warId, eligible);
+        }
+        return Map.copyOf(loaded);
+    }
+
+    static Map<String, Map<UUID, MusterAnswer>> readMusterAnswers(ConfigurationSection section) {
+        if (section == null || section.getConfigurationSection("wars") == null) return Map.of();
+        ConfigurationSection wars = section.getConfigurationSection("wars");
+        Map<String, Map<UUID, MusterAnswer>> loaded = new HashMap<>();
+        for (String warId : wars.getKeys(false)) {
+            ConfigurationSection answers = wars.getConfigurationSection(warId + ".answers");
+            if (answers == null) continue;
+            Map<UUID, MusterAnswer> byPlayer = new LinkedHashMap<>();
+            for (String playerId : answers.getKeys(false)) try { byPlayer.put(UUID.fromString(playerId), MusterAnswer.valueOf(answers.getString(playerId, "").toUpperCase(Locale.ROOT))); } catch (IllegalArgumentException ignored) { }
+            if (!byPlayer.isEmpty()) loaded.put(warId, byPlayer);
+        }
+        return Map.copyOf(loaded);
+    }
+
+    static Map<UUID, MoraleTier> readMusterMorale(ConfigurationSection section) {
+        if (section == null || section.getConfigurationSection("levy-morale") == null) return Map.of();
+        ConfigurationSection morale = section.getConfigurationSection("levy-morale");
+        Map<UUID, MoraleTier> loaded = new HashMap<>();
+        for (String playerId : morale.getKeys(false)) try { loaded.put(UUID.fromString(playerId), MoraleTier.valueOf(morale.getString(playerId, "").toUpperCase(Locale.ROOT))); } catch (IllegalArgumentException ignored) { }
+        return Map.copyOf(loaded);
+    }
+
+    static void writePressedVillagers(FileConfiguration config, String path, Collection<PressedVillager> pressed) {
+        if (pressed == null) return;
+        for (PressedVillager villager : pressed) {
+            if (villager == null) continue;
+            String entry = path + ".pressed." + villager.villagerId();
+            config.set(entry + ".kingdom", villager.kingdomId());
+            config.set(entry + ".pressed-at", villager.pressedAtMs());
+        }
+    }
+
+    static List<PressedVillager> readPressedVillagers(ConfigurationSection section) {
+        if (section == null || section.getConfigurationSection("pressed") == null) return List.of();
+        List<PressedVillager> pressed = new ArrayList<>();
+        ConfigurationSection entries = section.getConfigurationSection("pressed");
+        for (String villagerId : entries.getKeys(false)) {
+            try {
+                String kingdomId = entries.getString(villagerId + ".kingdom");
+                if (kingdomId != null && !kingdomId.isBlank()) {
+                    pressed.add(new PressedVillager(kingdomId, UUID.fromString(villagerId), entries.getLong(villagerId + ".pressed-at")));
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed persisted villager records.
+            }
+        }
+        return List.copyOf(pressed);
+    }
+
+    static void writeCrownSquads(FileConfiguration config, String path, Collection<CrownSquadUnit> units) {
+        if (units == null) return;
+        for (CrownSquadUnit unit : units) {
+            if (unit == null) continue;
+            String unitPath = path + "." + unit.unitId();
+            config.set(unitPath + ".kingdom", unit.kingdomId());
+            config.set(unitPath + ".purchased-at-ms", unit.purchasedAtEpochMs());
+        }
+    }
+
+    static List<CrownSquadUnit> readCrownSquads(ConfigurationSection section) {
+        if (section == null) return List.of();
+        List<CrownSquadUnit> units = new ArrayList<>();
+        for (String id : section.getKeys(false)) {
+            String kingdomId = section.getString(id + ".kingdom");
+            if (kingdomId == null || kingdomId.isBlank()) continue;
+            try {
+                units.add(new CrownSquadUnit(UUID.fromString(id), kingdomId, section.getLong(id + ".purchased-at-ms")));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore corrupt ledger entries; remaining units remain recoverable.
+            }
+        }
+        return units;
+    }
+
     static void writeLoyalty(FileConfiguration config, String path, Map<UUID, LoyaltyTier> tiers) {
         if (tiers == null || tiers.isEmpty()) {
             return;
@@ -2093,6 +2309,46 @@ public final class YamlKingdomStore {
             }
         }
         return rosters;
+    }
+
+    static void writeSwornOutsiders(FileConfiguration config, String path, Collection<SwornOutsider> outsiders) {
+        if (outsiders == null || outsiders.isEmpty()) {
+            return;
+        }
+        for (SwornOutsider outsider : outsiders) {
+            if (outsider == null) {
+                continue;
+            }
+            String entry = path + "." + outsider.playerId();
+            config.set(entry + ".kingdom", outsider.kingdomId());
+            config.set(entry + ".purpose", outsider.purpose());
+            config.set(entry + ".sworn-at-ms", outsider.swornAtMs());
+        }
+    }
+
+    static List<SwornOutsider> readSwornOutsiders(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+        List<SwornOutsider> outsiders = new ArrayList<>();
+        for (String playerId : section.getKeys(false)) {
+            try {
+                ConfigurationSection entry = section.getConfigurationSection(playerId);
+                if (entry == null) {
+                    continue;
+                }
+                String kingdomId = entry.getString("kingdom");
+                String purpose = entry.getString("purpose");
+                if (kingdomId == null || kingdomId.isBlank() || purpose == null || purpose.isBlank()) {
+                    continue;
+                }
+                outsiders.add(new SwornOutsider(
+                        kingdomId, UUID.fromString(playerId), purpose, entry.getLong("sworn-at-ms", 0L)));
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed outsider entries.
+            }
+        }
+        return List.copyOf(outsiders);
     }
 
     static void writeOnDutyStates(FileConfiguration config, String path, Map<UUID, OnDutyState> states) {

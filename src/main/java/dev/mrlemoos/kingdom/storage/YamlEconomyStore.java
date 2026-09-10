@@ -10,9 +10,12 @@ import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthCounts;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.war.tribute.WarDebt;
+import dev.mrlemoos.kingdom.war.tribute.WarDebtStore;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -28,10 +31,15 @@ public final class YamlEconomyStore {
 
     private final JavaPlugin plugin;
     private final File economyFile;
+    private WarDebtStore warDebtStore;
 
     public YamlEconomyStore(JavaPlugin plugin) {
         this.plugin = plugin;
         this.economyFile = new File(plugin.getDataFolder(), "economy.yml");
+    }
+
+    public void setWarDebtStore(WarDebtStore warDebtStore) {
+        this.warDebtStore = warDebtStore;
     }
 
     public void loadInto(EconomyService service) {
@@ -40,11 +48,17 @@ public final class YamlEconomyStore {
         }
         FileConfiguration config = YamlConfiguration.loadConfiguration(economyFile);
         applyConfiguration(config, service);
+        if (warDebtStore != null) {
+            warDebtStore.replaceAll(readWarDebts(config.getConfigurationSection("war-debts")));
+        }
     }
 
     public void saveFrom(EconomyService service) {
         FileConfiguration config = new YamlConfiguration();
         writeConfiguration(config, service);
+        if (warDebtStore != null) {
+            writeWarDebts(config, "war-debts", warDebtStore.allDebtsView());
+        }
 
         try {
             if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
@@ -294,5 +308,35 @@ public final class YamlEconomyStore {
                     entry.getString("treasury-lord-uuid")));
         }
         return locations;
+    }
+
+    static void writeWarDebts(FileConfiguration config, String path, Collection<WarDebt> debts) {
+        config.set(path, null);
+        if (debts == null) {
+            return;
+        }
+        for (WarDebt debt : debts) {
+            config.set(path + "." + debt.debtorKingdomId() + "." + debt.creditorKingdomId(), debt.amount());
+        }
+    }
+
+    static List<WarDebt> readWarDebts(ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+        List<WarDebt> debts = new ArrayList<>();
+        for (String debtorId : section.getKeys(false)) {
+            ConfigurationSection creditors = section.getConfigurationSection(debtorId);
+            if (creditors == null) {
+                continue;
+            }
+            for (String creditorId : creditors.getKeys(false)) {
+                double amount = creditors.getDouble(creditorId);
+                if (amount > 0) {
+                    debts.add(new WarDebt(debtorId, creditorId, amount));
+                }
+            }
+        }
+        return debts;
     }
 }

@@ -14,7 +14,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  * rank-and-file. Until then, a kingdom's pressed-villager count and crown-squad count are tracked
  * — and capped — independently.
  */
-public record CrownSquadConfig(boolean enabled, double cost, int cap) {
+public record CrownSquadConfig(boolean enabled, double cost, int cap, String entityType) {
 
     public static final double DEFAULT_COST = 50.0;
     public static final int DEFAULT_CAP = 4;
@@ -26,16 +26,22 @@ public record CrownSquadConfig(boolean enabled, double cost, int cap) {
         if (cap < 0) {
             throw new IllegalArgumentException("cap must not be negative");
         }
+        entityType = entityType == null || entityType.isBlank() ? "IRON_GOLEM" : entityType.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
+    public CrownSquadConfig(boolean enabled, double cost, int cap) {
+        this(enabled, cost, cap, "IRON_GOLEM");
     }
 
     public static CrownSquadConfig defaults() {
-        return new CrownSquadConfig(false, DEFAULT_COST, DEFAULT_CAP);
+        return new CrownSquadConfig(false, DEFAULT_COST, DEFAULT_CAP, "IRON_GOLEM");
     }
 
     public static CrownSquadConfig fromPluginConfig(FileConfiguration config) {
         return new CrownSquadConfig(
                 config.getBoolean("war.crown-squads.enabled", false),
                 config.getDouble("war.crown-squads.cost", DEFAULT_COST),
-                config.getInt("war.crown-squads.cap", DEFAULT_CAP));
+                config.getInt("war.crown-squads.cap", DEFAULT_CAP),
+                config.getString("war.crown-squads.entity-type", "IRON_GOLEM"));
     }
 }

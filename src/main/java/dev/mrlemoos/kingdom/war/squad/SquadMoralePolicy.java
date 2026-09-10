@@ -25,6 +25,13 @@ import java.util.Optional;
  */
 public final class SquadMoralePolicy {
 
+    public enum Behaviour {
+        OBEY,
+        HESITATE,
+        SCATTER,
+        ROUT
+    }
+
     private SquadMoralePolicy() {}
 
     /**
@@ -38,6 +45,17 @@ public final class SquadMoralePolicy {
         return switch (officerTier) {
             case STEADFAST, ROUT -> Optional.empty();
             case SHAKEN, BREAKING -> Optional.of(SquadState.IDLE);
+        };
+    }
+
+    /** Physical behaviour for the Bukkit AI after the state policy has run. */
+    public static Behaviour behaviour(MoraleTier officerTier) {
+        Objects.requireNonNull(officerTier, "officerTier");
+        return switch (officerTier) {
+            case STEADFAST -> Behaviour.OBEY;
+            case SHAKEN -> Behaviour.HESITATE;
+            case BREAKING -> Behaviour.SCATTER;
+            case ROUT -> Behaviour.ROUT;
         };
     }
 }

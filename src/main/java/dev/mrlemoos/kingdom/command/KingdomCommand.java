@@ -35,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import org.bukkit.Bukkit;
@@ -60,6 +61,7 @@ public final class KingdomCommand {
     private final WarService warService;
     private final LoyaltyService loyaltyService;
     private final KingdomGranaryHandler granaryHandler;
+    private KingdomTributeHandler tributeHandler;
     private MoraleService moraleService;
     private KingdomCityHandler cityHandler;
     private KingdomChurchHandler churchHandler;
@@ -69,6 +71,7 @@ public final class KingdomCommand {
     private RealmCalendarService calendarService;
     private PollingDay pollingDay;
     private GranaryConfig granaryConfig = GranaryConfig.defaults();
+    private java.util.function.Consumer<Player> realmHubOpener;
 
     public KingdomCommand(KingdomService service, YamlKingdomStore store, NoblePrefixDisplay nobleDisplay) {
         this(service, store, nobleDisplay, null, null, null, null, null, null, null, null, null);
@@ -211,13 +214,29 @@ public final class KingdomCommand {
         this.pollingDay = pollingDay;
     }
 
+    /**
+     * Wires the Realm Hub, opened by a bare {@code /kingdom} for a player. Without it — and for the
+     * console, which has no inventory — the text help stands as it always did.
+     */
+    public void setRealmHubOpener(java.util.function.Consumer<Player> realmHubOpener) {
+        this.realmHubOpener = realmHubOpener;
+    }
+
     /** Gives {@code /kingdom info} the tuned winter ration, so it can say what the granary covers. */
     public void setGranaryConfig(GranaryConfig granaryConfig) {
         this.granaryConfig = granaryConfig != null ? granaryConfig : GranaryConfig.defaults();
     }
 
+    public void setTributeHandler(KingdomTributeHandler tributeHandler) {
+        this.tributeHandler = tributeHandler;
+    }
+
     public void execute(CommandSender sender, String[] args) {
         if (args.length == 0) {
+            if (sender instanceof Player player && realmHubOpener != null) {
+                realmHubOpener.accept(player);
+                return;
+            }
             sender.sendMessage(help(sender));
             return;
         }
@@ -231,6 +250,9 @@ public final class KingdomCommand {
             case "move" -> handleMove(sender, args);
             case "title" -> handleTitle(sender, args);
             case "setregion" -> handleSetRegion(sender, args);
+            case "addregion" -> handleAddRegion(sender, args);
+            case "removeregion" -> handleRemoveRegion(sender, args);
+            case "regions" -> handleRegions(sender, args);
             case "setworld" -> handleSetWorld(sender, args);
             case "fiscal" -> handleFiscal(sender, args);
             case "budget" -> handleBudget(sender, args);
@@ -242,14 +264,20 @@ public final class KingdomCommand {
             case "police" -> handlePolice(sender, args);
             case "whitelist" -> handleWhitelist(sender, args);
             case "capital" -> handleCapital(sender, args);
+            case "setcapital" -> handleSetCapital(sender, args);
             case "church" -> handleChurch(sender, args);
             case "granary" -> handleGranary(sender, args);
+            case "tribute" -> handleTribute(sender, args);
             case "crier" -> handleCrier(sender, args);
             case "permit" -> handlePermit(sender, args);
             case "date" -> handleDate(sender, args);
             case "almanac" -> handleAlmanac(sender);
             case "loyalty" -> handleLoyalty(sender, args);
-            default -> sender.sendMessage(help(sender));
+            default -> {
+                sender.sendMessage(error(UnknownOrderRefusal.refusal(args[0])));
+                sender.sendMessage(c("&7" + UnknownOrderRefusal.HUB_POINTER));
+                sender.sendMessage(help(sender));
+            }
         }
     }
 
@@ -354,10 +382,23 @@ public final class KingdomCommand {
             }
             subject = target;
         }
+        openLedgerFor(player, subject);
+    }
+
+    /** Opens a reader's own ledger; the Realm Hub and {@code /kingdom loyalty} share the one door. */
+    public void openLoyaltyLedger(Player player) {
+        if (loyaltyService == null || moraleService == null || calendarService == null) {
+            player.sendMessage(error("The loyalty ledger is not available."));
+            return;
+        }
+        openLedgerFor(player, player);
+    }
+
+    private void openLedgerFor(Player reader, OfflinePlayer subject) {
         String subjectName = subject.getName() != null ? subject.getName() : subject.getUniqueId().toString();
         LoyaltyLedgerView view = LoyaltyLedgerView.of(
                 subject.getUniqueId(), loyaltyService, moraleService, calendarService.currentRealmDay());
-        player.openInventory(LoyaltyLedgerGui.create(view, subjectName).getInventory());
+        reader.openInventory(LoyaltyLedgerGui.create(view, subjectName).getInventory());
     }
 
     /** {@code /kingdom date [kingdom]} — the realm date, dated by the reign of that kingdom's monarch. */
@@ -437,10 +478,14 @@ public final class KingdomCommand {
         }
         service.territoryLabel(kingdom).ifPresent(label ->
                 sender.sendMessage(c("&7Territory: ")+ c("&f" + label)));
+        if (kingdom.hasWorldGuardRegions()) {
+            OptionalLong chunks = WorldGuardBridge.territoryChunkCount(
+                    service.resolveWorldName(kingdom), kingdom.getWorldGuardRegions());
+            sender.sendMessage(c("&7Chunks: ") + c("&f" + (chunks.isPresent() ? chunks.getAsLong() : "unavailable")));
+        }
         if (economyService != null) {
             String kingdomId = kingdom.getId();
-            boolean hasTerritory = kingdom.getWorldGuardRegion() != null
-                    && !kingdom.getWorldGuardRegion().isBlank();
+            boolean hasTerritory = kingdom.hasWorldGuardRegions();
             double treasury = economyService.getTreasuryBalance(kingdomId);
             double materialReserves = hasTerritory
                     ? economyService.getMaterialReserveValue(kingdomId, realmWealthRates)
@@ -458,6 +503,9 @@ public final class KingdomCommand {
                 sender.sendMessage(c("&7No territory linked — physical reserves and estates are not counted."));
             }
             sender.sendMessage(c("&7Tax revenue: ")+ c("&f" + formatCorona(economyService.getTotalTaxRevenue(kingdomId))) + " Corona");
+            if (tributeHandler != null) {
+                sender.sendMessage(c("&7" + tributeHandler.infoLine(kingdomId)));
+            }
             sender.sendMessage(c("&7GDP: ")+ c("&f" + formatCorona(economyService.getLastDailyGdp(kingdomId))) + " Corona/day");
             sender.sendMessage(c("&7Active villager wallets: ")+ c("&f" + formatCorona(economyService.getTotalActiveVillagerWalletBalance(kingdomId)))
                     + " Corona");
@@ -468,7 +516,7 @@ public final class KingdomCommand {
             }
         }
         if (sender instanceof Player player
-                && kingdom.getWorldGuardRegion() != null
+                && kingdom.hasWorldGuardRegions()
                 && service.resolveWorldName(kingdom).equals(player.getWorld().getName())) {
             sender.sendMessage(c("&7You are in this kingdom's linked overworld."));
         }
@@ -525,7 +573,9 @@ public final class KingdomCommand {
         if (world == null) {
             return 0;
         }
-        int heads = BukkitTerritoryHeads.countIn(world, kingdom.getWorldGuardRegion());
+        int heads = kingdom.getWorldGuardRegions().stream()
+                .mapToInt(region -> BukkitTerritoryHeads.countIn(world, region))
+                .sum();
         return WinterRation.balesFor(heads, granaryConfig.headsPerHay());
     }
 
@@ -705,6 +755,57 @@ public final class KingdomCommand {
         return;
     }
 
+    private void handleAddRegion(CommandSender sender, String[] args) {
+        handleRegionChange(sender, args, true);
+    }
+
+    private void handleRemoveRegion(CommandSender sender, String[] args) {
+        if (!requireAdmin(sender)) return;
+        if (args.length < 3) {
+            sender.sendMessage(error("Usage: /kingdom removeregion <kingdom> <region>"));
+            return;
+        }
+        KingdomResult result = service.removeKingdomRegion(args[1], Kingdom.normaliseId(args[2]));
+        sender.sendMessage(format(result));
+        if (result instanceof KingdomResult.Success) store.saveFrom(service);
+    }
+
+    private void handleRegions(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(error("Usage: /kingdom regions <kingdom>"));
+            return;
+        }
+        Optional<Kingdom> kingdom = service.getKingdom(args[1]);
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return;
+        }
+        List<String> regions = kingdom.get().getWorldGuardRegions();
+        sender.sendMessage(info(regions.isEmpty() ? "No linked regions." : "Linked regions: " + String.join(", ", regions) + "."));
+    }
+
+    private void handleRegionChange(CommandSender sender, String[] args, boolean adding) {
+        if (!requireAdmin(sender)) return;
+        if (args.length < 3) {
+            sender.sendMessage(error("Usage: /kingdom addregion <kingdom> <region>"));
+            return;
+        }
+        Optional<Kingdom> kingdom = service.getKingdom(args[1]);
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return;
+        }
+        String regionId = Kingdom.normaliseId(args[2]);
+        String worldName = service.resolveWorldName(kingdom.get());
+        if (!WorldGuardBridge.isAvailable() || !WorldGuardBridge.regionExists(worldName, regionId)) {
+            sender.sendMessage(error("Region '" + regionId + "' was not found in " + worldName + "."));
+            return;
+        }
+        KingdomResult result = service.addKingdomRegion(args[1], regionId);
+        sender.sendMessage(format(result));
+        if (result instanceof KingdomResult.Success) store.saveFrom(service);
+    }
+
     private void handleFiscal(CommandSender sender, String[] args) {
         if (fiscalHandler == null) {
             sender.sendMessage(error("Economy commands are not enabled."));
@@ -794,6 +895,18 @@ public final class KingdomCommand {
         cityHandler.handleCapital(sender, subArgs);
     }
 
+    private void handleSetCapital(CommandSender sender, String[] args) {
+        if (cityHandler == null) {
+            sender.sendMessage(error("City commands are not enabled."));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(error("Usage: /kingdom setcapital <region>"));
+            return;
+        }
+        cityHandler.handleCapital(sender, new String[] {"setregion", args[1]});
+    }
+
     private void handleChurch(CommandSender sender, String[] args) {
         if (churchHandler == null) {
             sender.sendMessage(error("Church commands are not enabled."));
@@ -801,6 +914,15 @@ public final class KingdomCommand {
         }
         String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
         churchHandler.handle(sender, subArgs);
+    }
+
+    private void handleTribute(CommandSender sender, String[] args) {
+        if (tributeHandler == null) {
+            sender.sendMessage(error("Tribute commands are not enabled."));
+            return;
+        }
+        String[] subArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        tributeHandler.handle(sender, subArgs);
     }
 
     private void handleGranary(CommandSender sender, String[] args) {
@@ -890,8 +1012,8 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — server whitelist");
         }
         if (cityHandler != null) {
-            builder.append("\n").append(c("&e")).append("/kingdom capital set|clear");
-            builder.append(c("&7")).append(" — site the capital and its Lord Mayor");
+            builder.append("\n").append(c("&e")).append("/kingdom capital set|clear|setregion|clearregion");
+            builder.append(c("&7")).append(" — city hall, Lord Mayor, and capital-fall region");
             builder.append("\n").append(c("&e")).append("/kingdom crier set|clear");
             builder.append(c("&7")).append(" — site the Town Crier apart from city hall");
             builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
@@ -903,13 +1025,22 @@ public final class KingdomCommand {
         }
         builder.append("\n").append(c("&e")).append("/kingdom granary setregion <region>|clear");
         builder.append(c("&7")).append(" — the realm's grain store");
+        if (tributeHandler != null) {
+            builder.append("\n").append(c("&e")).append("/kingdom tribute status|pay");
+            builder.append(c("&7")).append(" — war debt");
+        }
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");
             builder.append("\n").append(c("&6")).append("/kingdom move <player> <kingdom>");
             builder.append("\n").append(c("&6")).append("/kingdom title <player> <rank|none> [style]");
             builder.append("\n").append(c("&6")).append("/kingdom setregion <kingdom> <region>");
+            builder.append("\n").append(c("&6")).append("/kingdom addregion|removeregion <kingdom> <region>");
+            builder.append("\n").append(c("&6")).append("/kingdom regions <kingdom>");
             builder.append("\n").append(c("&6")).append("/kingdom setworld <kingdom> <world>");
             builder.append("\n").append(c("&6")).append("/kingdom treasury credit <kingdom> <amount>");
+            if (tributeHandler != null) {
+                builder.append("\n").append(c("&6")).append("/kingdom tribute credit <debtor> <creditor> [amount]");
+            }
         }
         return builder.toString();
     }

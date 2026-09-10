@@ -9,6 +9,8 @@ import dev.mrlemoos.kingdom.model.parliament.ParliamentSites;
 import dev.mrlemoos.kingdom.model.parliament.ParliamentState;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,7 +19,8 @@ public final class Kingdom {
     private final String id;
     private String displayName;
     private String worldName;
-    private String worldGuardRegion;
+    /** Ordered union of WorldGuard regions forming this kingdom's territory. */
+    private final LinkedHashSet<String> worldGuardRegions = new LinkedHashSet<>();
     /** The region the kingdom keeps its grain in; null until the Crown sites one. */
     private String granaryRegion;
     /** Wheat off the harvest tally left over under a bale, waiting on the next day's grain. */
@@ -64,11 +67,42 @@ public final class Kingdom {
     }
 
     public String getWorldGuardRegion() {
-        return worldGuardRegion;
+        return worldGuardRegions.stream().findFirst().orElse(null);
     }
 
+    /** Legacy replacement API. New code should use {@link #getWorldGuardRegions()}. */
     public void setWorldGuardRegion(String worldGuardRegion) {
-        this.worldGuardRegion = worldGuardRegion;
+        worldGuardRegions.clear();
+        addWorldGuardRegion(worldGuardRegion);
+    }
+
+    public List<String> getWorldGuardRegions() {
+        return List.copyOf(worldGuardRegions);
+    }
+
+    public boolean hasWorldGuardRegions() {
+        return !worldGuardRegions.isEmpty();
+    }
+
+    public boolean containsWorldGuardRegion(String regionId) {
+        return regionId != null && worldGuardRegions.contains(normaliseId(regionId));
+    }
+
+    public void addWorldGuardRegion(String regionId) {
+        if (regionId != null && !regionId.isBlank()) {
+            worldGuardRegions.add(normaliseId(regionId));
+        }
+    }
+
+    public boolean removeWorldGuardRegion(String regionId) {
+        return regionId != null && worldGuardRegions.remove(normaliseId(regionId));
+    }
+
+    public void replaceWorldGuardRegions(Iterable<String> regionIds) {
+        worldGuardRegions.clear();
+        if (regionIds != null) {
+            regionIds.forEach(this::addWorldGuardRegion);
+        }
     }
 
     public String getGranaryRegion() {

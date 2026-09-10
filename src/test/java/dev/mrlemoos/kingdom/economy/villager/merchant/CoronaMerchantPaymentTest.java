@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.mrlemoos.kingdom.economy.CoronaItem;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import java.util.UUID;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +66,25 @@ class CoronaMerchantPaymentTest {
         economyService.depositFromNuggets(PLAYER, 1);
 
         assertFalse(CoronaMerchantPayment.collectContents(contents, economyService, PLAYER, 3).isPresent());
+    }
+
+    @Test
+    void spaceForResultsCountsEmptySlotsAndMatchingStacks() {
+        ItemStack[] slots = new ItemStack[3];
+        slots[0] = new ItemStack(Material.DIAMOND, 60);
+        slots[1] = new ItemStack(Material.STONE, 64);
+
+        // 4 room in the diamond stack + 64 in the empty slot, two diamonds a trade.
+        assertEquals(34, CoronaMerchantPayment.spaceForResults(slots, new ItemStack(Material.DIAMOND, 2)));
+    }
+
+    @Test
+    void spaceForResultsIsZeroWhenTheInventoryIsFull() {
+        ItemStack[] slots = new ItemStack[2];
+        slots[0] = new ItemStack(Material.STONE, 64);
+        slots[1] = new ItemStack(Material.DIAMOND, 64);
+
+        assertEquals(0, CoronaMerchantPayment.spaceForResults(slots, new ItemStack(Material.DIAMOND, 1)));
     }
 
     @Test

@@ -23,6 +23,9 @@ class CityServiceTest {
     private static final UUID PRISONER = UUID.fromString("00000000-0000-0000-0000-000000000004");
     private static final UUID FOREIGN_PRINCE = UUID.fromString("00000000-0000-0000-0000-000000000005");
     private static final UUID OPERATOR = UUID.fromString("00000000-0000-0000-0000-000000000006");
+    private static final UUID DUKE = UUID.fromString("00000000-0000-0000-0000-000000000007");
+    private static final UUID COUNT = UUID.fromString("00000000-0000-0000-0000-000000000008");
+    private static final UUID LORD = UUID.fromString("00000000-0000-0000-0000-000000000009");
 
     private static final CapitalLocation CAPITAL = new CapitalLocation("world", 10.5, 64.0, -20.5, 90.0f, 0.0f);
 
@@ -43,10 +46,16 @@ class CityServiceTest {
         kingdomService.joinKingdom(CITIZEN, "northmarch");
         kingdomService.joinKingdom(PRISONER, "northmarch");
         kingdomService.joinKingdom(OPERATOR, "northmarch");
+        kingdomService.joinKingdom(DUKE, "northmarch");
+        kingdomService.joinKingdom(COUNT, "northmarch");
+        kingdomService.joinKingdom(LORD, "northmarch");
         kingdomService.joinKingdom(FOREIGN_PRINCE, "southmarch");
         kingdomService.assignTitle(KING, NobleRank.KING, TitleStyle.MASCULINE);
         kingdomService.assignTitle(PRINCE, NobleRank.PRINCE, TitleStyle.MASCULINE);
         kingdomService.assignTitle(FOREIGN_PRINCE, NobleRank.PRINCE, TitleStyle.MASCULINE);
+        kingdomService.assignTitle(DUKE, NobleRank.DUKE, TitleStyle.MASCULINE);
+        kingdomService.assignTitle(COUNT, NobleRank.COUNT, TitleStyle.MASCULINE);
+        kingdomService.assignTitle(LORD, NobleRank.LORD, TitleStyle.MASCULINE);
     }
 
     private void setCapital() {
@@ -245,5 +254,79 @@ class CityServiceTest {
 
         assertTrue(cityService.crierStand("northmarch").isEmpty());
         assertFalse(cityService.hasSeparateCrierStand("northmarch"));
+    }
+
+    @Test
+    void aDukeMayGrantAndRevokeABuildPermit() {
+        setCapital();
+
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.grantPermit("northmarch", NobleRank.DUKE, CITIZEN));
+        assertTrue(cityService.hasPermit("northmarch", CITIZEN));
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.revokePermit("northmarch", NobleRank.DUKE, CITIZEN));
+        assertFalse(cityService.hasPermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void aCountMayGrantAndRevokeABuildPermit() {
+        setCapital();
+
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.grantPermit("northmarch", NobleRank.COUNT, CITIZEN));
+        assertTrue(cityService.hasPermit("northmarch", CITIZEN));
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.revokePermit("northmarch", NobleRank.COUNT, CITIZEN));
+        assertFalse(cityService.hasPermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void theCrownKeepsTheBuildPermitBook() {
+        setCapital();
+
+        assertInstanceOf(
+                CityResult.Success.class,
+                cityService.grantPermit("northmarch", NobleRank.KING, CITIZEN));
+        assertTrue(cityService.hasPermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void aLordKnightOrPlainCitizenMayNotIssueABuildPermit() {
+        setCapital();
+
+        assertInstanceOf(
+                CityResult.Failure.class,
+                cityService.grantPermit("northmarch", NobleRank.LORD, CITIZEN));
+        assertInstanceOf(
+                CityResult.Failure.class,
+                cityService.grantPermit("northmarch", NobleRank.KNIGHT, CITIZEN));
+        assertInstanceOf(CityResult.Failure.class, cityService.grantPermit("northmarch", null, CITIZEN));
+        assertFalse(cityService.hasPermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void aLordMayNotRevokeABuildPermit() {
+        setCapital();
+        cityService.grantPermit("northmarch", CITIZEN);
+
+        assertInstanceOf(
+                CityResult.Failure.class,
+                cityService.revokePermit("northmarch", NobleRank.LORD, CITIZEN));
+        assertTrue(cityService.hasPermit("northmarch", CITIZEN));
+    }
+
+    @Test
+    void thePermitRefusalNamesEveryOfficeThatMayIssueOne() {
+        setCapital();
+
+        CityResult refusal = cityService.grantPermit("northmarch", NobleRank.KNIGHT, CITIZEN);
+        String message = ((CityResult.Failure) refusal).message();
+        assertTrue(message.contains("King"));
+        assertTrue(message.contains("Duke"));
+        assertTrue(message.contains("Count"));
     }
 }

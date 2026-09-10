@@ -49,6 +49,22 @@ public final class CoronaMerchantPayment {
         return Optional.of(new Result(fromNuggets, fromWallet));
     }
 
+    /** How many whole copies of {@code result} still fit in {@code contents}. */
+    public static int spaceForResults(ItemStack[] contents, ItemStack result) {
+        if (contents == null || result == null || result.getAmount() <= 0) {
+            return 0;
+        }
+        int room = 0;
+        for (ItemStack stack : contents) {
+            if (stack == null || stack.getType().isAir()) {
+                room += result.getMaxStackSize();
+            } else if (stack.isSimilar(result)) {
+                room += Math.max(0, stack.getMaxStackSize() - stack.getAmount());
+            }
+        }
+        return room / result.getAmount();
+    }
+
     private static boolean removeNuggets(ItemStack[] contents, int amount) {
         if (amount <= 0) {
             return true;

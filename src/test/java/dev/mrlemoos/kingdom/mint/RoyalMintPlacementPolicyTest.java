@@ -24,4 +24,15 @@ class RoyalMintPlacementPolicyTest {
         assertFalse(RoyalMintPlacementPolicy.canPlace(NobleRank.MP));
         assertFalse(RoyalMintPlacementPolicy.canPlace(NobleRank.KNIGHT));
     }
+
+    @Test
+    void aLordMayPlace() {
+        assertTrue(RoyalMintPlacementPolicy.canPlace(NobleRank.LORD));
+    }
+
+    @Test
+    void neitherDukeNorCountMayPlace() {
+        assertFalse(RoyalMintPlacementPolicy.canPlace(NobleRank.DUKE));
+        assertFalse(RoyalMintPlacementPolicy.canPlace(NobleRank.COUNT));
+    }
 }

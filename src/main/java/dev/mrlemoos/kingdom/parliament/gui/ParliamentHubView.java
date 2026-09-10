@@ -21,6 +21,8 @@ public final class ParliamentHubView {
     private final boolean canResolveResignation;
     private final boolean canTableMotion;
     private final boolean canSecondMotion;
+    private final boolean canTableWar;
+    private final boolean canTablePeace;
     private final Optional<String> billTitle;
     private final Optional<String> resignationSummary;
 
@@ -69,11 +71,50 @@ public final class ParliamentHubView {
                 divisionTied,
                 castingVoteSet,
                 hasPreparedMint,
+                false,
                 electionActive,
                 pendingResignation,
                 canResolveResignation,
                 billTitle,
                 resignationSummary,
+                false,
+                false,
+                false,
+                false);
+    }
+
+    public ParliamentHubView(
+            NobleRank rank,
+            BillState billState,
+            boolean inCommons,
+            boolean inLords,
+            boolean divisionTied,
+            boolean castingVoteSet,
+            boolean hasPreparedMint,
+            boolean hasPreparedPublicWork,
+            boolean electionActive,
+            boolean pendingResignation,
+            boolean canResolveResignation,
+            Optional<String> billTitle,
+            Optional<String> resignationSummary,
+            boolean canTableMotion,
+            boolean canSecondMotion) {
+        this(
+                rank,
+                billState,
+                inCommons,
+                inLords,
+                divisionTied,
+                castingVoteSet,
+                hasPreparedMint,
+                hasPreparedPublicWork,
+                electionActive,
+                pendingResignation,
+                canResolveResignation,
+                billTitle,
+                resignationSummary,
+                canTableMotion,
+                canSecondMotion,
                 false,
                 false);
     }
@@ -108,7 +149,9 @@ public final class ParliamentHubView {
                 billTitle,
                 resignationSummary,
                 canTableMotion,
-                canSecondMotion);
+                canSecondMotion,
+                false,
+                false);
     }
 
     public ParliamentHubView(
@@ -126,7 +169,9 @@ public final class ParliamentHubView {
             Optional<String> billTitle,
             Optional<String> resignationSummary,
             boolean canTableMotion,
-            boolean canSecondMotion) {
+            boolean canSecondMotion,
+            boolean canTableWar,
+            boolean canTablePeace) {
         this.rank = rank;
         this.billState = billState;
         this.inCommons = inCommons;
@@ -142,6 +187,8 @@ public final class ParliamentHubView {
         this.resignationSummary = resignationSummary != null ? resignationSummary : Optional.empty();
         this.canTableMotion = canTableMotion;
         this.canSecondMotion = canSecondMotion;
+        this.canTableWar = canTableWar;
+        this.canTablePeace = canTablePeace;
     }
 
     /** Whether this Member may put the confidence question to the House. */
@@ -241,6 +288,12 @@ public final class ParliamentHubView {
             }
             if (rank == NobleRank.MP && billState == BillState.AWAITING_SECOND && canSecondMotion) {
                 actions.add(ParliamentHubAction.SECOND_NO_CONFIDENCE);
+            }
+            if (billState == null && canTableWar) {
+                actions.add(ParliamentHubAction.TABLE_WAR);
+            }
+            if (billState == null && canTablePeace) {
+                actions.add(ParliamentHubAction.TABLE_PEACE);
             }
             if (rank == NobleRank.MP && billState == BillState.DIVISION_OPEN) {
                 actions.add(ParliamentHubAction.VOTE_AYE);

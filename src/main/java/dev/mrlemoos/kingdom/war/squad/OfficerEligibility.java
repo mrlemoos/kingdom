@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -30,6 +31,15 @@ public final class OfficerEligibility {
     public static Predicate<UUID> standingRosterOrMuster(
             StandingRosterService standingRosterService, MusterService musterService, Supplier<String> activeWarId) {
         Objects.requireNonNull(activeWarId, "activeWarId");
+        return standingRosterOrMuster(standingRosterService, musterService, ignored -> activeWarId.get());
+    }
+
+    /** Per-officer war lookup for realms which may have several active wars. */
+    public static Predicate<UUID> standingRosterOrMuster(
+            StandingRosterService standingRosterService,
+            MusterService musterService,
+            Function<UUID, String> activeWarIdForOfficer) {
+        Objects.requireNonNull(activeWarIdForOfficer, "activeWarIdForOfficer");
         return officerId -> {
             if (standingRosterService != null && standingRosterService.isOnDuty(officerId)) {
                 return true;
@@ -37,7 +47,7 @@ public final class OfficerEligibility {
             if (musterService == null) {
                 return false;
             }
-            String warId = activeWarId.get();
+            String warId = activeWarIdForOfficer.apply(officerId);
             if (warId == null || warId.isBlank()) {
                 return false;
             }

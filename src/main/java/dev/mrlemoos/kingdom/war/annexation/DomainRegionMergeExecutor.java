@@ -11,8 +11,8 @@ import java.util.Set;
  * Domain-only {@link RegionMergeExecutor}: composes {@link RegionMergePlan#fromCapturedChunks}
  * for the bounding-rectangle maths rather than reimplementing it, gated by {@link
  * AnnexationConfig#enabled()}. {@link #execute} records the last plan it was given so tests can
- * observe it without a live {@code WorldGuardBridge} — the real merge apply lands in a later
- * slice.
+ * observe it without a live {@code WorldGuardBridge}. Live apply is {@link
+ * WorldGuardAnnexationExecutor}.
  */
 public final class DomainRegionMergeExecutor implements RegionMergeExecutor {
 

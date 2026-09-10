@@ -79,6 +79,65 @@ class CoronaMerchantRecipeServiceTest {
                         .getUses());
     }
 
+    @Test
+    void consumeUsesMarksTheRequestedNumberOfTrades() {
+        Villager villager = new VillagerMock(server, UUID.randomUUID());
+        villager.setProfession(Villager.Profession.CLERIC);
+        recipeService.refreshRecipes(villager);
+        MerchantRecipe offer = villager.getRecipes().stream()
+                .filter(CoronaMerchantRecipeFactory::isCoronaRecipe)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(3, recipeService.consumeUses(villager, offer, 3));
+
+        assertEquals(3, stockedUses(villager, offer));
+    }
+
+    @Test
+    void consumeUsesRefusesWhenTheOfferIsOutOfStock() {
+        Villager villager = new VillagerMock(server, UUID.randomUUID());
+        villager.setProfession(Villager.Profession.CLERIC);
+        recipeService.refreshRecipes(villager);
+        List<MerchantRecipe> recipes = new java.util.ArrayList<>(villager.getRecipes());
+        MerchantRecipe offer = recipes.stream()
+                .filter(CoronaMerchantRecipeFactory::isCoronaRecipe)
+                .findFirst()
+                .orElseThrow();
+        offer.setUses(offer.getMaxUses());
+        villager.setRecipes(recipes);
+
+        assertEquals(0, recipeService.consumeUses(villager, offer, 1));
+        assertEquals(0, recipeService.remainingUses(villager, offer));
+
+        assertEquals(offer.getMaxUses(), stockedUses(villager, offer));
+    }
+
+    @Test
+    void consumeUsesClampsToRemainingStock() {
+        Villager villager = new VillagerMock(server, UUID.randomUUID());
+        villager.setProfession(Villager.Profession.CLERIC);
+        recipeService.refreshRecipes(villager);
+        MerchantRecipe offer = villager.getRecipes().stream()
+                .filter(CoronaMerchantRecipeFactory::isCoronaRecipe)
+                .findFirst()
+                .orElseThrow();
+        int maxUses = offer.getMaxUses();
+
+        assertEquals(maxUses, recipeService.consumeUses(villager, offer, maxUses + 5));
+
+        assertEquals(maxUses, stockedUses(villager, offer));
+        assertEquals(0, recipeService.remainingUses(villager, offer));
+    }
+
+    private static int stockedUses(Villager villager, MerchantRecipe offer) {
+        return villager.getRecipes().stream()
+                .filter(recipe -> CoronaMerchantRecipeFactory.sameOffer(recipe, offer))
+                .findFirst()
+                .orElseThrow()
+                .getUses();
+    }
+
     private static MerchantRecipe vanillaEmeraldTrade() {
         MerchantRecipe recipe = new MerchantRecipe(new ItemStack(Material.WHEAT, 20), 0);
         recipe.addIngredient(new ItemStack(Material.EMERALD, 1));

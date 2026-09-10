@@ -3,12 +3,10 @@ package dev.mrlemoos.kingdom.war.crownsquad;
 import dev.mrlemoos.kingdom.economy.service.EconomyResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.war.WarResult;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -30,16 +28,16 @@ public final class CrownSquadService {
     private final EconomyService economyService;
     private final Supplier<UUID> idGenerator;
     private final Supplier<Long> clockMs;
+    private final CrownSquadStore store;
     private CrownSquadConfig config;
-
-    private final Map<String, List<CrownSquadUnit>> unitsByKingdom = new HashMap<>();
+    private Consumer<CrownSquadUnit> demobilisationObserver;
 
     public CrownSquadService(EconomyService economyService, CrownSquadConfig config) {
-        this(economyService, config, UUID::randomUUID, System::currentTimeMillis);
+        this(economyService, config, new InMemoryCrownSquadStore(), UUID::randomUUID, System::currentTimeMillis);
     }
 
     public CrownSquadService(EconomyService economyService, CrownSquadConfig config, Supplier<UUID> idGenerator) {
-        this(economyService, config, idGenerator, System::currentTimeMillis);
+        this(economyService, config, new InMemoryCrownSquadStore(), idGenerator, System::currentTimeMillis);
     }
 
     public CrownSquadService(
@@ -47,10 +45,15 @@ public final class CrownSquadService {
             CrownSquadConfig config,
             Supplier<UUID> idGenerator,
             Supplier<Long> clockMs) {
+        this(economyService, config, new InMemoryCrownSquadStore(), idGenerator, clockMs);
+    }
+
+    public CrownSquadService(EconomyService economyService, CrownSquadConfig config, CrownSquadStore store, Supplier<UUID> idGenerator, Supplier<Long> clockMs) {
         this.economyService = Objects.requireNonNull(economyService, "economyService");
         this.config = Objects.requireNonNull(config, "config");
         this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator");
         this.clockMs = Objects.requireNonNull(clockMs, "clockMs");
+        this.store = Objects.requireNonNull(store, "store");
     }
 
     public void setConfig(CrownSquadConfig config) {
@@ -59,6 +62,11 @@ public final class CrownSquadService {
 
     public CrownSquadConfig config() {
         return config;
+    }
+
+    /** Platform hook: remove physical units before their ledger entries disappear on demobilisation. */
+    public void setDemobilisationObserver(Consumer<CrownSquadUnit> demobilisationObserver) {
+        this.demobilisationObserver = demobilisationObserver;
     }
 
     /**
@@ -87,7 +95,7 @@ public final class CrownSquadService {
 
         UUID unitId = idGenerator.get();
         CrownSquadUnit unit = new CrownSquadUnit(unitId, kingdomId, clockMs.get());
-        unitsByKingdom.computeIfAbsent(kingdomId, ignored -> new ArrayList<>()).add(unit);
+        store.add(unit);
         return WarResult.ok("Crown squad purchased for " + config.cost() + " Corona. Unit " + unitId + '.');
     }
 
@@ -95,7 +103,7 @@ public final class CrownSquadService {
         if (kingdomId == null) {
             return List.of();
         }
-        return List.copyOf(unitsByKingdom.getOrDefault(kingdomId, List.of()));
+        return store.allView().stream().filter(unit -> kingdomId.equals(unit.kingdomId())).toList();
     }
 
     public int countOf(String kingdomId) {
@@ -111,7 +119,8 @@ public final class CrownSquadService {
         if (kingdomId == null || kingdomId.isBlank()) {
             return;
         }
-        unitsByKingdom.remove(kingdomId);
+        if (demobilisationObserver != null) for (CrownSquadUnit unit : unitsOf(kingdomId)) demobilisationObserver.accept(unit);
+        store.removeKingdom(kingdomId);
     }
 
     /**
@@ -125,14 +134,10 @@ public final class CrownSquadService {
         if (kingdomId == null || kingdomId.isBlank() || unitId == null) {
             return false;
         }
-        List<CrownSquadUnit> units = unitsByKingdom.get(kingdomId);
-        if (units == null) {
-            return false;
-        }
-        boolean removed = units.removeIf(unit -> unit.unitId().equals(unitId));
-        if (units.isEmpty()) {
-            unitsByKingdom.remove(kingdomId);
-        }
-        return removed;
+        boolean exists = unitsOf(kingdomId).stream().anyMatch(unit -> unit.unitId().equals(unitId));
+        if (exists) store.remove(kingdomId, unitId);
+        return exists;
     }
+
+    public List<CrownSquadUnit> allUnitsView() { return List.copyOf(store.allView()); }
 }

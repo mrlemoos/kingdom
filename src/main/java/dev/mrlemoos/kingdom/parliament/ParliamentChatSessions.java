@@ -12,7 +12,8 @@ public final class ParliamentChatSessions {
         BUDGET_CUSTOM,
         STIPEND_PLAYER,
         STIPEND_AMOUNT,
-        STIPEND_REASON
+        STIPEND_REASON,
+        WAR_TARGET
     }
 
     public record Session(

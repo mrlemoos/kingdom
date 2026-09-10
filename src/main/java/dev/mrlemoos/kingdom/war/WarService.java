@@ -5,6 +5,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
+import dev.mrlemoos.kingdom.war.muster.MusterService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ public final class WarService {
     private final AtomicLong warSequence = new AtomicLong(1);
     private WarConfig config = WarConfig.off();
     private StandingRosterService standingRosterService;
+    private MusterService musterService;
     private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
 
     public WarService(KingdomService kingdomService) {
@@ -55,6 +57,11 @@ public final class WarService {
         this.standingRosterService = standingRosterService;
     }
 
+    /** Optional hook so an enacted war calls its muster while its clock is fresh. */
+    public void setMusterService(MusterService musterService) {
+        this.musterService = musterService;
+    }
+
     /**
      * Optional hook (same nullable-setter pattern) so a war declared in winter costs the attacker's
      * Premier political standing. It never tables anything: the House alone moves no confidence.
@@ -65,6 +72,10 @@ public final class WarService {
 
     public Collection<ActiveWar> activeWarsView() {
         return List.copyOf(activeWars.values());
+    }
+
+    public Collection<ActiveWar> endedWarsView() {
+        return List.copyOf(endedWars);
     }
 
     public Optional<ActiveWar> activeWarFor(String kingdomId) {
@@ -155,6 +166,9 @@ public final class WarService {
             standingRosterService.mobiliseOnWarEnactment(normalisedAttacker);
             standingRosterService.mobiliseOnWarEnactment(normalisedTarget);
         }
+        if (musterService != null) {
+            musterService.openMuster(war.id());
+        }
         if (winterCensureService != null) {
             // The attacker's Premier chose the moment; the defender's did not.
             winterCensureService.censure(
@@ -215,14 +229,22 @@ public final class WarService {
      * and the war's aim and outcome.
      */
     public String declarationMessage(ActiveWar war) {
+        boolean counterWar = wasDefenderAgainst(war.attackerKingdomId(), war.defenderKingdomId());
         return war.attackerKingdomId()
-                + " has declared war on "
+                + (counterWar ? " has declared a counter-war on " : " has declared war on ")
                 + war.defenderKingdomId()
                 + ". Aim: "
                 + war.aim().name().toLowerCase(Locale.ROOT).replace('_', ' ')
                 + ". Outcome: "
                 + war.outcome().name().toLowerCase(Locale.ROOT).replace('_', ' ')
                 + ".";
+    }
+
+    public boolean wasFormerDefenderAgainst(String proposerKingdomId, String targetKingdomId) {
+        if (proposerKingdomId == null || targetKingdomId == null) {
+            return false;
+        }
+        return wasDefenderAgainst(Kingdom.normaliseId(proposerKingdomId), Kingdom.normaliseId(targetKingdomId));
     }
 
     private boolean wasDefenderAgainst(String defenderKingdomId, String attackerKingdomId) {
@@ -241,6 +263,13 @@ public final class WarService {
             for (ActiveWar war : wars) {
                 activeWars.put(war.id(), war);
             }
+        }
+    }
+
+    public void replaceEndedWars(Collection<ActiveWar> wars) {
+        endedWars.clear();
+        if (wars != null) {
+            endedWars.addAll(wars);
         }
     }
 

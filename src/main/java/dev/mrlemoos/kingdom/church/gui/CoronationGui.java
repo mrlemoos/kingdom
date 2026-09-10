@@ -20,6 +20,7 @@ public final class CoronationGui implements InventoryHolder {
     public static final int SLOT_CROWN = 11;
     public static final int SLOT_RITE = 13;
     public static final int SLOT_LEAVE = 15;
+    public static final int SLOT_OATH = 9;
 
     private final String kingdomId;
     private Inventory inventory;
@@ -54,6 +55,12 @@ public final class CoronationGui implements InventoryHolder {
                         .lore(c("&7The monarch kneels at the altar; the church"))
                         .lore(c("&7sets the crown upon them before the realm."))
                         .build());
+        inventory.setItem(
+                SLOT_OATH,
+                new ItemBuilder(Material.IRON_SWORD)
+                        .displayAs(c("&aSwear the oath of service"))
+                        .lore(c("&7Open your military morale before the cleric."))
+                        .build());
         ItemBuilder crown = new ItemBuilder(Material.GOLDEN_HELMET)
                 .displayAs(c(crowned ? "&7Already crowned" : "&aCrown the monarch"));
         if (monarchName == null) {
@@ -79,6 +86,10 @@ public final class CoronationGui implements InventoryHolder {
 
     public boolean isLeaveSlot(int slot) {
         return slot == SLOT_LEAVE;
+    }
+
+    public boolean isOathSlot(int slot) {
+        return slot == SLOT_OATH;
     }
 
     @Override

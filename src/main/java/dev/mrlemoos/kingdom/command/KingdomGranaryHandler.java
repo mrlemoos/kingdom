@@ -65,13 +65,17 @@ public final class KingdomGranaryHandler {
         }
 
         String regionId = Kingdom.normaliseId(args[1]);
-        String territoryRegion = kingdom.get().getWorldGuardRegion();
+        String territoryRegion = kingdom.get().hasWorldGuardRegions() ? "linked territory" : null;
         boolean worldGuard = WorldGuardBridge.isAvailable();
-        Optional<GranaryBounds> territoryBounds = worldGuard && territoryRegion != null
-                ? BukkitGranaryScan.boundsOf(worldName, territoryRegion)
-                : Optional.empty();
         Optional<GranaryBounds> granaryBounds = worldGuard
                 ? BukkitGranaryScan.boundsOf(worldName, regionId)
+                : Optional.empty();
+        Optional<GranaryBounds> territoryBounds = worldGuard && granaryBounds.isPresent()
+                ? kingdom.get().getWorldGuardRegions().stream()
+                        .map(region -> BukkitGranaryScan.boundsOf(worldName, region))
+                        .flatMap(Optional::stream)
+                        .filter(bounds -> bounds.contains(granaryBounds.get()))
+                        .findFirst()
                 : Optional.empty();
 
         Verdict verdict = GranarySiting.evaluateLink(

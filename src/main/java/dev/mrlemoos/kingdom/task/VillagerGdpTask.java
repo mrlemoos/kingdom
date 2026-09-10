@@ -47,6 +47,7 @@ import dev.mrlemoos.kingdom.war.levy.LevyDayOutcome;
 import dev.mrlemoos.kingdom.war.levy.LevyUpkeepService;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.muster.MusterService;
+import dev.mrlemoos.kingdom.war.conscription.ConscriptionService;
 import dev.mrlemoos.kingdom.war.siege.FieldMoraleDecayService;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.ArrayList;
@@ -90,6 +91,7 @@ public final class VillagerGdpTask implements Runnable {
     private YamlKingdomStore kingdomStore;
     private ShortfallWatch shortfallWatch;
     private dev.mrlemoos.kingdom.church.ChurchService churchService;
+    private ConscriptionService conscriptionService;
     /**
      * Kingdoms already told their granary is full. Memory only, and deliberately so: nothing of the
      * tally is written down but the wheat under a bale, and a restart may say it again.
@@ -104,6 +106,11 @@ public final class VillagerGdpTask implements Runnable {
     /** Wires the church's escheat of villagers buried by nobody. */
     public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
         this.churchService = churchService;
+    }
+
+    /** Pressed villagers serve the levy instead of producing daily GDP. */
+    public void setConscriptionService(ConscriptionService conscriptionService) {
+        this.conscriptionService = conscriptionService;
     }
 
     public VillagerGdpTask(
@@ -219,8 +226,8 @@ public final class VillagerGdpTask implements Runnable {
         boolean granaryDirty = warnOfShortfall;
 
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
-            String regionId = kingdom.getWorldGuardRegion();
-            if (regionId == null || regionId.isBlank()) {
+            List<String> regionIds = kingdom.getWorldGuardRegions();
+            if (regionIds.isEmpty()) {
                 continue;
             }
 
@@ -230,17 +237,17 @@ public final class VillagerGdpTask implements Runnable {
                 continue;
             }
 
-            List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionId, config);
+            List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionIds, config);
             List<MpSeat> seatedVillagerMps = kingdom.getElectionState().seatsView().values().stream().toList();
             List<VillagerEconomicParticipant> participants =
                     VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
 
-            Map<UUID, Double> coldYieldFactors = settleHearths(world, kingdom, regionId, season);
+            Map<UUID, Double> coldYieldFactors = settleHearths(world, kingdom, regionIds, season);
             long epochDay = world.getFullTime() / 24000L;
             // The granary is settled before the day's yield is reckoned: what the store could not
             // feed today is what hunger cuts that same day's work by.
-            granaryDirty |= settleGranary(world, kingdom, regionId, season, epochDay, realmDay, warnOfShortfall);
-            HungerDayOutcome hunger = settleHunger(world, kingdom, regionId, realmDay);
+            granaryDirty |= settleGranary(world, kingdom, regionIds, season, epochDay, realmDay, warnOfShortfall);
+            HungerDayOutcome hunger = settleHunger(world, kingdom, regionIds, realmDay);
             Map<UUID, Double> yieldFactors = PrivationYield.combine(coldYieldFactors, hunger.yieldFactors());
             granaryDirty |= answerForTheFamine(kingdom, hunger, realmDay, epochDay);
             double treasuryBefore = economyService.getTreasuryBalance(kingdom.getId());
@@ -290,7 +297,7 @@ public final class VillagerGdpTask implements Runnable {
     private boolean settleGranary(
             World world,
             Kingdom kingdom,
-            String regionId,
+            List<String> regionIds,
             SeasonProfile season,
             long mcDay,
             long realmDay,
@@ -306,10 +313,10 @@ public final class VillagerGdpTask implements Runnable {
 
         boolean dirty = false;
         if (bounds.isPresent()) {
-            dirty = tallyHarvest(world, kingdom, regionId, season, mcDay, bounds.get(), config);
+            dirty = tallyHarvest(world, kingdom, regionIds, season, mcDay, bounds.get(), config);
         }
         int ration = WinterRation.balesFor(
-                BukkitTerritoryHeads.countIn(world, regionId), config.headsPerHay());
+                regionIds.stream().mapToInt(region -> BukkitTerritoryHeads.countIn(world, region)).sum(), config.headsPerHay());
         drawWinterRation(world, kingdom, bounds, ration, realmDay);
         if (warnOfShortfall) {
             dirty |= warnOfTheWinter(world, kingdom, bounds, ration, realmDay, mcDay);
@@ -376,7 +383,7 @@ public final class VillagerGdpTask implements Runnable {
     private boolean tallyHarvest(
             World world,
             Kingdom kingdom,
-            String regionId,
+            List<String> regionIds,
             SeasonProfile season,
             long mcDay,
             GranaryBounds granary,
@@ -384,7 +391,7 @@ public final class VillagerGdpTask implements Runnable {
         GranaryStock stock = BukkitGranaryScan.stockIn(world, granary);
         int looseWheat = BukkitGranaryYard.gatherLooseWheat(world, granary);
         HarvestTally tally = HarvestTally.reckon(
-                countFarmers(world, regionId),
+                countFarmers(world, regionIds),
                 season.outdoorYieldFactor(),
                 currentSeason() != Season.WINTER,
                 looseWheat,
@@ -399,7 +406,7 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     /** Farmer-profession villagers standing in the kingdom's territory; the realm's fields in one figure. */
-    private int countFarmers(World world, String regionId) {
+    private int countFarmers(World world, List<String> regionIds) {
         int farmers = 0;
         String worldName = world.getName();
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
@@ -407,7 +414,7 @@ public final class VillagerGdpTask implements Runnable {
                 continue;
             }
             Location location = villager.getLocation();
-            if (isInRegion(location, worldName, regionId, location)) {
+            if (isInRegion(location, worldName, regionIds, location)) {
                 farmers++;
             }
         }
@@ -440,16 +447,16 @@ public final class VillagerGdpTask implements Runnable {
      * villagers within reach are warm, and the rest go a day colder. The world is asked afresh — no
      * hearth is ever recorded — and only the cold-day counts outlive the day.
      */
-    private Map<UUID, Double> settleHearths(World world, Kingdom kingdom, String regionId, SeasonProfile season) {
+    private Map<UUID, Double> settleHearths(World world, Kingdom kingdom, List<String> regionIds, SeasonProfile season) {
         HearthDayService hearths = this.hearthDayService;
         if (hearths == null) {
             return Map.of();
         }
         HearthConfig config = this.hearthConfig != null ? this.hearthConfig : HearthConfig.defaults();
         List<HearthSite> sites = season.hearthsRequired()
-                ? BukkitHearthScan.hearthsIn(world, regionId, config)
+                ? regionIds.stream().flatMap(region -> BukkitHearthScan.hearthsIn(world, region, config).stream()).toList()
                 : List.of();
-        List<ColdSubject> subjects = collectColdSubjects(world, regionId);
+        List<ColdSubject> subjects = collectColdSubjects(world, regionIds);
         ColdDayOutcome outcome = hearths.settleDay(kingdom.getId(), sites, subjects, config, season.hearthsRequired());
         if (!outcome.striking().isEmpty()) {
             RealmFeedback.kingdomMessage(
@@ -470,14 +477,14 @@ public final class VillagerGdpTask implements Runnable {
      * villager a day hungrier, a realm that could wipes the slate, and from the seventh hungry day
      * the lot takes one of those still starving. Only the hungry-day counts outlive the day.
      */
-    private HungerDayOutcome settleHunger(World world, Kingdom kingdom, String regionId, long realmDay) {
+    private HungerDayOutcome settleHunger(World world, Kingdom kingdom, List<String> regionIds, long realmDay) {
         HungerDayService hunger = this.hungerDayService;
         if (hunger == null) {
             return new HungerDayOutcome(Map.of(), Set.of(), Set.of(), Optional.empty());
         }
         GranaryConfig config = this.granaryConfig != null ? this.granaryConfig : GranaryConfig.defaults();
         HungerDayOutcome outcome = hunger.settleDay(
-                kingdom.getId(), collectHungerSubjects(world, regionId), winterLarder.isUnfed(kingdom.getId()),
+                kingdom.getId(), collectHungerSubjects(world, regionIds), winterLarder.isUnfed(kingdom.getId()),
                 realmDay, config);
         if (!outcome.striking().isEmpty()) {
             RealmFeedback.kingdomMessage(
@@ -497,12 +504,12 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     /** Every villager standing in the kingdom's territory, and which of them never starve. */
-    private List<HungerSubject> collectHungerSubjects(World world, String regionId) {
+    private List<HungerSubject> collectHungerSubjects(World world, List<String> regionIds) {
         List<HungerSubject> subjects = new ArrayList<>();
         String worldName = world.getName();
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
             Location location = villager.getLocation();
-            if (!isInRegion(location, worldName, regionId, location)) {
+            if (!isInRegion(location, worldName, regionIds, location)) {
                 continue;
             }
             subjects.add(new HungerSubject(villager.getUniqueId(), neverStrikes(villager)));
@@ -540,12 +547,12 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     /** Every villager standing in the kingdom's territory, and which of them never strike. */
-    private List<ColdSubject> collectColdSubjects(World world, String regionId) {
+    private List<ColdSubject> collectColdSubjects(World world, List<String> regionIds) {
         List<ColdSubject> subjects = new ArrayList<>();
         String worldName = world.getName();
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
             Location location = villager.getLocation();
-            if (!isInRegion(location, worldName, regionId, location)) {
+            if (!isInRegion(location, worldName, regionIds, location)) {
                 continue;
             }
             subjects.add(new ColdSubject(
@@ -679,14 +686,17 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     private List<VillagerEconomicParticipant> collectProductiveParticipants(
-            World world, Kingdom kingdom, String regionId, EconomyConfig config) {
+            World world, Kingdom kingdom, List<String> regionIds, EconomyConfig config) {
         List<VillagerEconomicParticipant> participants = new ArrayList<>();
         String worldName = world.getName();
         int position = 0;
 
         VillagerMpEntityService villagers = this.villagerMpEntityService;
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-            if (!isProductiveVillager(villager, worldName, regionId)) {
+            if (!isProductiveVillager(villager, worldName, regionIds)) {
+                continue;
+            }
+            if (conscriptionService != null && conscriptionService.shouldExcludeFromGdp(villager.getUniqueId())) {
                 continue;
             }
             // The cleric holds no wallet and takes no part in the villager economy.
@@ -701,16 +711,16 @@ public final class VillagerGdpTask implements Runnable {
         return participants;
     }
 
-    private boolean isProductiveVillager(Villager villager, String worldName, String regionId) {
+    private boolean isProductiveVillager(Villager villager, String worldName, List<String> regionIds) {
         Location bedLocation = memoryLocation(villager, MemoryKey.HOME);
         Location workLocation = memoryLocation(villager, MemoryKey.JOB_SITE);
 
-        boolean bedInRegion = isInRegion(bedLocation, worldName, regionId, villager.getLocation());
-        boolean workInRegion = isInRegion(workLocation, worldName, regionId, villager.getLocation());
+        boolean bedInRegion = isInRegion(bedLocation, worldName, regionIds, villager.getLocation());
+        boolean workInRegion = isInRegion(workLocation, worldName, regionIds, villager.getLocation());
         return bedInRegion && workInRegion;
     }
 
-    private static boolean isInRegion(Location location, String worldName, String regionId, Location fallback) {
+    private static boolean isInRegion(Location location, String worldName, List<String> regionIds, Location fallback) {
         Location check = location != null ? location : fallback;
         if (check.getWorld() == null || !worldName.equals(check.getWorld().getName())) {
             return false;
@@ -718,8 +728,7 @@ public final class VillagerGdpTask implements Runnable {
 
         List<String> foundRegions = WorldGuardBridge.regionsAt(
                 worldName, check.getBlockX(), check.getBlockY(), check.getBlockZ());
-        String normalised = Kingdom.normaliseId(regionId);
-        return foundRegions.stream().anyMatch(found -> Kingdom.normaliseId(found).equals(normalised));
+        return foundRegions.stream().anyMatch(found -> regionIds.contains(Kingdom.normaliseId(found)));
     }
 
     private static Location memoryLocation(Villager villager, MemoryKey<Location> key) {

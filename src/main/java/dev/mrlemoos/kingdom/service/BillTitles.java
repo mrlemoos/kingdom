@@ -29,6 +29,11 @@ public final class BillTitles {
         return label + " — " + kingdomId + " — " + date;
     }
 
+    public static String defaultCounterWarTitle(String kingdomId, long tabledAtMs) {
+        String date = DATE.format(Instant.ofEpochMilli(tabledAtMs));
+        return "Counter-war Bill — " + kingdomId + " — " + date;
+    }
+
     public static String resolve(BillType type, String kingdomId, long tabledAtMs, String optionalTitle) {
         if (optionalTitle != null && !optionalTitle.isBlank()) {
             return optionalTitle.trim();

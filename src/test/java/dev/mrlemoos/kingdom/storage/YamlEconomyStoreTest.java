@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.economy.model.VillagerWalletState;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.war.tribute.WarDebt;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,25 @@ class YamlEconomyStoreTest {
         assertEquals(10, mints.getFirst().x());
         assertEquals(64, mints.getFirst().y());
         assertEquals(10, mints.getFirst().z());
+    }
+
+    @Test
+    void roundTripPreservesWarDebts() {
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeWarDebts(
+                config, "war-debts", List.of(new WarDebt("southreach", "northmarch", 60.0)));
+
+        List<WarDebt> loaded = YamlEconomyStore.readWarDebts(config.getConfigurationSection("war-debts"));
+
+        assertEquals(1, loaded.size());
+        assertEquals("southreach", loaded.getFirst().debtorKingdomId());
+        assertEquals("northmarch", loaded.getFirst().creditorKingdomId());
+        assertEquals(60.0, loaded.getFirst().amount(), 1e-9);
+    }
+
+    @Test
+    void readWarDebtsReturnsEmptyWhenSectionMissing() {
+        assertTrue(YamlEconomyStore.readWarDebts(null).isEmpty());
     }
 
     @Test

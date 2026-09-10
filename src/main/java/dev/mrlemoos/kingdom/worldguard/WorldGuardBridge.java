@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -162,6 +163,70 @@ public final class WorldGuardBridge {
             LOGGER.log(Level.WARNING, "WorldGuard regionBounds lookup failed in " + worldName, ex);
             return Optional.empty();
         }
+    }
+
+    /** Counts the chunk footprint of the union of all linked regions. */
+    /**
+     * Creates a cuboid region (or succeeds if that id already exists). Used for annexation region
+     * add — never redraws an existing kingdom region.
+     */
+    public static boolean createCuboidRegion(
+            String worldName, String regionId, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        if (!isAvailable() || worldName == null || regionId == null || regionId.isBlank()) {
+            return false;
+        }
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return false;
+        }
+        ReflectionCache cache = reflectionCache();
+        if (cache == null) {
+            return false;
+        }
+        try {
+            Object manager = cache.regionManagerForWorld(world);
+            if (manager == null) {
+                return false;
+            }
+            String id = normaliseRegionId(regionId);
+            if (cache.hasRegion(manager, id)) {
+                return true;
+            }
+            Class<?> blockVector3Class = Class.forName("com.sk89q.worldedit.math.BlockVector3");
+            Object min = cache.blockVectorAt(minX, minY, minZ);
+            Object max = cache.blockVectorAt(maxX, maxY, maxZ);
+            Class<?> cuboidClass = Class.forName("com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion");
+            Object region = cuboidClass
+                    .getConstructor(String.class, blockVector3Class, blockVector3Class)
+                    .newInstance(id, min, max);
+            Class<?> protectedRegionClass = Class.forName("com.sk89q.worldguard.protection.regions.ProtectedRegion");
+            protectedRegionClass.getMethod("setPriority", int.class).invoke(region, 5);
+            manager.getClass().getMethod("addRegion", protectedRegionClass).invoke(manager, region);
+            try {
+                manager.getClass().getMethod("saveChanges").invoke(manager);
+            } catch (NoSuchMethodException ignored) {
+                manager.getClass().getMethod("save").invoke(manager);
+            }
+            return cache.hasRegion(manager, id);
+        } catch (ReflectiveOperationException ex) {
+            LOGGER.log(Level.WARNING, "WorldGuard cuboid create failed for " + regionId + " in " + worldName, ex);
+            return false;
+        }
+    }
+
+    public static OptionalLong territoryChunkCount(String worldName, Iterable<String> regionIds) {
+        if (!isAvailable() || worldName == null || regionIds == null) {
+            return OptionalLong.empty();
+        }
+        List<RegionBounds> bounds = new ArrayList<>();
+        for (String regionId : regionIds) {
+            Optional<RegionBounds> regionBounds = regionBounds(worldName, regionId);
+            if (regionBounds.isEmpty()) {
+                return OptionalLong.empty();
+            }
+            bounds.add(regionBounds.get());
+        }
+        return OptionalLong.of(TerritoryChunkCounter.count(bounds));
     }
 
     private static ReflectionCache reflectionCache() {

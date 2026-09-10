@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.calendar;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Optional;
 import java.util.UUID;
@@ -117,6 +118,6 @@ public final class RealmCalendarService {
 
     /** The rank a reign is dated by; the Crown alone. */
     public static boolean isCrown(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN;
+        return RankAuthority.canDateReign(rank);
     }
 }

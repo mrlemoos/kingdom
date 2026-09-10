@@ -16,6 +16,9 @@ public final class KingdomCloudManagerFactory {
                 plugin,
                 ExecutionCoordinator.simpleCoordinator());
 
+        // The realm answers a mistyped order in its own voice, not Cloud's.
+        KingdomCloudExceptionHandlers.register(manager);
+
         if (manager.hasCapability(CloudBukkitCapabilities.NATIVE_BRIGADIER)) {
             manager.registerBrigadier();
         } else if (manager.hasCapability(CloudBukkitCapabilities.ASYNCHRONOUS_COMPLETION)) {

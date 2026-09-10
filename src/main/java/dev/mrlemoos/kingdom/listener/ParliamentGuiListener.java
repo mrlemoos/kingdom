@@ -21,7 +21,10 @@ import dev.mrlemoos.kingdom.parliament.gui.PublicWorkPrepareGui;
 import dev.mrlemoos.kingdom.parliament.gui.ReferendumBallotGui;
 import dev.mrlemoos.kingdom.parliament.gui.ResignationReviewGui;
 import dev.mrlemoos.kingdom.parliament.gui.StipendSelectGui;
+import dev.mrlemoos.kingdom.parliament.gui.WarPrepareGui;
 import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
+import dev.mrlemoos.kingdom.model.war.WarAim;
+import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
 import dev.mrlemoos.kingdom.resignation.ResignationSummaries;
@@ -164,7 +167,9 @@ public final class ParliamentGuiListener implements Listener {
                 billTitle,
                 pendingResignation.map(ResignationSummaries::describe),
                 parliamentService.canTableNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
-                parliamentService.canSecondNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()));
+                parliamentService.canSecondNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
+                parliamentService.canTableWar(kingdomId, membership.getRank()),
+                parliamentService.canTablePeace(kingdomId, membership.getRank()));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -182,6 +187,8 @@ public final class ParliamentGuiListener implements Listener {
             handleMintPrepareClick(event, player, mintGui);
         } else if (event.getInventory().getHolder() instanceof PublicWorkPrepareGui publicWorkGui) {
             handlePublicWorkPrepareClick(event, player, publicWorkGui);
+        } else if (event.getInventory().getHolder() instanceof WarPrepareGui warGui) {
+            handleWarPrepareClick(event, player, warGui);
         } else if (event.getInventory().getHolder() instanceof StipendSelectGui stipendGui) {
             handleStipendSelectClick(event, player, stipendGui);
         } else if (event.getInventory().getHolder() instanceof ResignationReviewGui resignationGui) {
@@ -225,6 +232,8 @@ public final class ParliamentGuiListener implements Listener {
             case CUSTOM_AMOUNT -> startBudgetCustomPrompt(player, kingdomId);
             case TABLE_SPEND_MINT -> tableMintBill(player, membership.get());
             case TABLE_SPEND_PUBLIC_WORK -> tablePublicWorkBill(player, membership.get());
+            case TABLE_WAR -> startWarTargetPrompt(player, membership.get().getKingdomId());
+            case TABLE_PEACE -> tablePeaceBill(player, membership.get());
             case TABLE_SPEND_STIPEND -> openStipendSelect(player, kingdomId);
             case STIPEND_OTHER -> startStipendOtherPrompt(player, kingdomId);
             case BUDGET_PRESET -> hub.budgetPresetAmountForSlot(event.getRawSlot())
@@ -489,6 +498,55 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
     }
 
+    private void startWarTargetPrompt(Player player, String kingdomId) {
+        player.closeInventory();
+        chatSessions.start(new ParliamentChatSessions.Session(
+                ParliamentChatSessions.SessionType.WAR_TARGET, kingdomId, player.getUniqueId()));
+        player.sendMessage(c("&bType the target kingdom id in chat (or 'cancel'):"));
+    }
+
+    private void tablePeaceBill(Player player, PlayerMembership membership) {
+        handler.finish(player, handler.tablePeace(
+                membership.getKingdomId(), membership.getRank(), membership.getPlayerId(), null));
+        player.closeInventory();
+    }
+
+    private void handleWarPrepareClick(InventoryClickEvent event, Player player, WarPrepareGui gui) {
+        event.setCancelled(true);
+        if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+        Optional<PlayerMembership> membership = handler.requireMembership(player);
+        if (membership.isEmpty()) { player.closeInventory(); return; }
+        WarPrepareGui.Action action = gui.actionForSlot(event.getRawSlot());
+        if (action == null) return;
+        if (action == WarPrepareGui.Action.CANCEL) { player.closeInventory(); return; }
+        if (action == WarPrepareGui.Action.CONFIRM) {
+            handler.finish(player, handler.tableWar(
+                    gui.kingdomId(), membership.get().getRank(), membership.get().getPlayerId(), gui.targetKingdomId(),
+                    gui.aim(), gui.outcome(), gui.deadlineDays(), null));
+            player.closeInventory();
+            return;
+        }
+        WarAim aim = switch (action) {
+            case TERRITORY -> WarAim.TERRITORY_THRESHOLD;
+            case CAPITAL -> WarAim.CAPITAL_FALL;
+            default -> gui.aim();
+        };
+        WarOutcome outcome = switch (action) {
+            case ANNEXATION -> WarOutcome.ANNEXATION;
+            case TRIBUTE -> WarOutcome.WAR_TRIBUTE;
+            default -> gui.outcome();
+        };
+        int deadline = switch (action) {
+            case DAY_ONE -> 1;
+            case DAY_THREE -> 3;
+            case DAY_SEVEN -> 7;
+            default -> gui.deadlineDays();
+        };
+        player.openInventory(WarPrepareGui.create(
+                        gui.kingdomId(), gui.targetKingdomId(), aim, outcome, deadline, gui.counterWar())
+                .getInventory());
+    }
+
     private void openPublicWorkPrepareFromLook(Player player, PlayerMembership membership) {
         if (membership.getRank() != NobleRank.PREMIER) {
             player.sendMessage(handler.error("Only the Premier may prepare a public work."));
@@ -651,6 +709,7 @@ public final class ParliamentGuiListener implements Listener {
             case STIPEND_PLAYER -> handleStipendPlayerChat(player, session, message, membership.get());
             case STIPEND_AMOUNT -> handleStipendAmountChat(player, session, message, membership.get());
             case STIPEND_REASON -> handleStipendReasonChat(player, session, message, membership.get());
+            case WAR_TARGET -> handleWarTargetChat(player, session, message);
         }
     }
 
@@ -764,6 +823,18 @@ public final class ParliamentGuiListener implements Listener {
                 session.optionalTitle());
         chatSessions.cancel(player.getUniqueId());
         handler.finish(player, result);
+    }
+
+    private void handleWarTargetChat(Player player, ParliamentChatSessions.Session session, String message) {
+        chatSessions.cancel(player.getUniqueId());
+        player.openInventory(WarPrepareGui.create(
+                        session.kingdomId(),
+                        message,
+                        WarAim.TERRITORY_THRESHOLD,
+                        WarOutcome.ANNEXATION,
+                        3,
+                        parliamentService.isCounterWarEligible(session.kingdomId(), message))
+                .getInventory());
     }
 
     /** Members are reminded of an open referendum as they log in, wherever they happen to be. */

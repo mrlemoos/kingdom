@@ -162,6 +162,15 @@ class KingdomServiceTest {
     }
 
     @Test
+    void territoryLabelIncludesAllLinkedRegions() {
+        Kingdom kingdom = new Kingdom("northmarch", "Northmarch");
+        kingdom.setWorldGuardRegion("north_hold");
+        kingdom.addWorldGuardRegion("north_outpost");
+
+        assertEquals("north_hold, north_outpost (world)", service.territoryLabel(kingdom).orElseThrow());
+    }
+
+    @Test
     void territoryLabelEmptyWhenNoRegionLinked() {
         Kingdom kingdom = service.getKingdom("northmarch").orElseThrow();
 

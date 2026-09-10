@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.city;
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.city.GazettePost;
 import dev.mrlemoos.kingdom.model.city.GazettePost.GazetteCurfewWindow;
@@ -17,10 +18,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Crown authorship of Gazette posts: announcements (capped, quiet) and decrees (Hansard, broadcast,
- * optional curfew).
+ * Authorship of Gazette posts, held by the Crown and delegated to Dukes: announcements (capped,
+ * quiet) and decrees (Hansard, broadcast, optional curfew).
  */
 public final class GazetteService {
+
+    /** Named so the Crier's book flow and the service refuse in the same words. */
+    public static final String GAZETTE_REFUSAL =
+            "Only the King, Queen or a Duke may publish to the Gazette.";
 
     private final KingdomService kingdomService;
 
@@ -82,11 +87,11 @@ public final class GazetteService {
 
         Optional<PlayerMembership> membership = kingdomService.getMembership(authorId);
         if (membership.isEmpty() || !kingdomId.equals(membership.get().getKingdomId())) {
-            return CityResult.fail("Only the Crown of this kingdom may publish to the Gazette.");
+            return CityResult.fail("Only an officer of this kingdom may publish to the Gazette.");
         }
         NobleRank rank = membership.get().getRank();
-        if (rank == null || !CapitalSitingPolicy.isCrown(rank)) {
-            return CityResult.fail("Only the King or Queen may publish to the Gazette.");
+        if (!RankAuthority.canPostToGazette(rank)) {
+            return CityResult.fail(GAZETTE_REFUSAL);
         }
 
         Optional<CurfewEnforcementConfig> curfew = curfewChoice == null ? Optional.empty() : curfewChoice;

@@ -14,6 +14,7 @@ import dev.mrlemoos.kingdom.city.gui.PermitApplyGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterGui;
 import dev.mrlemoos.kingdom.city.gui.PermitRegisterLayout;
 import dev.mrlemoos.kingdom.city.gui.PermitRevokeConfirmGui;
+import dev.mrlemoos.kingdom.city.gui.StandingRosterGui;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
@@ -22,9 +23,12 @@ import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.WarResult;
+import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -58,6 +62,8 @@ public final class LordMayorGuiListener implements Listener {
     private final EconomyService economyService;
     private final RealmWealthRates realmWealthRates;
     private final NoblePrefixDisplay nobleDisplay;
+    private final StandingRosterService standingRosterService;
+    private final boolean warEnabled;
 
     public LordMayorGuiListener(
             LordMayorService lordMayorService,
@@ -77,6 +83,19 @@ public final class LordMayorGuiListener implements Listener {
             EconomyService economyService,
             RealmWealthRates realmWealthRates,
             NoblePrefixDisplay nobleDisplay) {
+        this(lordMayorService, cityService, kingdomService, store, economyService, realmWealthRates, nobleDisplay, null, false);
+    }
+
+    public LordMayorGuiListener(
+            LordMayorService lordMayorService,
+            CityService cityService,
+            KingdomService kingdomService,
+            YamlKingdomStore store,
+            EconomyService economyService,
+            RealmWealthRates realmWealthRates,
+            NoblePrefixDisplay nobleDisplay,
+            StandingRosterService standingRosterService,
+            boolean warEnabled) {
         this.lordMayorService = Objects.requireNonNull(lordMayorService, "lordMayorService");
         this.cityService = Objects.requireNonNull(cityService, "cityService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
@@ -84,6 +103,8 @@ public final class LordMayorGuiListener implements Listener {
         this.economyService = economyService;
         this.realmWealthRates = realmWealthRates;
         this.nobleDisplay = nobleDisplay;
+        this.standingRosterService = standingRosterService;
+        this.warEnabled = warEnabled;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -112,7 +133,15 @@ public final class LordMayorGuiListener implements Listener {
 
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
         switch (LordMayorCounter.action(membership, kingdomId.get())) {
-            case REGISTER -> openRegister(player, kingdomId.get(), 0);
+            case REGISTER -> {
+                if (warEnabled
+                        && standingRosterService != null
+                        && RankAuthority.canMaintainStandingRoster(membership.get().getRank())) {
+                    openRoster(player, kingdomId.get(), 0);
+                } else {
+                    openRegister(player, kingdomId.get(), 0);
+                }
+            }
             case OATH -> openOath(player, kingdom.get());
             case FOREIGN_MEMBER -> player.sendMessage(
                     c("&cYou already belong to a kingdom. Ask an operator to move you."));
@@ -279,13 +308,62 @@ public final class LordMayorGuiListener implements Listener {
         openRegister(player, gui.kingdomId(), gui.registerPage());
     }
 
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRosterClick(InventoryClickEvent event) {
+        if (!(event.getInventory().getHolder() instanceof StandingRosterGui gui)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)
+                || event.getClickedInventory() != event.getView().getTopInventory()) {
+            return;
+        }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (standingRosterService == null
+                || !warEnabled
+                || membership.isEmpty()
+                || !gui.kingdomId().equals(membership.get().getKingdomId())
+                || !RankAuthority.canMaintainStandingRoster(membership.get().getRank())) {
+            player.closeInventory();
+            return;
+        }
+        if (event.getSlot() == StandingRosterGui.SLOT_PERMIT_REGISTER) {
+            openRegister(player, gui.kingdomId(), 0);
+            return;
+        }
+        if (event.getSlot() == StandingRosterGui.SLOT_PREVIOUS) {
+            openRoster(player, gui.kingdomId(), gui.page() - 1);
+            return;
+        }
+        if (event.getSlot() == StandingRosterGui.SLOT_NEXT) {
+            openRoster(player, gui.kingdomId(), gui.page() + 1);
+            return;
+        }
+        UUID target = gui.playerForSlot(event.getSlot());
+        if (target == null) {
+            return;
+        }
+        WarResult result = gui.isRostered(event.getSlot())
+                ? standingRosterService.remove(gui.kingdomId(), membership.get().getRank(), target)
+                : standingRosterService.appoint(gui.kingdomId(), membership.get().getRank(), target);
+        String message = result instanceof WarResult.Success success
+                ? success.message()
+                : ((WarResult.Failure) result).message();
+        player.sendMessage(c((result instanceof WarResult.Success ? "&a" : "&c") + message));
+        if (result instanceof WarResult.Success) {
+            save();
+        }
+        openRoster(player, gui.kingdomId(), gui.page());
+    }
+
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         Object holder = event.getInventory().getHolder();
         if (holder instanceof PermitApplyGui
                 || holder instanceof PermitRegisterGui
                 || holder instanceof PermitRevokeConfirmGui
-                || holder instanceof OathGui) {
+                || holder instanceof OathGui
+                || holder instanceof StandingRosterGui) {
             event.setCancelled(true);
         }
     }
@@ -311,6 +389,23 @@ public final class LordMayorGuiListener implements Listener {
         entries.sort(Comparator.comparingLong(PermitRegisterGui.Entry::grantedAtMs));
         player.openInventory(PermitRegisterGui
                 .create(kingdomId, entries, page, System.currentTimeMillis(), statisticsOf(kingdomId, entries.size()))
+                .getInventory());
+    }
+
+    private void openRoster(Player player, String kingdomId, int page) {
+        if (standingRosterService == null || !warEnabled) {
+            player.sendMessage(c("&cWar is not enabled for this realm."));
+            return;
+        }
+        List<StandingRosterGui.Entry> entries = kingdomService.getMembershipsView().values().stream()
+                .filter(member -> kingdomId.equals(member.getKingdomId()))
+                .map(PlayerMembership::getPlayerId)
+                .sorted(Comparator.comparing(this::nameOf, String.CASE_INSENSITIVE_ORDER))
+                .map(playerId -> new StandingRosterGui.Entry(
+                        playerId, standingRosterService.rosterView(kingdomId).contains(playerId)))
+                .toList();
+        player.openInventory(StandingRosterGui
+                .create(kingdomId, entries, page, standingRosterService.config().rosterCap())
                 .getInventory());
     }
 

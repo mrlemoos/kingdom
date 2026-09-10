@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.task;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthScanSession;
 import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthScanner;
+import dev.mrlemoos.kingdom.economy.wealth.TerritoryWealthCounts;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
@@ -10,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,6 +31,7 @@ public final class TerritoryWealthReconcileTask implements Runnable {
 
     private long ticksUntilNextCycle;
     private final List<TerritoryWealthScanSession> activeSessions = new ArrayList<>();
+    private final Map<String, TerritoryWealthCounts> cycleCounts = new HashMap<>();
 
     public TerritoryWealthReconcileTask(
             JavaPlugin plugin,
@@ -79,8 +83,7 @@ public final class TerritoryWealthReconcileTask implements Runnable {
 
     private void startReconcileCycle() {
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
-            String regionId = kingdom.getWorldGuardRegion();
-            if (regionId == null || regionId.isBlank()) {
+            if (!kingdom.hasWorldGuardRegions()) {
                 continue;
             }
 
@@ -90,7 +93,11 @@ public final class TerritoryWealthReconcileTask implements Runnable {
                 continue;
             }
 
-            scanner.openSession(world, kingdom).ifPresent(activeSessions::add);
+            List<TerritoryWealthScanSession> sessions = scanner.openSessions(world, kingdom);
+            if (!sessions.isEmpty()) {
+                cycleCounts.put(kingdom.getId(), new TerritoryWealthCounts());
+                activeSessions.addAll(sessions);
+            }
         }
     }
 
@@ -100,12 +107,14 @@ public final class TerritoryWealthReconcileTask implements Runnable {
             TerritoryWealthScanSession session = iterator.next();
             session.advance(blocksPerTick);
             if (session.isComplete()) {
-                economyService.replaceTerritoryWealthCounts(session.kingdomId(), session.counts());
+                cycleCounts.get(session.kingdomId()).addAll(session.counts());
                 iterator.remove();
             }
         }
 
         if (activeSessions.isEmpty()) {
+            cycleCounts.forEach(economyService::replaceTerritoryWealthCounts);
+            cycleCounts.clear();
             economyStore.saveFrom(economyService);
         }
     }

@@ -23,6 +23,8 @@ public final class ParliamentHubGui implements InventoryHolder {
     static final int SLOT_TABLE_SPEND_STIPEND = 22;
     static final int SLOT_STIPEND_OTHER = 23;
     static final int SLOT_TABLE_SPEND_PUBLIC_WORK = 24;
+    static final int SLOT_TABLE_WAR = 26;
+    static final int SLOT_TABLE_PEACE = 27;
 
     static final int SLOT_BUDGET_50 = 28;
     static final int SLOT_BUDGET_100 = 29;
@@ -91,6 +93,13 @@ public final class ParliamentHubGui implements InventoryHolder {
                 ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK,
                 SLOT_TABLE_SPEND_PUBLIC_WORK,
                 spendPublicWorkItem(view));
+        placeIfVisible(inventory, view, ParliamentHubAction.TABLE_WAR, SLOT_TABLE_WAR,
+                ItemBuilder.labelled(
+                        Material.IRON_SWORD,
+                        c("&4Table war bill"),
+                        "Set target and terms. A former defender may table a counter-war."));
+        placeIfVisible(inventory, view, ParliamentHubAction.TABLE_PEACE, SLOT_TABLE_PEACE,
+                ItemBuilder.labelled(Material.WHITE_BANNER, c("&fTable peace bill"), "End the active war"));
 
         for (int i = 0; i < BUDGET_PRESET_SLOTS.length; i++) {
             int slot = BUDGET_PRESET_SLOTS[i];
@@ -215,6 +224,8 @@ public final class ParliamentHubGui implements InventoryHolder {
             case SLOT_TABLE_SPEND_MINT -> ParliamentHubAction.TABLE_SPEND_MINT;
             case SLOT_TABLE_SPEND_STIPEND -> ParliamentHubAction.TABLE_SPEND_STIPEND;
             case SLOT_TABLE_SPEND_PUBLIC_WORK -> ParliamentHubAction.TABLE_SPEND_PUBLIC_WORK;
+            case SLOT_TABLE_WAR -> ParliamentHubAction.TABLE_WAR;
+            case SLOT_TABLE_PEACE -> ParliamentHubAction.TABLE_PEACE;
             case SLOT_STIPEND_OTHER -> ParliamentHubAction.STIPEND_OTHER;
             case SLOT_BUDGET_50, SLOT_BUDGET_100, SLOT_BUDGET_250, SLOT_BUDGET_500 -> ParliamentHubAction.BUDGET_PRESET;
             case SLOT_CUSTOM_AMOUNT -> ParliamentHubAction.CUSTOM_AMOUNT;

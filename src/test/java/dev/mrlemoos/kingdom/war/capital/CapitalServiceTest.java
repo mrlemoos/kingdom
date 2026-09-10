@@ -5,13 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
  * A kingdom's {@code Capital} (see the glossary entry in {@code CONTEXT.md}) is a monarch-set
- * WorldGuard subregion id inside linked territory. {@link CapitalService} is the in-memory
- * kingdom-to-capital store for this slice — persistence to {@code data.yml} is a follow-up.
+ * WorldGuard subregion id inside linked territory. {@link CapitalService} is persisted under
+ * {@code war-capitals} in {@code data.yml}.
  */
 class CapitalServiceTest {
 
@@ -81,5 +82,14 @@ class CapitalServiceTest {
         service.setCapital("southreach", "southreach_capital");
 
         assertFalse(service.hasCapital("northmarch"));
+    }
+
+    @Test
+    void replaceAllRestoresPersistedCapitals() {
+        CapitalService service = new CapitalService();
+        service.replaceAll(Map.of("southreach", new CapitalRegion("southreach_capital", "world")));
+
+        assertEquals("southreach_capital", service.getCapital("southreach").orElseThrow().regionId());
+        assertEquals("world", service.getCapital("southreach").orElseThrow().worldName());
     }
 }

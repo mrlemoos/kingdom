@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.city;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import java.util.Optional;
 
 /**
@@ -23,7 +24,7 @@ public final class CapitalSitingPolicy {
 
     /** Only a reigning King or Queen may site or dissolve a capital; a Prince may not. */
     public static boolean isCrown(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN;
+        return RankAuthority.canSiteCapital(rank);
     }
 
     /**

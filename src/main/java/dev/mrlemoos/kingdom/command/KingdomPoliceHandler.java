@@ -390,8 +390,9 @@ public final class KingdomPoliceHandler {
         if (membership.isEmpty()) {
             return true;
         }
-        if (!PoliceAuthority.canConfigureSites(membership.get().getRank(), sender.isOp())) {
-            sender.sendMessage(error("Only the King, Queen, or an operator may deploy police golems."));
+        if (!PoliceAuthority.canDeployGolems(membership.get().getRank(), sender.isOp())) {
+            sender.sendMessage(error(
+                    "Only the King, Queen, a Knight, or an operator may deploy police golems."));
             return true;
         }
 
@@ -769,8 +770,8 @@ public final class KingdomPoliceHandler {
                 + "\n" + c("&e/kingdom police clearcell <slot>")
                 + "\n" + c("&e/kingdom police court set") + c("&7 — set court at your feet in territory")
                 + "\n" + c("&e/kingdom police court clear") + c("&7 — remove court, judge, and court guards")
-                + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — spawn patrol golem")
-                + "\n" + c("&e/kingdom police deploy guard") + c("&7 — spawn guard golem")
+                + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — spawn patrol golem (King, Queen or Knight)")
+                + "\n" + c("&e/kingdom police deploy guard") + c("&7 — spawn guard golem (King, Queen or Knight)")
                 + "\n" + c("&e/kingdom police despawn") + c("&7 — remove aimed or nearest golem")
                 + "\n" + c("&e/kingdom police reward <player> <amount>") + c("&7 — post or top up arrest reward at court")
                 + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — Crown cancels active warrant")

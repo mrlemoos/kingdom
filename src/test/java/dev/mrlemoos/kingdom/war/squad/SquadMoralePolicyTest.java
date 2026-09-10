@@ -38,4 +38,12 @@ class SquadMoralePolicyTest {
     void routIsExcludedSinceItRoutsRatherThanTransitionsState() {
         assertTrue(SquadMoralePolicy.forcedState(MoraleTier.ROUT).isEmpty());
     }
+
+    @Test
+    void mapsEveryTierToItsPhysicalBehaviour() {
+        assertEquals(SquadMoralePolicy.Behaviour.OBEY, SquadMoralePolicy.behaviour(MoraleTier.STEADFAST));
+        assertEquals(SquadMoralePolicy.Behaviour.HESITATE, SquadMoralePolicy.behaviour(MoraleTier.SHAKEN));
+        assertEquals(SquadMoralePolicy.Behaviour.SCATTER, SquadMoralePolicy.behaviour(MoraleTier.BREAKING));
+        assertEquals(SquadMoralePolicy.Behaviour.ROUT, SquadMoralePolicy.behaviour(MoraleTier.ROUT));
+    }
 }

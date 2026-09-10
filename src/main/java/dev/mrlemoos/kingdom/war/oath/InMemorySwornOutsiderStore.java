@@ -29,6 +29,18 @@ public final class InMemorySwornOutsiderStore implements SwornOutsiderStore {
     }
 
     @Override
+    public void replaceAll(List<SwornOutsider> outsiders) {
+        outsidersByPlayer.clear();
+        if (outsiders != null) {
+            for (SwornOutsider outsider : outsiders) {
+                if (outsider != null) {
+                    outsidersByPlayer.put(outsider.playerId(), outsider);
+                }
+            }
+        }
+    }
+
+    @Override
     public void remove(UUID playerId) {
         outsidersByPlayer.remove(playerId);
     }

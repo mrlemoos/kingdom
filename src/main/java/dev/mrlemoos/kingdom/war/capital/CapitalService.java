@@ -8,8 +8,7 @@ import java.util.Optional;
 /**
  * Monarch-set {@code Capital} per kingdom (see the glossary entry in {@code CONTEXT.md}): the
  * WorldGuard subregion inside a kingdom's linked territory used for capital-fall war aims.
- * In-memory kingdom-to-capital store for this slice — persistence to {@code data.yml} is a
- * follow-up (see docs/build-order.md Slice 6.4).
+ * In-memory kingdom-to-capital store, persisted by {@code YamlKingdomStore} under {@code war-capitals}.
  */
 public final class CapitalService {
 
@@ -37,5 +36,15 @@ public final class CapitalService {
     public void clearCapital(String kingdomId) {
         Objects.requireNonNull(kingdomId, "kingdomId must not be null");
         capitalsByKingdomId.remove(kingdomId);
+    }
+
+    public Map<String, CapitalRegion> allView() {
+        return Map.copyOf(capitalsByKingdomId);
+    }
+
+    public void replaceAll(Map<String, CapitalRegion> capitals) {
+        Objects.requireNonNull(capitals, "capitals");
+        capitalsByKingdomId.clear();
+        capitalsByKingdomId.putAll(capitals);
     }
 }

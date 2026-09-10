@@ -24,6 +24,8 @@ class GazetteServiceTest {
 
     private static final UUID KING = UUID.fromString("00000000-0000-0000-0000-000000000051");
     private static final UUID CITIZEN = UUID.fromString("00000000-0000-0000-0000-000000000052");
+    private static final UUID DUKE = UUID.fromString("00000000-0000-0000-0000-000000000053");
+    private static final UUID COUNT = UUID.fromString("00000000-0000-0000-0000-000000000054");
     private static final CapitalLocation CAPITAL = new CapitalLocation("world", 1, 64, 1, 0f, 0f);
 
     private KingdomService kingdomService;
@@ -38,7 +40,11 @@ class GazetteServiceTest {
         kingdomService.createKingdom("northmarch", "Northmarch");
         kingdomService.joinKingdom(KING, "northmarch");
         kingdomService.joinKingdom(CITIZEN, "northmarch");
+        kingdomService.joinKingdom(DUKE, "northmarch");
+        kingdomService.joinKingdom(COUNT, "northmarch");
         kingdomService.assignTitle(KING, NobleRank.KING, TitleStyle.MASCULINE);
+        kingdomService.assignTitle(DUKE, NobleRank.DUKE, TitleStyle.MASCULINE);
+        kingdomService.assignTitle(COUNT, NobleRank.COUNT, TitleStyle.MASCULINE);
         cityService.setCapital("northmarch", NobleRank.KING, CAPITAL);
     }
 
@@ -127,5 +133,37 @@ class GazetteServiceTest {
         CityResult result = gazetteService.publishAnnouncement(
                 "northmarch", CITIZEN, "Title", "Body", 1L);
         assertInstanceOf(CityResult.Failure.class, result);
+    }
+
+    @Test
+    void aDukeMayPublishToTheGazette() {
+        CityResult result = gazetteService.publishAnnouncement(
+                "northmarch", DUKE, "Harvest fair", "Bring your barrows.", 14L);
+
+        assertInstanceOf(CityResult.Success.class, result);
+        assertEquals(
+                1,
+                kingdomService.getKingdom("northmarch").orElseThrow()
+                        .getCityState().gazettePostsView().size());
+    }
+
+    @Test
+    void aCountMayNotPublishToTheGazette() {
+        CityResult result = gazetteService.publishAnnouncement(
+                "northmarch", COUNT, "Harvest fair", "Bring your barrows.", 14L);
+
+        assertInstanceOf(CityResult.Failure.class, result);
+        assertTrue(kingdomService.getKingdom("northmarch").orElseThrow()
+                .getCityState().gazettePostsView().isEmpty());
+    }
+
+    @Test
+    void theGazetteRefusalNamesTheDuke() {
+        CityResult refusal = gazetteService.publishAnnouncement(
+                "northmarch", CITIZEN, "Harvest fair", "Bring your barrows.", 14L);
+
+        String message = ((CityResult.Failure) refusal).message();
+        assertTrue(message.contains("King"));
+        assertTrue(message.contains("Duke"));
     }
 }

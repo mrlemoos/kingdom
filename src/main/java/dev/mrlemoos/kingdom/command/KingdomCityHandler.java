@@ -14,6 +14,10 @@ import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.city.CapitalLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.capital.CapitalRegionBox;
+import dev.mrlemoos.kingdom.war.capital.CapitalService;
+import dev.mrlemoos.kingdom.war.capital.CapitalSubregionSiting;
+import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +37,7 @@ public final class KingdomCityHandler {
     private final TownCrierService townCrierService;
     private final KingdomTerritoryResolver territoryResolver;
     private final YamlKingdomStore store;
+    private final CapitalService capitalService;
 
     public KingdomCityHandler(
             KingdomService kingdomService,
@@ -41,12 +46,24 @@ public final class KingdomCityHandler {
             TownCrierService townCrierService,
             KingdomTerritoryResolver territoryResolver,
             YamlKingdomStore store) {
+        this(kingdomService, cityService, lordMayorService, townCrierService, territoryResolver, store, null);
+    }
+
+    public KingdomCityHandler(
+            KingdomService kingdomService,
+            CityService cityService,
+            LordMayorService lordMayorService,
+            TownCrierService townCrierService,
+            KingdomTerritoryResolver territoryResolver,
+            YamlKingdomStore store,
+            CapitalService capitalService) {
         this.kingdomService = kingdomService;
         this.cityService = cityService;
         this.lordMayorService = lordMayorService;
         this.townCrierService = townCrierService;
         this.territoryResolver = territoryResolver;
         this.store = store;
+        this.capitalService = capitalService;
     }
 
     public boolean handleCapital(CommandSender sender, String[] args) {
@@ -57,6 +74,8 @@ public final class KingdomCityHandler {
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "set" -> handleCapitalSet(sender);
             case "clear" -> handleCapitalClear(sender);
+            case "setregion" -> handleCapitalSetRegion(sender, args);
+            case "clearregion" -> handleCapitalClearRegion(sender);
             default -> {
                 sender.sendMessage(capitalHelp());
                 yield true;
@@ -264,7 +283,7 @@ public final class KingdomCityHandler {
             sender.sendMessage(error("Usage: /kingdom permit grant <player>"));
             return true;
         }
-        Optional<PlayerMembership> membership = requireCrown(sender);
+        Optional<PlayerMembership> membership = requireMember(sender);
         if (membership.isEmpty()) {
             return true;
         }
@@ -273,13 +292,14 @@ public final class KingdomCityHandler {
             return true;
         }
 
-        CityResult result = cityService.grantPermit(membership.get().getKingdomId(), target.get());
+        CityResult result = cityService.grantPermit(
+                membership.get().getKingdomId(), membership.get().getRank(), target.get());
         sender.sendMessage(format(result));
         if (result instanceof CityResult.Success) {
             save();
             Player holder = Bukkit.getPlayer(target.get());
             if (holder != null) {
-                holder.sendMessage(success("The Crown has granted you a build permit."));
+                holder.sendMessage(success("You have been granted a build permit."));
             }
         }
         return true;
@@ -290,7 +310,7 @@ public final class KingdomCityHandler {
             sender.sendMessage(error("Usage: /kingdom permit revoke <player>"));
             return true;
         }
-        Optional<PlayerMembership> membership = requireCrown(sender);
+        Optional<PlayerMembership> membership = requireMember(sender);
         if (membership.isEmpty()) {
             return true;
         }
@@ -299,14 +319,15 @@ public final class KingdomCityHandler {
             return true;
         }
 
-        CityResult result = cityService.revokePermit(membership.get().getKingdomId(), target.get());
+        CityResult result = cityService.revokePermit(
+                membership.get().getKingdomId(), membership.get().getRank(), target.get());
         sender.sendMessage(format(result));
         if (result instanceof CityResult.Success) {
             save();
             // Told in chat if they are here to hear it; no letter and no login queue otherwise.
             Player holder = Bukkit.getPlayer(target.get());
             if (holder != null) {
-                holder.sendMessage(error("The Crown has revoked your build permit."));
+                holder.sendMessage(error("Your build permit has been revoked."));
             }
         }
         return true;
@@ -319,6 +340,99 @@ public final class KingdomCityHandler {
             return Optional.empty();
         }
         return Optional.of(target.getUniqueId());
+    }
+
+    /** A seat in a kingdom and nothing more; the rank gate is the service's business. */
+    private Optional<PlayerMembership> requireMember(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(error("Only players may use this command."));
+            return Optional.empty();
+        }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty()) {
+            sender.sendMessage(error("You must join a kingdom first."));
+        }
+        return membership;
+    }
+
+    private boolean handleCapitalSetRegion(CommandSender sender, String[] args) {
+        if (capitalService == null) {
+            sender.sendMessage(error("Capital-fall regions are not enabled."));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(error("Usage: /kingdom capital setregion <region>"));
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireCrown(sender);
+        if (membership.isEmpty()) {
+            return true;
+        }
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(membership.get().getKingdomId());
+        if (kingdom.isEmpty()) {
+            sender.sendMessage(error("Unknown kingdom."));
+            return true;
+        }
+        String worldName = kingdomService.resolveWorldName(kingdom.get());
+        if (Bukkit.getWorld(worldName) == null) {
+            sender.sendMessage(error("World '" + worldName + "' is not loaded."));
+            return true;
+        }
+        String regionId = Kingdom.normaliseId(args[1]);
+        String territoryRegion = kingdom.get().hasWorldGuardRegions() ? "linked territory" : null;
+        boolean worldGuard = WorldGuardBridge.isAvailable();
+        Optional<CapitalRegionBox> capitalBounds = boxOf(worldName, regionId);
+        Optional<CapitalRegionBox> territoryBounds = worldGuard && capitalBounds.isPresent()
+                ? kingdom.get().getWorldGuardRegions().stream()
+                        .map(region -> boxOf(worldName, region))
+                        .flatMap(Optional::stream)
+                        .filter(bounds -> bounds.contains(capitalBounds.get()))
+                        .findFirst()
+                : Optional.empty();
+        CapitalSubregionSiting.Verdict verdict = CapitalSubregionSiting.evaluateLink(
+                membership.get().getRank(),
+                worldGuard,
+                territoryRegion,
+                territoryBounds,
+                capitalBounds);
+        if (verdict != CapitalSubregionSiting.Verdict.ALLOWED) {
+            sender.sendMessage(error(CapitalSubregionSiting.refusalMessage(verdict)));
+            return true;
+        }
+        capitalService.setCapital(kingdom.get().getId(), regionId, worldName);
+        save();
+        sender.sendMessage(success(
+                "Linked capital region " + regionId + " for capital-fall war aims in "
+                        + kingdom.get().getDisplayName() + "."));
+        return true;
+    }
+
+    private boolean handleCapitalClearRegion(CommandSender sender) {
+        if (capitalService == null) {
+            sender.sendMessage(error("Capital-fall regions are not enabled."));
+            return true;
+        }
+        Optional<PlayerMembership> membership = requireCrown(sender);
+        if (membership.isEmpty()) {
+            return true;
+        }
+        String kingdomId = membership.get().getKingdomId();
+        CapitalSubregionSiting.Verdict verdict =
+                CapitalSubregionSiting.evaluateClear(membership.get().getRank(), capitalService.hasCapital(kingdomId));
+        if (verdict != CapitalSubregionSiting.Verdict.ALLOWED) {
+            sender.sendMessage(error(CapitalSubregionSiting.refusalMessage(verdict)));
+            return true;
+        }
+        capitalService.clearCapital(kingdomId);
+        save();
+        sender.sendMessage(success("The capital-fall region of your realm is released."));
+        return true;
+    }
+
+    private static Optional<CapitalRegionBox> boxOf(String worldName, String regionId) {
+        return WorldGuardBridge.regionBounds(worldName, regionId)
+                .map(bounds -> new CapitalRegionBox(
+                        bounds.minX(), bounds.minY(), bounds.minZ(), bounds.maxX(), bounds.maxY(), bounds.maxZ()));
     }
 
     private Optional<PlayerMembership> requireCrown(CommandSender sender) {
@@ -347,7 +461,10 @@ public final class KingdomCityHandler {
     private String capitalHelp() {
         return info("Capital commands:")
                 + "\n" + c("&e/kingdom capital set") + c("&7 — King or Queen, inside your territory")
-                + "\n" + c("&e/kingdom capital clear") + c("&7 — dissolve the capital");
+                + "\n" + c("&e/kingdom capital clear") + c("&7 — dissolve the city hall")
+                + "\n" + c("&e/kingdom capital setregion <region>")
+                + c("&7 — WorldGuard subregion for capital fall")
+                + "\n" + c("&e/kingdom capital clearregion") + c("&7 — release the capital-fall region");
     }
 
     private String crierHelp() {
@@ -359,6 +476,7 @@ public final class KingdomCityHandler {
     private String permitHelp() {
         return info("Build permit commands:")
                 + "\n" + c("&e/kingdom permit grant <player>")
+                + c("&7 — King, Queen, Duke or Count")
                 + "\n" + c("&e/kingdom permit revoke <player>");
     }
 

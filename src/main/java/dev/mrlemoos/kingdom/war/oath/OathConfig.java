@@ -3,9 +3,8 @@ package dev.mrlemoos.kingdom.war.oath;
 import org.bukkit.configuration.file.FileConfiguration;
 
 /**
- * Oath of service feature flag, independent of the war master flag — mirrors {@code
- * war.muster.enabled}. Defaults on: the ceremony may be administered even before war breaks out,
- * since it is the mechanism that opens a fealty subject's military track early.
+ * Oath of service feature flag beneath the war master flag. The ceremony may be administered
+ * before war breaks out, but never while the war stack is disabled.
  */
 public record OathConfig(boolean enabled) {
 
@@ -18,6 +17,6 @@ public record OathConfig(boolean enabled) {
     }
 
     public static OathConfig fromPluginConfig(FileConfiguration config) {
-        return new OathConfig(config.getBoolean("war.oath.enabled", true));
+        return new OathConfig(config.getBoolean("war.enabled", false) && config.getBoolean("war.oath.enabled", true));
     }
 }

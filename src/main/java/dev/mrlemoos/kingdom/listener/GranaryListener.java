@@ -161,7 +161,9 @@ public final class GranaryListener implements Listener {
         Optional<GranaryStock> stock = BukkitGranaryScan.stockOf(world.getName(), kingdom.getGranaryRegion());
         int stocked = stock.isPresent() ? stock.get().stock() : 0;
         int capacity = stock.isPresent() ? stock.get().capacity() : 0;
-        int heads = BukkitTerritoryHeads.countIn(world, kingdom.getWorldGuardRegion());
+        int heads = kingdom.getWorldGuardRegions().stream()
+                .mapToInt(region -> BukkitTerritoryHeads.countIn(world, region))
+                .sum();
         int ration = WinterRation.balesFor(heads, granaryConfig.headsPerHay());
         long realmDay = calendarService == null ? 0L : calendarService.currentRealmDay();
         int farmers = countFarmers(world, kingdom);
@@ -178,8 +180,7 @@ public final class GranaryListener implements Listener {
     }
 
     private int countFarmers(World world, Kingdom kingdom) {
-        String regionId = kingdom.getWorldGuardRegion();
-        if (regionId == null || regionId.isBlank()) {
+        if (!kingdom.hasWorldGuardRegions()) {
             return 0;
         }
         int farmers = 0;

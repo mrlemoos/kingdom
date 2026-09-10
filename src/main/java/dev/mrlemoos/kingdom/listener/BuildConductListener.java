@@ -16,6 +16,10 @@ import dev.mrlemoos.kingdom.police.BuildEnforcementDecision;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.police.PoliceResult;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
+import dev.mrlemoos.kingdom.war.occupation.OccupationBuildGate;
+import dev.mrlemoos.kingdom.war.occupation.OccupationBuildOutcome;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,6 +44,8 @@ public final class BuildConductListener implements Listener {
     private final MechanicalJusticeService justiceService;
     private final LoyaltyService loyaltyService;
     private final CityService cityService;
+    private final WarService warService;
+    private final OccupationBuildGate occupationGate;
     private final BuildRefusalThrottle refusalThrottle = new BuildRefusalThrottle();
 
     public BuildConductListener(
@@ -48,7 +54,7 @@ public final class BuildConductListener implements Listener {
             BuildConductEnforcer enforcer,
             MechanicalJusticeService justiceService,
             LoyaltyService loyaltyService) {
-        this(kingdomService, territoryResolver, enforcer, justiceService, loyaltyService, null);
+        this(kingdomService, territoryResolver, enforcer, justiceService, loyaltyService, null, null, null);
     }
 
     public BuildConductListener(
@@ -58,12 +64,26 @@ public final class BuildConductListener implements Listener {
             MechanicalJusticeService justiceService,
             LoyaltyService loyaltyService,
             CityService cityService) {
+        this(kingdomService, territoryResolver, enforcer, justiceService, loyaltyService, cityService, null, null);
+    }
+
+    public BuildConductListener(
+            KingdomService kingdomService,
+            KingdomTerritoryResolver territoryResolver,
+            BuildConductEnforcer enforcer,
+            MechanicalJusticeService justiceService,
+            LoyaltyService loyaltyService,
+            CityService cityService,
+            WarService warService,
+            OccupationBuildGate occupationGate) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
         this.enforcer = Objects.requireNonNull(enforcer, "enforcer");
         this.justiceService = Objects.requireNonNull(justiceService, "justiceService");
         this.loyaltyService = Objects.requireNonNull(loyaltyService, "loyaltyService");
         this.cityService = cityService;
+        this.warService = warService;
+        this.occupationGate = occupationGate;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -96,6 +116,9 @@ public final class BuildConductListener implements Listener {
             return;
         }
         UUID actorId = player.getUniqueId();
+        if (applyOccupation(player, block, kingdom.get(), actorId, event)) {
+            return;
+        }
 
         if (!enforcer.config().enabled()) {
             refuseWithoutPermit(player, kingdom.get(), actorId, event);
@@ -127,6 +150,40 @@ public final class BuildConductListener implements Listener {
         if (warrant instanceof PoliceResult.Success) {
             player.sendMessage(c("&7A warrant application has been filed with the Crown."));
         }
+    }
+
+    /**
+     * Occupation overlay on captured chunks. Occupiers may build without a permit or Act path.
+     * Defender members are refused with no warrant — political rights stay, the block does not.
+     */
+    private boolean applyOccupation(
+            Player player, Block block, Kingdom jurisdiction, UUID actorId, org.bukkit.event.Cancellable event) {
+        if (warService == null || occupationGate == null) {
+            return false;
+        }
+        Optional<dev.mrlemoos.kingdom.model.war.ActiveWar> war = warService.activeWarFor(jurisdiction.getId());
+        if (war.isEmpty() || !war.get().defenderKingdomId().equals(jurisdiction.getId())) {
+            return false;
+        }
+        String actorKingdomId = "";
+        Optional<dev.mrlemoos.kingdom.model.PlayerMembership> membership = kingdomService.getMembership(actorId);
+        if (membership.isPresent()) {
+            actorKingdomId = membership.get().getKingdomId();
+        }
+        ChunkCoord chunk = new ChunkCoord(
+                block.getWorld().getName(), block.getChunk().getX(), block.getChunk().getZ());
+        OccupationBuildOutcome outcome = occupationGate.decide(war.get(), chunk, actorKingdomId);
+        if (outcome == OccupationBuildOutcome.ALLOW_OCCUPIER) {
+            return true;
+        }
+        if (outcome == OccupationBuildOutcome.DENY) {
+            event.setCancelled(true);
+            if (refusalThrottle.shouldSend(actorId, System.currentTimeMillis())) {
+                player.sendMessage(c("&cThis land is under occupation. You may not build here."));
+            }
+            return true;
+        }
+        return false;
     }
 
     /**

@@ -39,6 +39,10 @@ public final class TerritoryWealthCounts {
         counts.putAll(other.counts);
     }
 
+    public void addAll(TerritoryWealthCounts other) {
+        other.counts.forEach(this::adjust);
+    }
+
     public Map<WealthBlockType, Integer> snapshot() {
         return Map.copyOf(counts);
     }

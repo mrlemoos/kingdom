@@ -15,5 +15,7 @@ public interface ConscriptionStore {
 
     Collection<PressedVillager> allView();
 
+    void replaceAll(Collection<PressedVillager> pressed);
+
     void release(UUID villagerId);
 }

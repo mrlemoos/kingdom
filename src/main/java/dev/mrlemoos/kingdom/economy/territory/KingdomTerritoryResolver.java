@@ -73,15 +73,13 @@ public final class KingdomTerritoryResolver implements TerritoryResolver {
     }
 
     private static boolean matchesTerritory(Kingdom kingdom, String worldName, String regionId) {
-        String kingdomRegion = kingdom.getWorldGuardRegion();
-        if (kingdomRegion == null || kingdomRegion.isBlank()) {
+        if (!kingdom.hasWorldGuardRegions()) {
             return false;
         }
         String kingdomWorld = kingdom.getWorldName();
         if (kingdomWorld == null || kingdomWorld.isBlank()) {
             kingdomWorld = KingdomService.DEFAULT_WORLD;
         }
-        return kingdomWorld.equals(worldName)
-                && Kingdom.normaliseId(kingdomRegion).equals(Kingdom.normaliseId(regionId));
+        return kingdomWorld.equals(worldName) && kingdom.containsWorldGuardRegion(regionId);
     }
 }

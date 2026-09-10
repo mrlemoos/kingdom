@@ -3,9 +3,7 @@ package dev.mrlemoos.kingdom.listener;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.calendar.PollingDay;
-import dev.mrlemoos.kingdom.calendar.RealmCalendar;
 import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
-import dev.mrlemoos.kingdom.city.CapitalSitingPolicy;
 import dev.mrlemoos.kingdom.city.CityResult;
 import dev.mrlemoos.kingdom.city.CurfewPresets;
 import dev.mrlemoos.kingdom.city.GazetteService;
@@ -14,13 +12,11 @@ import dev.mrlemoos.kingdom.city.gui.ComposeGui;
 import dev.mrlemoos.kingdom.city.gui.GazetteGui;
 import dev.mrlemoos.kingdom.city.gui.GazetteLayout;
 import dev.mrlemoos.kingdom.city.gui.GazetteLiveState;
+import dev.mrlemoos.kingdom.city.gui.GazetteLiveStateReader;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.Kingdom;
-import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
-import dev.mrlemoos.kingdom.model.parliament.Bill;
-import dev.mrlemoos.kingdom.model.police.Warrant;
-import dev.mrlemoos.kingdom.model.police.WarrantStatus;
 import dev.mrlemoos.kingdom.police.CurfewEnforcementConfig;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -44,7 +40,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 
 /**
- * Right-click the Town Crier to read the Gazette; the Crown holding a signed book opens compose.
+ * Right-click the Town Crier to read the Gazette; a Gazette officer — the Crown or a Duke —
+ * holding a signed book opens compose.
  */
 public final class TownCrierGuiListener implements Listener {
 
@@ -54,10 +51,7 @@ public final class TownCrierGuiListener implements Listener {
     private final GazetteService gazetteService;
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
-    private final EconomyService economyService;
-    private final MechanicalJusticeService justiceService;
-    private final RealmCalendarService calendarService;
-    private final PollingDay pollingDay;
+    private final GazetteLiveStateReader liveStateReader;
 
     public TownCrierGuiListener(
             TownCrierService townCrierService,
@@ -72,10 +66,8 @@ public final class TownCrierGuiListener implements Listener {
         this.gazetteService = Objects.requireNonNull(gazetteService, "gazetteService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.store = store;
-        this.economyService = economyService;
-        this.justiceService = justiceService;
-        this.calendarService = calendarService;
-        this.pollingDay = pollingDay;
+        this.liveStateReader =
+                new GazetteLiveStateReader(economyService, justiceService, calendarService, pollingDay);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -101,7 +93,7 @@ public final class TownCrierGuiListener implements Listener {
         }
 
         ItemStack hand = player.getInventory().getItemInMainHand();
-        if (isSignedBook(hand) && isCrownOf(kingdomId.get(), player.getUniqueId())) {
+        if (isSignedBook(hand) && mayPublish(kingdomId.get(), player.getUniqueId())) {
             Optional<BookContent> book = readBook(hand);
             if (book.isEmpty()) {
                 player.sendMessage(c("&cThe book needs a title and pages."));
@@ -211,64 +203,21 @@ public final class TownCrierGuiListener implements Listener {
         player.closeInventory();
     }
 
-    private void openGazette(Player player, Kingdom kingdom, int page) {
-        GazetteLiveState live = liveStateOf(kingdom);
+    /** Opens the Gazette for a reader — from the Crier's stand, or from the Realm Hub. */
+    public void openGazette(Player player, Kingdom kingdom, int page) {
+        GazetteLiveState live = liveStateReader.read(kingdom);
         player.openInventory(Objects.requireNonNull(GazetteGui.create(
                         kingdom.getId(), kingdom.getCityState().gazettePostsView(), live, page)
                 .getInventory()));
     }
 
-    private GazetteLiveState liveStateOf(Kingdom kingdom) {
-        String openBill = "";
-        Optional<Bill> bill = kingdom.getParliamentState().currentBill();
-        if (bill.isPresent()) {
-            openBill = bill.get().title();
-        }
-        String nextElection = nextElectionLabel(kingdom);
-        int wanted = 0;
-        if (justiceService != null) {
-            for (Warrant warrant : justiceService.warrantsView()) {
-                if (!kingdom.getId().equals(warrant.kingdomId())) {
-                    continue;
-                }
-                WarrantStatus status = warrant.status();
-                if (status == WarrantStatus.ACTIVE || status == WarrantStatus.PENDING_CROWN) {
-                    wanted++;
-                }
-            }
-        }
-        double treasury = economyService == null ? 0d : economyService.getTreasuryBalance(kingdom.getId());
-        return new GazetteLiveState(
-                openBill,
-                nextElection,
-                wanted,
-                kingdom.getCityState().permitCount(),
-                treasury);
-    }
-
-    private String nextElectionLabel(Kingdom kingdom) {
-        var election = kingdom.getElectionState().election();
-        if (election.isActive()) {
-            return "election in progress (" + election.phase().name().toLowerCase() + ")";
-        }
-        if (calendarService == null || pollingDay == null) {
-            return "none proclaimed";
-        }
-        long realmDay = calendarService.currentRealmDay();
-        var today = RealmCalendar.dateOf(realmDay);
-        long thisYear = pollingDay.dayInYear(today.realmYear());
-        long next = realmDay <= thisYear ? thisYear : pollingDay.dayInYear(today.realmYear() + 1);
-        var date = RealmCalendar.dateOf(next);
-        return date.format() + ", Realm Year " + date.realmYear();
-    }
-
-    private boolean isCrownOf(String kingdomId, UUID playerId) {
+    /** The Gazette is written by the Crown, or by a Duke to whom the press is delegated. */
+    private boolean mayPublish(String kingdomId, UUID playerId) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(playerId);
         if (membership.isEmpty() || !kingdomId.equals(membership.get().getKingdomId())) {
             return false;
         }
-        NobleRank rank = membership.get().getRank();
-        return rank != null && CapitalSitingPolicy.isCrown(rank);
+        return RankAuthority.canPostToGazette(membership.get().getRank());
     }
 
     private static boolean isSignedBook(ItemStack stack) {

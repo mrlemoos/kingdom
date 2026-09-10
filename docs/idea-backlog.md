@@ -55,3 +55,78 @@ on the WorldGuard capture spike.
 
 **Manifestos**, **vote of no confidence**, **wanted nametag**. All three ride existing rails,
 touch no new persistence beyond a field or two, and are visible to players inside one session.
+
+---
+
+# Wave 2
+
+**Status:** Brainstorm (unscheduled)
+**Date:** 2026-09-10
+
+Second sweep, after Parliament, Police, War, the Corona economy, City, Granary, Hearth,
+Church, the realm Calendar, and the Gazette/Town Crier all landed. Same rules as wave 1:
+nothing here is sized or sequenced, and everything listed rides a subsystem that already
+exists. Ordered cheap-first within each group.
+
+Deliberately absent: chunk capture and the siege phases (Phase 6 in
+[`docs/build-order.md`](build-order.md)), and anything already shipped — Gazette, Town
+Crier, coronation, royal standard, marriage and funeral rites, arrest rewards, public works.
+
+## Diplomacy — the one missing layer
+
+No treaty, alliance, or diplomacy code exists today. War is bilateral and unilateral: a realm
+declares, the other is simply at war. Everything below rides the bill pipeline, so divisions,
+royal assent, the Registrar, and Hansard come for free.
+
+| Idea | Sketch | Rides on |
+|---|---|---|
+| **Treaty bill** | `BillType.TREATY` naming one target realm and a kind: **non-aggression**, **trade pact**, **alliance**. Both realms must assent before the pact is stored; either may table a repeal. | `BillType`, division, royal assent, `data.yml` |
+| **Trade pact** | Members of a pact realm are taxed as members, not foreigners — the tariff surcharge is waived both ways. | `FiscalRates.tariff`, membership check in Corona merchant taxation |
+| **Non-aggression** | War bill validation rejects a target under an active pact. Repeal first, or declare anyway and take a loyalty hit across the realm. | `WarService` war-bill validation, `LoyaltyService` |
+| **Alliance** | An ally's muster call reaches your rostered members; answering credits service, ignoring it costs morale as usual. | `MusterService`, `StandingRosterService` |
+| **Envoy** | A villager at the capital; right-click opens a paginated treaty register with the same confirm/revoke shape as the permit register. | `LordMayorService` / `TownCrierService` NPC pattern, permit register GUI |
+
+## Crown finance — reuses the treasury and the daily processor
+
+| Idea | Sketch | Rides on |
+|---|---|---|
+| **Per-player tax hook** | There is no personal tax event today, only kingdom-level settlement — noted as a known gap by the Gazette work. A per-member share of the day's income tax gives every personal-feedback feature something to fire on. | Daily GDP + income tax settlement, `RealmFeedback` |
+| **National debt** | The treasury may go negative; daily interest accrues against it; the balance and its trend show in **State of the Realm**. Nothing is blocked — bills simply get expensive. | Treasury, daily processor order, State of the Realm item |
+| **Gilts** | The Crown issues bonds against a BUDGET line; players buy with Corona, take a daily coupon from the treasury, redeem at maturity. An unpayable coupon is a **default**: loyalty drop, and the Commons may table no confidence. | Budget bills, wallet transfers, daily processor, `NO_CONFIDENCE` |
+| **Ground rent** | Estates inside linked territory owe the Crown a daily rent per valued block, collected with the other daily lines. Non-payment revokes the build permit before it revokes anything else. | Estate/realm-wealth scan, build permits |
+
+## Law — reuses the warrant → trial → sentence pipeline
+
+| Idea | Sketch | Rides on |
+|---|---|---|
+| **Statute of limitations** | An active warrant nobody serves expires after N sittings and clears the `[WANTED]` nametag. | Police sweep, sitting calendar |
+| **Appeal to the Crown** | A sentenced player petitions; a paper reaches the monarch; the Crown upholds, commutes, or pardons from the review GUI. | Existing pardon, resignation-letter paper flow, prison sentence |
+| **Prison labour** | Work a block inside the cell to shorten the sentence clock; idling does nothing. | Prison sentence clock, cell bounds |
+| **Case persistence** | Open cases and in-flight jury seating are memory-only and die with the server. Persisting them is debt, not a feature, but it belongs on this list. | `data.yml` police section |
+
+## Parliament — reuses divisions and the order paper
+
+| Idea | Sketch | Rides on |
+|---|---|---|
+| **Prime Minister's Questions** | Carried over from wave 1, still unbuilt. The villager Speaker broadcasts a scheduled question window. Ceremony only. | `ElectionTask` sweep, State Opening pattern |
+| **Private member's bill** | A seated MP who is not the Premier may table, given a second from another MP. | `tableBill`, `NO_CONFIDENCE` seconding rule |
+| **Amendments** | Before the division opens, an MP may amend a tabled bill's numeric fields; the amendment itself is divided on first. | Bill model, division |
+| **Select committee** | Three MPs are summoned to report on the treasury before a BUDGET division may open; the bill holds the order paper until they report. | Trial jury seating (same shape), order paper hold used by referendums |
+
+## World — cheap spectacle, no new persistence
+
+| Idea | Sketch | Rides on |
+|---|---|---|
+| **Market day** | One day a season where commerce tax drops and villager trade limits reset. Broadcast by the Crier. | `SeasonTurn`, `FiscalRates`, Gazette |
+| **Bandit raid** | A hostile wave on a capital with no standing squads or patrol golems present; losing it costs treasury. | War squads, patrol golems, capital |
+| **Plague** | A season event with the same day-ramp shape as hunger and cold, cured at the church by the Celebrant. | `HungerDayService` / `HearthDayService` ramp, `ClericService` |
+
+Plague is listed last on purpose: it is a third survival ramp on top of two, and the marginal
+fun per line of code is the worst on this page.
+
+## Suggested first three
+
+**Treaty bill** (non-aggression and trade pact only — leave alliance and the envoy for later),
+the **per-player tax hook**, and **appeal to the Crown**. The first opens a layer the plugin
+does not have at all, the second is a field and an event that unblocks other work, and the
+third is a paper and a GUI branch on rails that already carry three other approval flows.

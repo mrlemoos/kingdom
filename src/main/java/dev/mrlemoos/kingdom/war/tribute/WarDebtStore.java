@@ -28,4 +28,18 @@ public interface WarDebtStore {
 
     /** A read-only snapshot of every outstanding {@link WarDebt}, e.g. for {@code economy.yml}. */
     Collection<WarDebt> allDebtsView();
+
+    /** Replaces the store with {@code debts} (empty clears). Used when loading {@code economy.yml}. */
+    void replaceAll(Collection<WarDebt> debts);
+
+    /** Total still owed to this creditor across all debtors. */
+    default double totalDebtOwedTo(String creditorKingdomId) {
+        double total = 0.0;
+        for (WarDebt debt : allDebtsView()) {
+            if (debt.creditorKingdomId().equals(creditorKingdomId)) {
+                total += debt.amount();
+            }
+        }
+        return total;
+    }
 }

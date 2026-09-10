@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation.IncomeLocation;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -107,6 +108,15 @@ class KingdomTerritoryResolverTest {
         TerritoryLocation location = localResolver.resolve("world", 10, 64, 10, "northmarch");
 
         assertEquals(IncomeLocation.OWN_KINGDOM, location.type());
+    }
+
+    @Test
+    void resolvesAnyLinkedRegionAsKingdomTerritory() {
+        northmarch.addWorldGuardRegion("north_outpost");
+        KingdomTerritoryResolver resolver = new KingdomTerritoryResolver(
+                List.of(northmarch), query -> List.of("north_outpost"));
+
+        assertEquals(Optional.of("northmarch"), resolver.owningKingdomId("world", 4, 64, 4));
     }
 
     @Test

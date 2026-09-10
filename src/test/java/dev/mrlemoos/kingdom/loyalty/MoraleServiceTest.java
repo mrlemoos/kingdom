@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.loyalty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -254,6 +255,38 @@ class MoraleServiceTest {
 
         assertInstanceOf(MoraleResult.Failure.class, result);
         assertEquals(MoraleTier.ROUT, service.tierOf(PLAYER).orElseThrow());
+    }
+
+    /**
+     * The rank gate lives in two places — {@link dev.mrlemoos.kingdom.model.RankAuthority} for
+     * everything that asks before acting, and the service's own guard for anything that acts without
+     * asking. They must never drift apart.
+     */
+    @Test
+    void theRankSeamAgreesWithTheServicesOwnGuard() {
+        for (NobleRank actor : NobleRank.values()) {
+            InMemoryMoraleStore fresh = new InMemoryMoraleStore();
+            MoraleService subject = new MoraleService(fresh, MoraleConfig.enabled());
+            subject.openTrack(PLAYER);
+            subject.recordSiegeHostileAction(PLAYER, true);
+
+            boolean granted = subject.pardon(PLAYER, actor) instanceof MoraleResult.Success;
+
+            assertEquals(
+                    dev.mrlemoos.kingdom.model.RankAuthority.canGrantMoralePardon(actor),
+                    granted,
+                    actor.name());
+        }
+    }
+
+    @Test
+    void anUntitledCitizenIsRefusedByBothTheSeamAndTheGuard() {
+        service.openTrack(PLAYER);
+        service.recordSiegeHostileAction(PLAYER, true);
+
+        NobleRank untitled = null;
+        assertInstanceOf(MoraleResult.Failure.class, service.pardon(PLAYER, untitled));
+        assertFalse(dev.mrlemoos.kingdom.model.RankAuthority.canGrantMoralePardon(untitled));
     }
 
     @Test

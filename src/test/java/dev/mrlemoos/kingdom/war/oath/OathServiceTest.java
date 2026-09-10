@@ -18,6 +18,7 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * Oath of service ceremony: binds a sworn outsider or an early member to a military obligation.
@@ -146,6 +147,15 @@ class OathServiceTest {
         assertInstanceOf(OathResult.Disabled.class, memberResult);
         assertTrue(moraleService.tierOf(PLAYER).isEmpty());
         assertFalse(swornOutsiderStore.find(PLAYER).isPresent());
+    }
+
+    @Test
+    void warMasterFlagDisablesTheOathCeremony() {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("war.enabled", false);
+        config.set("war.oath.enabled", true);
+
+        assertFalse(OathConfig.fromPluginConfig(config).enabled());
     }
 
     @Test

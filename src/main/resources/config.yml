@@ -283,6 +283,7 @@ war:
     enabled: false
     cost: 50.0
     cap: 4
+    entity-type: IRON_GOLEM
   conscription:
     enabled: true
     cap: 16

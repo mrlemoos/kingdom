@@ -163,4 +163,16 @@ class KingdomInfoSummaryTest {
         assertEquals("Loyalty: Disloyal", KingdomInfoSummary.loyaltyLine(LoyaltyTier.DISLOYAL));
         assertEquals("Loyalty: Traitor", KingdomInfoSummary.loyaltyLine(LoyaltyTier.TRAITOR));
     }
+
+    @Test
+    void warDebtLineIsNoneWhenTheRealmNeitherOwesNorIsOwed() {
+        assertEquals("War debt: none", KingdomInfoSummary.warDebtLine(0, 0));
+    }
+
+    @Test
+    void warDebtLineNamesWhatTheRealmOwesAndIsOwed() {
+        assertEquals("War debt: owes 60 Corona", KingdomInfoSummary.warDebtLine(60, 0));
+        assertEquals("War debt: is owed 40 Corona", KingdomInfoSummary.warDebtLine(0, 40));
+        assertEquals("War debt: owes 60 Corona; is owed 40 Corona", KingdomInfoSummary.warDebtLine(60, 40));
+    }
 }

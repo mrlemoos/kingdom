@@ -76,4 +76,16 @@ public final class WarTributeService {
     public double debtOwed(String debtorKingdomId, String creditorKingdomId) {
         return debtStore.debtOwed(debtorKingdomId, creditorKingdomId);
     }
+
+    public double totalDebtOwed(String debtorKingdomId) {
+        return debtStore.totalDebtOwed(debtorKingdomId);
+    }
+
+    public double totalDebtOwedTo(String creditorKingdomId) {
+        return debtStore.totalDebtOwedTo(creditorKingdomId);
+    }
+
+    public java.util.Collection<WarDebt> allDebts() {
+        return debtStore.allDebtsView();
+    }
 }

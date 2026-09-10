@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
 import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
 import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -243,5 +244,41 @@ class WarServiceTest {
         assertTrue(message.contains("northmarch"));
         assertTrue(message.contains("southreach"));
         assertTrue(message.toLowerCase().contains("capital fall"));
+    }
+
+    @Test
+    void declarationMessageLabelsACounterWar() {
+        BillPayload.War payload = new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3);
+        warService.enactWarBill("northmarch", payload);
+        warService.endWar(warService.activeWarFor("northmarch").orElseThrow().id());
+        warService.enactWarBill(
+                "southreach",
+                new BillPayload.War("northmarch", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+        ActiveWar counterWar = warService.activeWarFor("southreach").orElseThrow();
+
+        String message = warService.declarationMessage(counterWar);
+
+        assertTrue(message.toLowerCase().contains("counter-war"), message);
+        assertTrue(message.contains("southreach"));
+        assertTrue(message.contains("northmarch"));
+    }
+
+    @Test
+    void replaceEndedWarsRestoresCounterWarEligibility() {
+        ActiveWar ended = new ActiveWar(
+                "war-1",
+                "northmarch",
+                "southreach",
+                WarAim.TERRITORY_THRESHOLD,
+                WarOutcome.ANNEXATION,
+                1L,
+                2L);
+
+        warService.replaceEndedWars(List.of(ended));
+
+        assertInstanceOf(WarResult.Success.class, warService.validateCounterWarBill("southreach", "northmarch"));
+        assertTrue(warService.wasFormerDefenderAgainst("southreach", "northmarch"));
+        assertFalse(warService.wasFormerDefenderAgainst("northmarch", "southreach"));
     }
 }

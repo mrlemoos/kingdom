@@ -16,6 +16,7 @@ import dev.mrlemoos.kingdom.mint.TreasuryLordMintSelector;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordTargetScan;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -263,7 +264,7 @@ public final class KingdomFiscalHandler {
             return true;
         }
         NobleRank rank = membership.get().getRank();
-        if (rank != NobleRank.PREMIER && !RoyalMintPlacementPolicy.canPlace(rank)) {
+        if (rank != NobleRank.PREMIER && !RankAuthority.isCrown(rank)) {
             sender.sendMessage(error("Only the Premier, King, or Queen may prepare a mint."));
             return true;
         }
@@ -291,7 +292,7 @@ public final class KingdomFiscalHandler {
             return true;
         }
         if (!RoyalMintPlacementPolicy.canPlace(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King or Queen may place a mint."));
+            sender.sendMessage(error("Only the King, Queen or a Lord may place a mint."));
             return true;
         }
 
@@ -429,7 +430,8 @@ public final class KingdomFiscalHandler {
         }
         if (!TreasuryLordManagementPolicy.canDespawn(
                 membership.get().getRank(), sender.hasPermission("kingdom.admin"))) {
-            sender.sendMessage(error("Only the King, Queen, or an admin may despawn the Lord of the Treasury."));
+            sender.sendMessage(error(
+                    "Only the King, Queen, a Lord, or an admin may despawn the Lord of the Treasury."));
             return true;
         }
 
@@ -600,7 +602,7 @@ public final class KingdomFiscalHandler {
 
     private String mintHelp() {
         return info("Mint commands:")
-                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint where you stand in your territory (King or Queen)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint")+ "\n" + c("&7 — /kingdom mint prepare — site a mint for a bill (Premier, King, or Queen)");
+                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint where you stand in your territory (King, Queen or Lord)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint (King, Queen or Lord)")+ "\n" + c("&7 — /kingdom mint prepare — site a mint for a bill (Premier, King, or Queen)");
     }
 
     private String rateLine(String label, double rate) {

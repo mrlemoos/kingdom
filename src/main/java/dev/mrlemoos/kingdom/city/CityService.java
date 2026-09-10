@@ -4,6 +4,7 @@ import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.city.CapitalLocation;
 import dev.mrlemoos.kingdom.model.city.KingdomCityState;
 import dev.mrlemoos.kingdom.service.KingdomResult;
@@ -19,6 +20,13 @@ import java.util.UUID;
  * kingdom's own monarch or princes may build in its territory.
  */
 public final class CityService {
+
+    /** Named here so the command and the service refuse a permit in the same words. */
+    public static final String PERMIT_GRANT_REFUSAL =
+            "Only the King, Queen, a Duke or a Count may grant a build permit.";
+
+    public static final String PERMIT_REVOKE_REFUSAL =
+            "Only the King, Queen, a Duke or a Count may revoke a build permit.";
 
     private final KingdomService kingdomService;
     private PrisonStatusPort prisonStatusPort;
@@ -205,6 +213,25 @@ public final class CityService {
             return Map.of();
         }
         return city.get().permitsView();
+    }
+
+    /**
+     * The permit book as an officer of the realm holds it: the Crown, a Duke or a Count. Every
+     * other rung of the ladder is refused before the register is touched.
+     */
+    public CityResult grantPermit(String kingdomId, NobleRank actorRank, UUID playerId) {
+        if (!RankAuthority.canIssueBuildPermit(actorRank)) {
+            return CityResult.fail(PERMIT_GRANT_REFUSAL);
+        }
+        return grantPermit(kingdomId, playerId);
+    }
+
+    /** As {@link #revokePermit(String, UUID)}, gated on the rank striking the permit off. */
+    public CityResult revokePermit(String kingdomId, NobleRank actorRank, UUID playerId) {
+        if (!RankAuthority.canIssueBuildPermit(actorRank)) {
+            return CityResult.fail(PERMIT_REVOKE_REFUSAL);
+        }
+        return revokePermit(kingdomId, playerId);
     }
 
     /** Free, immediate and idempotent. Members only; never a foreigner, never a prisoner. */

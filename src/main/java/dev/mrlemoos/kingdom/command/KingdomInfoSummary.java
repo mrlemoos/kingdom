@@ -111,6 +111,28 @@ public final class KingdomInfoSummary {
         return "covers " + days + (days == 1 ? " day" : " days") + " of winter";
     }
 
+    public static String warDebtLine(double owedByThisRealm, double owedToThisRealm) {
+        if (owedByThisRealm <= 0 && owedToThisRealm <= 0) {
+            return "War debt: none";
+        }
+        String owed = owedByThisRealm > 0 ? "owes " + formatCorona(owedByThisRealm) + " Corona" : "";
+        String owing = owedToThisRealm > 0 ? "is owed " + formatCorona(owedToThisRealm) + " Corona" : "";
+        if (owed.isEmpty()) {
+            return "War debt: " + owing;
+        }
+        if (owing.isEmpty()) {
+            return "War debt: " + owed;
+        }
+        return "War debt: " + owed + "; " + owing;
+    }
+
+    private static String formatCorona(double amount) {
+        if (Math.rint(amount) == amount) {
+            return String.format(java.util.Locale.UK, "%.0f", amount);
+        }
+        return String.format(java.util.Locale.UK, "%.2f", amount);
+    }
+
     public static String loyaltyLine(LoyaltyTier tier) {
         String label = switch (tier) {
             case FAITHFUL -> "Faithful";

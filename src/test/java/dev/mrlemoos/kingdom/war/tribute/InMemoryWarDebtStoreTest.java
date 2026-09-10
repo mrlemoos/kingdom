@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.war.tribute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +64,13 @@ class InMemoryWarDebtStoreTest {
         assertEquals(30.0, store.debtOwed(DEBTOR, CREDITOR), 1e-9);
         assertEquals(20.0, store.debtOwed(DEBTOR, "eastholt"), 1e-9);
         assertEquals(50.0, store.totalDebtOwed(DEBTOR), 1e-9);
+    }
+
+    @Test
+    void replaceAllRestoresPersistedDebts() {
+        store.replaceAll(List.of(new WarDebt(DEBTOR, CREDITOR, 60.0)));
+
+        assertEquals(60.0, store.debtOwed(DEBTOR, CREDITOR), 1e-9);
+        assertEquals(60.0, store.totalDebtOwedTo(CREDITOR), 1e-9);
     }
 }

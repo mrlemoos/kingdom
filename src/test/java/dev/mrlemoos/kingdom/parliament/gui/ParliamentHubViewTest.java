@@ -75,6 +75,21 @@ class ParliamentHubViewTest {
     }
 
     @Test
+    void crownSeesWarOrPeaceOnlyWhenEachIsAvailable() {
+        ParliamentHubView war = new ParliamentHubView(
+                NobleRank.KING, null, true, false, false, false, false, false, false, false, false,
+                Optional.empty(), Optional.empty(), false, false, true, false);
+        ParliamentHubView peace = new ParliamentHubView(
+                NobleRank.QUEEN, null, true, false, false, false, false, false, false, false, false,
+                Optional.empty(), Optional.empty(), false, false, false, true);
+
+        assertTrue(war.visibleActions().contains(ParliamentHubAction.TABLE_WAR));
+        assertFalse(war.visibleActions().contains(ParliamentHubAction.TABLE_PEACE));
+        assertFalse(peace.visibleActions().contains(ParliamentHubAction.TABLE_WAR));
+        assertTrue(peace.visibleActions().contains(ParliamentHubAction.TABLE_PEACE));
+    }
+
+    @Test
     void speakerSeesOpenAndCloseDivisionInCommons() {
         ParliamentHubView openView = new ParliamentHubView(
                 NobleRank.SPEAKER,

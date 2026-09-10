@@ -357,6 +357,55 @@ class ParliamentServiceTest {
     }
 
     @Test
+    void formerDefenderTablesCounterWarBillAfterTheOriginalWarHasEnded() {
+        UUID southKing = UUID.fromString("00000000-0000-0000-0000-000000000015");
+        kingdomService.joinKingdom(southKing, "southreach");
+        kingdomService.assignTitle(southKing, NobleRank.KING, TitleStyle.MASCULINE);
+        warService.enactWarBill(
+                "northmarch",
+                new BillPayload.War("southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+        warService.endWar(warService.activeWarFor("northmarch").orElseThrow().id());
+
+        ParliamentResult tabled = parliamentService.tableWar(
+                "southreach",
+                NobleRank.KING,
+                southKing,
+                "northmarch",
+                WarAim.TERRITORY_THRESHOLD,
+                WarOutcome.ANNEXATION,
+                3,
+                null);
+
+        assertInstanceOf(ParliamentResult.Success.class, tabled);
+        assertTrue(
+                parliamentService.currentBill("southreach").orElseThrow().title().startsWith("Counter-war Bill"),
+                parliamentService.currentBill("southreach").orElseThrow().title());
+    }
+
+    @Test
+    void cannotTableCounterWarWhileTheOriginalWarIsStillActive() {
+        UUID southKing = UUID.fromString("00000000-0000-0000-0000-000000000016");
+        kingdomService.joinKingdom(southKing, "southreach");
+        kingdomService.assignTitle(southKing, NobleRank.KING, TitleStyle.MASCULINE);
+        warService.enactWarBill(
+                "northmarch",
+                new BillPayload.War("southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        ParliamentResult tabled = parliamentService.tableWar(
+                "southreach",
+                NobleRank.KING,
+                southKing,
+                "northmarch",
+                WarAim.TERRITORY_THRESHOLD,
+                WarOutcome.ANNEXATION,
+                3,
+                null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, tabled);
+        assertTrue(((ParliamentResult.Failure) tabled).message().toLowerCase().contains("already at war"));
+    }
+
+    @Test
     void monarchTablesWarBillAndEnactmentCreatesActiveWar() {
         ParliamentResult tabled = parliamentService.tableWar(
                 "northmarch", NobleRank.KING, KING, "southreach",

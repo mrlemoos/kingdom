@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.parliament.AssentedAct;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
@@ -912,7 +913,7 @@ public final class ParliamentService {
             WarOutcome outcome,
             int musterDeadlineMcDays,
             String optionalTitle) {
-        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+        if (!RankAuthority.canTableWarAndPeace(rank)) {
             return ParliamentResult.fail("Only the King or Queen may table a war bill.");
         }
         ParliamentResult blocked = premierActionBlocked(kingdomId);
@@ -928,16 +929,31 @@ public final class ParliamentService {
         if (musterDeadlineMcDays <= 0) {
             return ParliamentResult.fail("Muster deadline must be a positive number of days.");
         }
-        WarResult validation = warService.validateWarBill(kingdomId, targetKingdomId);
+        boolean counterWar = warService.wasFormerDefenderAgainst(kingdomId, targetKingdomId);
+        WarResult validation = counterWar
+                ? warService.validateCounterWarBill(kingdomId, targetKingdomId)
+                : warService.validateWarBill(kingdomId, targetKingdomId);
         if (validation instanceof WarResult.Failure failure) {
             return ParliamentResult.fail(failure.message());
+        }
+        String title = optionalTitle;
+        if ((title == null || title.isBlank()) && counterWar) {
+            title = BillTitles.defaultCounterWarTitle(Kingdom.normaliseId(kingdomId), clockMs.get());
         }
         return tableBill(
                 kingdomId,
                 proposerId,
                 BillType.WAR,
-                optionalTitle,
+                title,
                 new BillPayload.War(Kingdom.normaliseId(targetKingdomId), aim, outcome, musterDeadlineMcDays));
+    }
+
+    public boolean isCounterWarEligible(String kingdomId, String targetKingdomId) {
+        return warService != null && warService.wasFormerDefenderAgainst(kingdomId, targetKingdomId);
+    }
+
+    public boolean canTableWar(String kingdomId, NobleRank rank) {
+        return RankAuthority.canTableWarAndPeace(rank) && warService != null && warService.config().enabled();
     }
 
     /**
@@ -947,7 +963,7 @@ public final class ParliamentService {
      * enabled and the kingdom is actually at war.
      */
     public ParliamentResult tablePeace(String kingdomId, NobleRank rank, UUID proposerId, String optionalTitle) {
-        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+        if (!RankAuthority.canTableWarAndPeace(rank)) {
             return ParliamentResult.fail("Only the King or Queen may table a peace bill.");
         }
         ParliamentResult blocked = premierActionBlocked(kingdomId);
@@ -967,6 +983,10 @@ public final class ParliamentService {
                 BillType.PEACE,
                 optionalTitle,
                 new BillPayload.Peace(activeWar.get().id()));
+    }
+
+    public boolean canTablePeace(String kingdomId, NobleRank rank) {
+        return canTableWar(kingdomId, rank) && warService.activeWarFor(kingdomId).isPresent();
     }
 
     public ParliamentResult openDivision(String kingdomId, NobleRank rank) {
