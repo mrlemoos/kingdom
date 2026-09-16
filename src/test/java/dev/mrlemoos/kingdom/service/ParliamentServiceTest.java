@@ -15,6 +15,7 @@ import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.BillType;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
@@ -24,6 +25,7 @@ import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarConfig;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,6 +92,34 @@ class ParliamentServiceTest {
         ParliamentResult second = parliamentService.tableBudget("northmarch", NobleRank.PREMIER, PREMIER, 100, null);
 
         assertInstanceOf(ParliamentResult.Failure.class, second);
+    }
+
+    @Test
+    void nonAggressionTreatyBarsWarBill() {
+        TreatyService treaties = new TreatyService(kingdomService);
+        treaties.propose("northmarch", "southreach", TreatyKind.NON_AGGRESSION, 1);
+        treaties.assent("northmarch", "southreach", TreatyKind.NON_AGGRESSION, 1);
+        treaties.assent("southreach", "northmarch", TreatyKind.NON_AGGRESSION, 1);
+        parliamentService.setTreatyService(treaties);
+
+        ParliamentResult result = parliamentService.tableWar(
+                "northmarch", NobleRank.KING, KING, "southreach", WarAim.TERRITORY_THRESHOLD,
+                WarOutcome.ANNEXATION, 2, null);
+
+        assertInstanceOf(ParliamentResult.Failure.class, result);
+        assertTrue(((ParliamentResult.Failure) result).message().contains("non-aggression"));
+    }
+
+    @Test
+    void tabledTreatyBillDoesNotCreateProposalBeforeRoyalAssent() {
+        TreatyService treaties = new TreatyService(kingdomService);
+        parliamentService.setTreatyService(treaties);
+
+        ParliamentResult result = parliamentService.tableTreaty(
+                "northmarch", NobleRank.KING, KING, "southreach", TreatyKind.TRADE_PACT, false, null);
+
+        assertInstanceOf(ParliamentResult.Success.class, result);
+        assertTrue(treaties.treatiesView().isEmpty());
     }
 
     @Test

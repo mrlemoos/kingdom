@@ -33,6 +33,8 @@ import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -59,6 +61,7 @@ public final class ParliamentHandler {
     private final VillagerPremierInauguralService villagerPremierInauguralService;
     private final WarService warService;
     private final DemobilisationService demobilisationService;
+    private TreatyService treatyService;
     private dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer;
     private Consumer<Player> hubGuiOpener;
     private java.util.function.BiConsumer<Player, String> referendumBallotOpener;
@@ -115,6 +118,10 @@ public final class ParliamentHandler {
     /** Who raises the Royal Standard when the Lords point moves. */
     public void setRoyalStandardPlacer(dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer) {
         this.royalStandardPlacer = royalStandardPlacer;
+    }
+
+    public void setTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
     }
 
     public void setHubGuiOpener(Consumer<Player> hubGuiOpener) {
@@ -227,6 +234,7 @@ public final class ParliamentHandler {
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "set" -> handleSet(sender, args);
             case "status" -> handleStatus(sender);
+            case "treaty" -> handleTreaty(sender, args);
             default -> {
                 if (sender instanceof Player player && hubGuiOpener != null) {
                     hubGuiOpener.accept(player);
@@ -236,6 +244,30 @@ public final class ParliamentHandler {
                 yield true;
             }
         };
+    }
+
+    private boolean handleTreaty(CommandSender sender, String[] args) {
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) return true;
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) return true;
+        if (args.length < 3) {
+            sender.sendMessage(error("Usage: /kingdom parliament treaty <kingdom> <non-aggression|trade-pact> [repeal]"));
+            return true;
+        }
+        TreatyKind kind = switch (args[2].toLowerCase(Locale.ROOT)) {
+            case "non-aggression" -> TreatyKind.NON_AGGRESSION;
+            case "trade-pact" -> TreatyKind.TRADE_PACT;
+            default -> null;
+        };
+        if (kind == null) {
+            sender.sendMessage(error("Treaty kind must be non-aggression or trade-pact."));
+            return true;
+        }
+        boolean repeal = args.length > 3 && args[3].equalsIgnoreCase("repeal");
+        return finish(sender, tableTreaty(
+                membership.get().getKingdomId(), membership.get().getRank(), membership.get().getPlayerId(),
+                args[1], kind, repeal, null));
     }
 
     private boolean handleSet(CommandSender sender, String[] args) {
@@ -374,7 +406,7 @@ public final class ParliamentHandler {
             return true;
         };
         AssentedEnactmentResult enacted = ParliamentEnactment.enactAssented(
-                draft.get(), economyService, warService, demobilisationService, maxMints, estatePlacer);
+                draft.get(), economyService, warService, demobilisationService, treatyService, maxMints, estatePlacer);
         if (enacted instanceof AssentedEnactmentResult.Failure failure) {
             player.sendMessage(error("Royal assent recorded but enactment failed: " + failure.message()));
             kingdomStore.saveFrom(kingdomService);
@@ -515,6 +547,13 @@ public final class ParliamentHandler {
 
     public ParliamentResult tablePeace(String kingdomId, NobleRank rank, UUID proposerId, String title) {
         return parliamentService.tablePeace(kingdomId, rank, proposerId, title);
+    }
+
+    public ParliamentResult tableTreaty(
+            String kingdomId, NobleRank rank, UUID proposerId, String counterpartKingdomId, TreatyKind kind,
+            boolean repeal, String title) {
+        return parliamentService.tableTreaty(
+                kingdomId, rank, proposerId, counterpartKingdomId, kind, repeal, title);
     }
 
     /** Puts the confidence question and tells the House it awaits a seconder. */

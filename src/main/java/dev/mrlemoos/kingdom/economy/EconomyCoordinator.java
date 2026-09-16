@@ -114,6 +114,10 @@ public final class EconomyCoordinator {
         this.persistenceHook = persistenceHook != null ? persistenceHook : () -> {};
     }
 
+    public void setTreatyService(dev.mrlemoos.kingdom.treaty.TreatyService treatyService) {
+        emeraldVillagerTradeService.setTreatyService(treatyService);
+    }
+
     public Optional<CreditResult> creditPlayerFromActivity(
             Player player, double gross, Location location, ActivityCategory category) {
         if (player == null || gross <= 0.0 || location == null || location.getWorld() == null) {
@@ -295,6 +299,7 @@ public final class EconomyCoordinator {
                 location.getBlockZ());
         EmeraldVillagerTradeRequest request = new EmeraldVillagerTradeRequest(
                 kingdomId,
+                kingdomService.getMembership(playerId).map(membership -> membership.getKingdomId()),
                 villager.getUniqueId(),
                 emeraldCost,
                 treasuryLord,
@@ -333,6 +338,7 @@ public final class EconomyCoordinator {
                 location.getBlockZ());
         EmeraldVillagerTradeRequest request = new EmeraldVillagerTradeRequest(
                 kingdomId,
+                kingdomService.getMembership(playerId).map(membership -> membership.getKingdomId()),
                 villager.getUniqueId(),
                 0,
                 treasuryLord,

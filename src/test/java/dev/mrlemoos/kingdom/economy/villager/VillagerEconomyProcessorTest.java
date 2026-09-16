@@ -41,6 +41,7 @@ class VillagerEconomyProcessorTest {
                 new Random(1));
 
         assertEquals(0.9, result.totalGdpCredited(), 1e-9);
+        assertEquals(0.09, result.incomeTaxCollected(), 1e-9);
         assertEquals(0.18, service.getVillagerWalletBalance("northmarch", FARMER), 1e-9);
         assertEquals(0.621, service.getVillagerWalletBalance("northmarch", BUTCHER), 1e-9);
         assertEquals(0.099, service.getTreasuryBalance("northmarch"), 1e-9);

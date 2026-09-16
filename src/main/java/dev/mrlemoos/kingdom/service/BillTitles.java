@@ -23,6 +23,7 @@ public final class BillTitles {
             case SPEND_PUBLIC_WORK -> "Supply Act (Public work)";
             case WAR -> "War Bill";
             case PEACE -> "Peace Bill";
+            case TREATY -> "Treaty Bill";
             case NO_CONFIDENCE -> "Motion of No Confidence";
             case REFERENDUM -> "Referendum";
         };

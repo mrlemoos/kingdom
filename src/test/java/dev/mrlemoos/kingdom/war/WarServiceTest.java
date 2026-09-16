@@ -10,6 +10,8 @@ import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import dev.mrlemoos.kingdom.war.capture.CaptureConfig;
 import dev.mrlemoos.kingdom.war.capture.ChunkCaptureService;
 import dev.mrlemoos.kingdom.war.capture.ChunkCoord;
@@ -42,6 +44,21 @@ class WarServiceTest {
 
         assertInstanceOf(WarResult.Failure.class, result);
         assertTrue(((WarResult.Failure) result).message().contains("disabled"));
+    }
+
+    @Test
+    void activeNonAggressionTreatyBlocksWarEnactment() {
+        TreatyService treaties = new TreatyService(kingdomService);
+        treaties.propose("northmarch", "southreach", TreatyKind.NON_AGGRESSION, 1);
+        treaties.assent("northmarch", "southreach", TreatyKind.NON_AGGRESSION, 1);
+        treaties.assent("southreach", "northmarch", TreatyKind.NON_AGGRESSION, 1);
+        warService.setTreatyService(treaties);
+
+        WarResult result = warService.enactWarBill("northmarch", new BillPayload.War(
+                "southreach", WarAim.TERRITORY_THRESHOLD, WarOutcome.ANNEXATION, 3));
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertTrue(((WarResult.Failure) result).message().contains("non-aggression"));
     }
 
     @Test

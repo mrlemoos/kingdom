@@ -361,6 +361,12 @@ public final class KingdomPlugin extends JavaPlugin {
                 villagerMpEntityService.setHungerStrikeSource(hungerLedgerStore, granaryConfig);
                 economyCoordinator.setHungerStrikeSource(hungerLedgerStore, granaryConfig);
                 ParliamentService parliamentService = new ParliamentService(kingdomService);
+                dev.mrlemoos.kingdom.treaty.TreatyService treatyService =
+                                new dev.mrlemoos.kingdom.treaty.TreatyService(kingdomService, mcDayClock);
+                store.setTreatyService(treatyService);
+                warService.setTreatyService(treatyService);
+                store.loadTreaties();
+                economyCoordinator.setTreatyService(treatyService);
                 parliamentService.setProfessionVoteBias(professionVoteBias);
                 parliamentService.setDivisionWindowMcDays(getConfig().getInt(
                                 "parliament.villager-speaker.division-window-days",
@@ -377,6 +383,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 parliamentService.setElectionService(electionService);
                 parliamentService.setVillagerSeatReleaser(villagerMpEntityService::releaseSeat);
                 parliamentService.setWarService(warService);
+                parliamentService.setTreatyService(treatyService);
                 parliamentService.setTerritoryResolver(territoryResolver);
                 parliamentService.setMcDayClock(mcDayClock);
                 HansardArchivist hansardArchivist = new HansardArchivist(kingdomService);
@@ -443,6 +450,15 @@ public final class KingdomPlugin extends JavaPlugin {
                                 policeTrialService.arrestRewardService(),
                                 economyService,
                                 economyStore);
+                dev.mrlemoos.kingdom.appeal.AppealService appealService =
+                                new dev.mrlemoos.kingdom.appeal.AppealService(kingdomService, policeTrialService);
+                dev.mrlemoos.kingdom.appeal.AppealPetitionItem appealPetitionItem =
+                                new dev.mrlemoos.kingdom.appeal.AppealPetitionItem(this);
+                policeHandler.setAppealService(appealService);
+                dev.mrlemoos.kingdom.listener.AppealPetitionListener appealPetitionListener =
+                                new dev.mrlemoos.kingdom.listener.AppealPetitionListener(
+                                                kingdomService, appealService, appealPetitionItem);
+                policeHandler.setAppealDelivery(appealPetitionListener::deliverToCrown);
                 TrialJuryConfig trialJuryConfig = TrialJuryConfig.fromPluginConfig(getConfig());
                 TrialJuryService trialJuryService = new TrialJuryService(
                                 kingdomService,
@@ -564,6 +580,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer =
                                 new dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer(kingdomService);
                 parliamentHandler.setRoyalStandardPlacer(royalStandardPlacer);
+                parliamentHandler.setTreatyService(treatyService);
 
                 KingdomCommand kingdomCommand = new KingdomCommand(
                                 kingdomService, store, nobleDisplay, fiscalHandler, economyService, parliamentHandler,
@@ -875,6 +892,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 resignationLetterDelivery),
                                 this);
                 getServer().getPluginManager().registerEvents(
+                                appealPetitionListener,
+                                this);
+                getServer().getPluginManager().registerEvents(
                                 new StateOpeningListener(speechFromThroneItem, stateOpeningCeremony), this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.CoronationListener(coronationCeremony), this);
@@ -912,6 +932,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new dev.mrlemoos.kingdom.task.RealmCalendarTask(
                                                 kingdomService, realmCalendarService, store);
                 realmCalendarTask.setRecoveryServices(loyaltyService, moraleService);
+                realmCalendarTask.setTreatyService(treatyService);
                 realmCalendarTask.setSeasonConfig(getConfig());
                 getServer().getScheduler().runTaskTimer(this, realmCalendarTask, 100L, 20L * 20);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);

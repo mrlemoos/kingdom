@@ -13,6 +13,7 @@ import dev.mrlemoos.kingdom.loyalty.MoraleService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -45,6 +46,7 @@ public final class RealmCalendarTask implements Runnable {
     private long lastProclaimedDay = -1L;
     private LoyaltyService loyaltyService;
     private MoraleService moraleService;
+    private TreatyService treatyService;
     private FileConfiguration seasonConfig;
 
     public RealmCalendarTask(
@@ -63,6 +65,11 @@ public final class RealmCalendarTask implements Runnable {
         this.moraleService = moraleService;
     }
 
+    /** Gives the daily sweep the bilateral treaties whose proposals may have lapsed. */
+    public void setTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
+    }
+
     /** Gives the task the plugin config, so the tuned season profile governs how slowly morale mends. */
     public void setSeasonConfig(FileConfiguration seasonConfig) {
         this.seasonConfig = seasonConfig;
@@ -79,6 +86,7 @@ public final class RealmCalendarTask implements Runnable {
         }
         boolean firstSweep = lastProclaimedDay < 0L;
         lastProclaimedDay = realmDay;
+        expireTreaties(realmDay);
         if (firstSweep) {
             return;
         }
@@ -100,6 +108,12 @@ public final class RealmCalendarTask implements Runnable {
         }
         tickRecoveryClocks(realmDay);
         store.saveFrom(kingdomService);
+    }
+
+    private void expireTreaties(long realmDay) {
+        if (treatyService != null) {
+            treatyService.expire(calendarService.epochWorldDay() + realmDay);
+        }
     }
 
     /** Tells the realm what has come upon it on the first day of a season, and only then. */

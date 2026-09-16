@@ -23,6 +23,7 @@ import dev.mrlemoos.kingdom.police.PoliceResult;
 import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
+import dev.mrlemoos.kingdom.appeal.AppealService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
@@ -55,6 +56,8 @@ public final class KingdomPoliceHandler {
     private PoliceTrialService trialService;
     private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private TrialJuryRuntime trialJuryRuntime;
+    private AppealService appealService;
+    private java.util.function.Consumer<String> appealDelivery = ignored -> {};
 
     public KingdomPoliceHandler(
             PoliceService policeService,
@@ -84,6 +87,8 @@ public final class KingdomPoliceHandler {
         this.trialService = trialService;
         this.trialJuryRuntime = trialJuryRuntime;
     }
+    public void setAppealService(AppealService appealService) { this.appealService = appealService; }
+    public void setAppealDelivery(java.util.function.Consumer<String> appealDelivery) { this.appealDelivery = appealDelivery; }
 
     public boolean handlePolice(CommandSender sender, String[] args) {
         if (args.length == 0) {
@@ -105,11 +110,24 @@ public final class KingdomPoliceHandler {
             case "cancelwarrant" -> handleCancelWarrant(sender, args);
             case "arrest" -> handleArrest(sender, args);
             case "jury" -> handleJury(sender);
+            case "appeal" -> handleAppeal(sender);
             default -> {
                 sender.sendMessage(policeHelp());
                 yield true;
             }
         };
+    }
+
+    private boolean handleAppeal(CommandSender sender) {
+        if (appealService == null) return true;
+        Optional<Player> player = requirePlayer(sender);
+        if (player.isEmpty()) return true;
+        Optional<PlayerMembership> membership = requireMembership(player.get());
+        if (membership.isEmpty()) return true;
+        dev.mrlemoos.kingdom.appeal.AppealResult result = appealService.petition(membership.get().getKingdomId(), player.get().getUniqueId());
+        sender.sendMessage(formatAppeal(result));
+        if (result instanceof dev.mrlemoos.kingdom.appeal.AppealResult.Success) appealDelivery.accept(membership.get().getKingdomId());
+        return true;
     }
 
     public void respawnAllJudges() {
@@ -777,6 +795,7 @@ public final class KingdomPoliceHandler {
                 + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — Crown cancels active warrant")
                 + "\n" + c("&e/kingdom police arrest <player>") + c("&7 — constable arrest (seats jury if no Judge)")
                 + "\n" + c("&e/kingdom police jury") + c("&7 — reopen trial-jury ballot")
+                + "\n" + c("&e/kingdom police appeal") + c("&7 — petition Crown against active prison sentence")
                 + "\n" + c("&e/kingdom police status")
                 + "\n" + c("&e/kingdom police list");
     }
@@ -786,6 +805,11 @@ public final class KingdomPoliceHandler {
             case PoliceResult.Success success -> success(success.message());
             case PoliceResult.Failure failure -> error(failure.message());
         };
+    }
+
+    private String formatAppeal(dev.mrlemoos.kingdom.appeal.AppealResult result) {
+        return result instanceof dev.mrlemoos.kingdom.appeal.AppealResult.Success success
+                ? success(success.message()) : error(((dev.mrlemoos.kingdom.appeal.AppealResult.Failure) result).message());
     }
 
     private String success(String message) {

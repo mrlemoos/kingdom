@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
+import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -116,6 +119,33 @@ class EmeraldVillagerTradeServiceTest {
                 economyService,
                 new EmeraldVillagerTradeRequest(
                         Optional.of("northmarch"), VILLAGER, 10, false, false, false, true, false));
+
+        assertTrue(settled);
+        assertEquals(0.5, economyService.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(10.5, economyService.getVillagerWalletBalance("northmarch", VILLAGER), 1e-9);
+    }
+
+    @Test
+    void tradePactWaivesTariffButKeepsCommerceTax() {
+        KingdomEconomy economy = new KingdomEconomy();
+        economy.setActiveRates(new FiscalRates(0.10, 0.05, 0.03, 0.08, 0.0, 0.10, Map.of()));
+        economyService.replaceState(Map.of(), Map.of("northmarch", Map.of()), Map.of("northmarch", economy));
+        economyService.creditVillagerWalletDirect("northmarch", VILLAGER, 1.0);
+        economyService.syncVillagerWalletActivity("northmarch", Set.of(VILLAGER), 5L);
+        KingdomService kingdoms = new KingdomService();
+        kingdoms.createKingdom("northmarch", "Northmarch");
+        kingdoms.createKingdom("southreach", "Southreach");
+        TreatyService treaties = new TreatyService(kingdoms);
+        treaties.propose("northmarch", "southreach", TreatyKind.TRADE_PACT, 1);
+        treaties.assent("northmarch", "southreach", TreatyKind.TRADE_PACT, 1);
+        treaties.assent("southreach", "northmarch", TreatyKind.TRADE_PACT, 1);
+        tradeService.setTreatyService(treaties);
+
+        boolean settled = tradeService.settle(
+                economyService,
+                new EmeraldVillagerTradeRequest(
+                        Optional.of("northmarch"), Optional.of("southreach"), VILLAGER, 10,
+                        false, false, false, false, false));
 
         assertTrue(settled);
         assertEquals(0.5, economyService.getTreasuryBalance("northmarch"), 1e-9);

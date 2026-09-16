@@ -9,6 +9,8 @@ import dev.mrlemoos.kingdom.service.ParliamentService.AssentedActDraft;
 import dev.mrlemoos.kingdom.war.DemobilisationService;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.treaty.TreatyResult;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,6 +44,8 @@ public final class ParliamentEnactment {
                     "War bills carry no economic effect. Use ParliamentEnactment.enactWar.");
             case BillPayload.Peace peace -> EconomyResult.fail(
                     "Peace bills carry no economic effect. Use ParliamentEnactment.enactPeace.");
+            case BillPayload.Treaty treaty -> EconomyResult.fail(
+                    "Treaty bills carry no economic effect. Use ParliamentEnactment.enactAssented.");
             case BillPayload.NoConfidence motion -> EconomyResult.fail(
                     "A motion of no confidence is decided in the Commons and enacts nothing.");
             case BillPayload.Referendum referendum -> EconomyResult.fail(
@@ -69,6 +73,17 @@ public final class ParliamentEnactment {
             DemobilisationService demobilisationService,
             int maxMints,
             EstateBlockPlacer estatePlacer) {
+        return enactAssented(draft, economyService, warService, demobilisationService, null, maxMints, estatePlacer);
+    }
+
+    public static AssentedEnactmentResult enactAssented(
+            AssentedActDraft draft,
+            EconomyService economyService,
+            WarService warService,
+            DemobilisationService demobilisationService,
+            TreatyService treatyService,
+            int maxMints,
+            EstateBlockPlacer estatePlacer) {
         return switch (draft.payload()) {
             case BillPayload.War ignored -> {
                 if (warService == null) {
@@ -83,6 +98,18 @@ public final class ParliamentEnactment {
                 }
                 WarResult peaceResult = enactPeace(draft, warService, demobilisationService);
                 yield toAssentedResult(peaceResult);
+            }
+            case BillPayload.Treaty treaty -> {
+                if (treatyService == null) {
+                    yield AssentedEnactmentResult.fail("Treaty service is not available.");
+                }
+                TreatyResult result = treaty.repeal()
+                        ? treatyService.repeal(draft.kingdomId(), treaty.counterpartKingdomId(), treaty.kind())
+                        : treatyService.assent(draft.kingdomId(), treaty.counterpartKingdomId(), treaty.kind());
+                yield switch (result) {
+                    case TreatyResult.Success success -> AssentedEnactmentResult.ok(success.message());
+                    case TreatyResult.Failure failure -> AssentedEnactmentResult.fail(failure.message());
+                };
             }
             default -> {
                 EconomyResult economyResult = enact(draft, economyService, maxMints, estatePlacer);

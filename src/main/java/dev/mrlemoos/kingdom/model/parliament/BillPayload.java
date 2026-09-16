@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public sealed interface BillPayload
         permits BillPayload.Fiscal, BillPayload.Budget, BillPayload.SpendMint, BillPayload.SpendStipend,
-                BillPayload.SpendPublicWork, BillPayload.War, BillPayload.Peace, BillPayload.NoConfidence,
+                BillPayload.SpendPublicWork, BillPayload.War, BillPayload.Peace, BillPayload.Treaty, BillPayload.NoConfidence,
                 BillPayload.Referendum {
 
     record Fiscal(FiscalRates rates) implements BillPayload {}
@@ -40,6 +40,8 @@ public sealed interface BillPayload
      * decisive victory).
      */
     record Peace(String warId) implements BillPayload {}
+
+    record Treaty(String counterpartKingdomId, TreatyKind kind, boolean repeal) implements BillPayload {}
 
     /**
      * Names the Member who put the confidence question to the House. The motion carries no

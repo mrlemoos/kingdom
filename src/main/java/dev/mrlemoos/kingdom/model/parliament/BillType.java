@@ -9,6 +9,7 @@ public enum BillType {
     SPEND_PUBLIC_WORK,
     WAR,
     PEACE,
+    TREATY,
     /** A motion of no confidence in the Premier: decided in the Commons, never an Act. */
     NO_CONFIDENCE,
     /** A question put to every member of the realm: advisory, decided by ballot, never an Act. */

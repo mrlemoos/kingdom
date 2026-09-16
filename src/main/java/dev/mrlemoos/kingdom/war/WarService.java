@@ -4,6 +4,8 @@ import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
 import dev.mrlemoos.kingdom.war.muster.MusterService;
 import java.util.ArrayList;
@@ -30,6 +32,7 @@ public final class WarService {
     private WarConfig config = WarConfig.off();
     private StandingRosterService standingRosterService;
     private MusterService musterService;
+    private TreatyService treatyService;
     private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
 
     public WarService(KingdomService kingdomService) {
@@ -60,6 +63,10 @@ public final class WarService {
     /** Optional hook so an enacted war calls its muster while its clock is fresh. */
     public void setMusterService(MusterService musterService) {
         this.musterService = musterService;
+    }
+
+    public void setTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
     }
 
     /**
@@ -134,6 +141,10 @@ public final class WarService {
         }
         if (kingdomService.getKingdom(normalisedTarget).isEmpty()) {
             return WarResult.fail("Unknown target kingdom.");
+        }
+        if (treatyService != null && treatyService.isActive(
+                normalisedAttacker, normalisedTarget, TreatyKind.NON_AGGRESSION)) {
+            return WarResult.fail("A non-aggression treaty with that kingdom is active.");
         }
         if (isAtWar(normalisedAttacker)) {
             return WarResult.fail("Your kingdom is already at war.");

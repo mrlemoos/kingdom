@@ -26,6 +26,7 @@ import dev.mrlemoos.kingdom.model.parliament.PendingMotionSecond;
 import dev.mrlemoos.kingdom.model.parliament.PreparedPublicWork;
 import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
 import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionTally;
 import dev.mrlemoos.kingdom.parliament.HansardRecord;
@@ -35,6 +36,7 @@ import dev.mrlemoos.kingdom.model.war.WarAim;
 import dev.mrlemoos.kingdom.model.war.WarOutcome;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.WarService;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -58,6 +60,7 @@ public final class ParliamentService {
     private final AtomicLong billSequence = new AtomicLong(1);
     private ProfessionVoteBias professionVoteBias = ProfessionVoteBias.defaults();
     private WarService warService;
+    private TreatyService treatyService;
     private int divisionWindowMcDays = DEFAULT_DIVISION_WINDOW_MC_DAYS;
     private int premierQuestionsIntervalMcDays = DEFAULT_PREMIER_QUESTIONS_INTERVAL_MC_DAYS;
     private int confidenceCooldownMcDays = DEFAULT_CONFIDENCE_COOLDOWN_MC_DAYS;
@@ -83,6 +86,10 @@ public final class ParliamentService {
 
     public void setWarService(WarService warService) {
         this.warService = warService;
+    }
+
+    public void setTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
     }
 
     /** Used when preparing a public-work site so the Premier cannot site it outside linked territory. */
@@ -923,6 +930,9 @@ public final class ParliamentService {
         if (warService == null) {
             return ParliamentResult.fail("War is disabled.");
         }
+        if (treatyService != null && treatyService.isActive(kingdomId, targetKingdomId, TreatyKind.NON_AGGRESSION)) {
+            return ParliamentResult.fail("A non-aggression treaty with that kingdom is active.");
+        }
         if (aim == null || outcome == null) {
             return ParliamentResult.fail("War aim and outcome are required.");
         }
@@ -987,6 +997,34 @@ public final class ParliamentService {
 
     public boolean canTablePeace(String kingdomId, NobleRank rank) {
         return canTableWar(kingdomId, rank) && warService.activeWarFor(kingdomId).isPresent();
+    }
+
+    public ParliamentResult tableTreaty(
+            String kingdomId, NobleRank rank, UUID proposerId, String counterpartKingdomId, TreatyKind kind,
+            boolean repeal, String optionalTitle) {
+        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+            return ParliamentResult.fail("Only the King or Queen may table a treaty bill.");
+        }
+        if (treatyService == null) {
+            return ParliamentResult.fail("Treaties are not available.");
+        }
+        if (kind == null) {
+            return ParliamentResult.fail("Treaty kind is required.");
+        }
+        var validation = treatyService.validate(kingdomId, counterpartKingdomId, kind);
+        if (validation instanceof dev.mrlemoos.kingdom.treaty.TreatyResult.Failure failure) {
+            return ParliamentResult.fail(failure.message());
+        }
+        ParliamentResult sessionGate = sessionClosed(kingdomId);
+        if (sessionGate != null) {
+            return sessionGate;
+        }
+        if (currentBill(kingdomId).isPresent()) {
+            return ParliamentResult.fail("A bill is already before Parliament.");
+        }
+        return tableBill(
+                kingdomId, proposerId, BillType.TREATY, optionalTitle,
+                new BillPayload.Treaty(Kingdom.normaliseId(counterpartKingdomId), kind, repeal));
     }
 
     public ParliamentResult openDivision(String kingdomId, NobleRank rank) {
@@ -1490,6 +1528,8 @@ public final class ParliamentService {
                     war.outcome().name().toLowerCase(Locale.ROOT).replace('_', ' '),
                     war.musterDeadlineMcDays());
             case BillPayload.Peace peace -> "Peace ending war " + peace.warId();
+            case BillPayload.Treaty treaty -> (treaty.repeal() ? "Repeal " : "Treaty with ")
+                    + treaty.counterpartKingdomId() + " (" + treaty.kind().name().toLowerCase(Locale.ROOT) + ")";
             case BillPayload.NoConfidence motion -> "No confidence in the Premier, moved by " + motion.proposerId();
             case BillPayload.Referendum referendum -> "Referendum: " + referendum.question();
         };

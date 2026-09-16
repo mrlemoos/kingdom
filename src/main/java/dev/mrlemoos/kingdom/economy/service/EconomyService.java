@@ -95,6 +95,14 @@ public class EconomyService {
         economy.setTreasuryBalance(economy.treasuryBalance() + amount);
     }
 
+    public void creditTreasuryFromPlayerTax(String kingdomId, double amount) {
+        if (amount <= 0.0) {
+            return;
+        }
+        creditTreasury(kingdomId, amount);
+        economyFor(kingdomId).recordTaxRevenue(amount);
+    }
+
     /**
      * Debits Corona from a kingdom treasury for an unbudgeted transfer such as a war tribute,
      * transferring only what is available rather than failing outright. Callers such as {@link
@@ -161,9 +169,9 @@ public class EconomyService {
         return total;
     }
 
-    public void creditVillagerGdp(String kingdomId, UUID villagerId, double gross) {
+    public CreditResult creditVillagerGdp(String kingdomId, UUID villagerId, double gross) {
         if (gross <= 0) {
-            return;
+            return new CreditResult(0.0, 0.0, 0.0, 1.0);
         }
         double baseRate = economyFor(kingdomId).activeRates().baseRate();
         CreditResult result = VillagerIncomeTaxCalculator.calculateCredit(gross, baseRate);
@@ -175,6 +183,7 @@ public class EconomyService {
             economyFor(kingdomId).recordTaxRevenue(result.tax());
         }
         recordVillagerGdpCredited(kingdomId, gross);
+        return result;
     }
 
     public void creditVillagerWalletDirect(String kingdomId, UUID villagerId, double amount) {

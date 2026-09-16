@@ -104,6 +104,10 @@ _Avoid_: Foreign commerce tax, visitor duty, import tax, customs
 The kingdom base tax rate applied when villager GDP is credited to a villager wallet. Routed to the kingdom treasury. Noble rank discounts do not apply to villager income.
 _Avoid_: Villager levy, GDP tax, profession tithe
 
+**Player income-tax share**:
+Each kingdom member's equal daily share of the realm's settled villager income tax. A member pays from available player-wallet Corona; any unpaid portion is a shortfall and creates no debt.
+_Avoid_: Poll tax, tax debt, villager levy
+
 **Villager wallet interest**:
 A signed daily rate on productive villager wallets (including seated MP economic participants), enacted as a FISCAL rate. Positive credits from the kingdom treasury; negative charges the wallet into the treasury. Interest credits are not subject to villager income tax. Applied to each eligible wallet's balance after that day's villager GDP and villager trades have settled, and before villager wallet escheatment. When the treasury cannot cover the day's positive interest in full, each eligible wallet receives a pro-rata share of what remains. Negative interest cannot reduce a wallet below zero. Frozen villager wallets and player wallets are out of scope.
 _Avoid_: Bank of Corona, bank interest, savings rate, storage fee
@@ -229,6 +233,18 @@ _Avoid_: Tie-breaker, deciding vote, government casting vote
 **Royal assent**:
 The monarch's approval of a bill passed by the Commons, given in the House of Lords. Withholding assent rejects the bill without enacting it. Assent and rejection both require the King or Queen to be present in the Lords and to act manually; this applies equally to bills from a full villager parliament, including those tabled on the Premier villager's behalf and divided under a villager Speaker. There is no automatic assent, timed assent, or shortcut of any kind—only the monarch may grant or withhold assent.
 _Avoid_: Signature, ratification, approval
+
+**Treaty**:
+A bilateral Act proposed between two kingdoms. Each realm puts the same treaty through its own Commons and Crown. It takes effect only when both Crowns assent. Either realm may repeal it through the same route. An unanswered proposal lapses after seven in-game days.
+_Avoid_: Alliance, pact offer, diplomatic request
+
+**Non-aggression treaty**:
+A treaty by which the two kingdoms agree not to make war on one another.
+_Avoid_: Peace treaty, truce, ceasefire
+
+**Trade pact**:
+A treaty that waives the tariff for each kingdom's members trading in the other's territory. The ordinary villager commerce tax remains due.
+_Avoid_: Free trade zone, customs union, tax exemption
 
 **Registrar**:
 The archive where assented Acts and **Hansard** volumes are stored as written books on chiseled bookshelves. The monarch sets the anchor bookshelf; the registrar is that shelf and every face-adjacent chiseled bookshelf reachable from it (no diagonals). Further volumes fill slots and extend along that contiguous run.
@@ -463,6 +479,9 @@ _Avoid_: Hearing, prosecution, court session
 **Prison sentence**:
 A guilty verdict that confines the convict to an assigned numbered cell for a configured real-world duration (presets of five, fifteen, thirty, or sixty minutes). On sentence a player convict is teleported to the cell, their spawn is set to that cell, and all teleports are barred for the duration—including kingdom checkpoints, `/tp`, and ceremony summons (State Opening and like). On release, the prior bed or spawn saved at sentence start is restored; if none, world spawn. A villager convict is moved to the cell for the duration and does not trade or earn GDP while confined; on release they return to productive territory life. Anyone under an active prison sentence is ineligible for Parliament. Elected offices (player or villager MP, Premier, player Speaker) are vacated immediately and trigger the normal Premier election or Commons by-election—no resignation-letter approval step. Appointed noble titles and sworn roles on a player are suspended for the duration and restored exactly on release. Hard confinement also returns a player convict to the cell if they move more than eight blocks away. No sentence removes a player from the server whitelist. Crown and Speaker **immunity** still block warrant and arrest of King, Queen, Prince, and the villager Speaker.
 _Avoid_: Temp ban, mute sentence, soft jail, whitelist exile, exile kick, permanent attainder by prison alone, seat held through prison, spawn left on cell after release, warrantable Speaker
+
+**Appeal to Crown**:
+A runtime-only petition by a player under an active prison sentence. It is delivered as paper to the monarch (or regent Prince) and may be upheld, commuted, or pardoned. Commutation halves remaining real-time confinement, rounded up to one minute; pardon releases immediately. Pending appeals clear on restart.
 
 **Fine sentence**:
 A guilty verdict that levies Corona from the convicted player to the kingdom treasury without imprisonment.

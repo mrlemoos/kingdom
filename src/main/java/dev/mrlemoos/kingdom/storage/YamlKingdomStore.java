@@ -22,6 +22,7 @@ import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillPayload;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.BillType;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.model.parliament.ConductProvision;
@@ -117,6 +118,7 @@ public final class YamlKingdomStore {
     private LoyaltyStore loyaltyStore;
     private MoraleStore moraleStore;
     private WarService warService;
+    private dev.mrlemoos.kingdom.treaty.TreatyService treatyService;
     private CapitalService capitalService;
     private StandingRosterStore standingRosterStore;
     private MusterStore musterStore;
@@ -146,6 +148,15 @@ public final class YamlKingdomStore {
 
     public void setWarService(WarService warService) {
         this.warService = warService;
+    }
+
+    public void setTreatyService(dev.mrlemoos.kingdom.treaty.TreatyService treatyService) {
+        this.treatyService = treatyService;
+    }
+
+    public void loadTreaties() {
+        if (treatyService == null || !dataFile.exists()) return;
+        treatyService.replaceAll(readTreaties(YamlConfiguration.loadConfiguration(dataFile).getConfigurationSection("treaties")));
     }
 
     public void setCapitalService(CapitalService capitalService) {
@@ -367,6 +378,9 @@ public final class YamlKingdomStore {
         if (warService != null) {
             warService.replaceActiveWars(readWars(data.getConfigurationSection("wars")));
             warService.replaceEndedWars(readWars(data.getConfigurationSection("ended-wars")));
+        }
+        if (treatyService != null) {
+            writeTreaties(data, "treaties", treatyService.treatiesView());
         }
         if (capitalService != null) {
             capitalService.replaceAll(readCapitals(data.getConfigurationSection("war-capitals")));
@@ -1118,6 +1132,11 @@ public final class YamlKingdomStore {
                 config.set(path + ".muster-deadline-mc-days", war.musterDeadlineMcDays());
             }
             case BillPayload.Peace peace -> config.set(path + ".war-id", peace.warId());
+            case BillPayload.Treaty treaty -> {
+                config.set(path + ".counterpart", treaty.counterpartKingdomId());
+                config.set(path + ".kind", treaty.kind().name().toLowerCase(Locale.ROOT));
+                config.set(path + ".repeal", treaty.repeal());
+            }
             case BillPayload.NoConfidence motion -> config.set(path + ".moved-by", motion.proposerId().toString());
             case BillPayload.Referendum referendum -> {
                 config.set(path + ".question", referendum.question());
@@ -1174,6 +1193,10 @@ public final class YamlKingdomStore {
                     WarOutcome.valueOf(section.getString("outcome", "annexation").toUpperCase(Locale.ROOT)),
                     section.getInt("muster-deadline-mc-days"));
             case PEACE -> new BillPayload.Peace(section.getString("war-id"));
+            case TREATY -> new BillPayload.Treaty(
+                    section.getString("counterpart"),
+                    TreatyKind.valueOf(section.getString("kind", "non_aggression").toUpperCase(Locale.ROOT)),
+                    section.getBoolean("repeal", false));
             case NO_CONFIDENCE -> new BillPayload.NoConfidence(UUID.fromString(section.getString("moved-by")));
             case REFERENDUM -> new BillPayload.Referendum(
                     section.getString("question", ""),
@@ -1890,6 +1913,49 @@ public final class YamlKingdomStore {
                     entry.getLong("muster-deadline-at")));
         }
         return wars;
+    }
+
+    static void writeTreaties(
+            FileConfiguration config, String path, Collection<dev.mrlemoos.kingdom.treaty.TreatyState> treaties) {
+        config.set(path, null);
+        int index = 0;
+        for (dev.mrlemoos.kingdom.treaty.TreatyState treaty : treaties) {
+            String treatyPath = path + "." + index++;
+            config.set(treatyPath + ".first", treaty.firstKingdomId());
+            config.set(treatyPath + ".second", treaty.secondKingdomId());
+            config.set(treatyPath + ".kind", treaty.kind().name().toLowerCase(Locale.ROOT));
+            config.set(treatyPath + ".expires-on-mc-day", treaty.expiresOnMcDay());
+            config.set(treatyPath + ".assented-by", List.copyOf(treaty.assentedBy()));
+            config.set(treatyPath + ".active", treaty.active());
+            config.set(treatyPath + ".repeal-expires-on-mc-day", treaty.repealExpiresOnMcDay());
+            config.set(treatyPath + ".repeal-assented-by", List.copyOf(treaty.repealAssentedBy()));
+        }
+    }
+
+    static List<dev.mrlemoos.kingdom.treaty.TreatyState> readTreaties(ConfigurationSection section) {
+        if (section == null) return List.of();
+        List<dev.mrlemoos.kingdom.treaty.TreatyState> treaties = new ArrayList<>();
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) continue;
+            String first = entry.getString("first");
+            String second = entry.getString("second");
+            if (first == null || second == null) continue;
+            try {
+                treaties.add(new dev.mrlemoos.kingdom.treaty.TreatyState(
+                        first,
+                        second,
+                        TreatyKind.valueOf(entry.getString("kind", "non_aggression").toUpperCase(Locale.ROOT)),
+                        entry.getLong("expires-on-mc-day"),
+                        new java.util.HashSet<>(entry.getStringList("assented-by")),
+                        entry.getBoolean("active"),
+                        entry.getLong("repeal-expires-on-mc-day", Long.MAX_VALUE),
+                        new java.util.HashSet<>(entry.getStringList("repeal-assented-by"))));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore malformed historical treaty rows.
+            }
+        }
+        return treaties;
     }
 
     static void writeCapitals(FileConfiguration config, String path, Map<String, CapitalRegion> capitals) {

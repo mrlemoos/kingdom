@@ -318,6 +318,25 @@ public final class PoliceTrialService {
         return confinements.containsKey(playerId);
     }
 
+    /** Halves remaining confinement, retaining at least one minute. */
+    public PoliceResult commutePrisonSentence(UUID convictId, long nowMs) {
+        PrisonConfinement confinement = confinements.get(convictId);
+        if (confinement == null) {
+            return PoliceResult.fail("That person is not under a prison sentence.");
+        }
+        long remainingMs = Math.max(0L, confinement.endsAtMs() - nowMs);
+        long commutedMs = Math.max(60_000L, ((remainingMs + 119_999L) / 120_000L) * 60_000L);
+        confinements.put(convictId, new PrisonConfinement(
+                confinement.kingdomId(), convictId, confinement.cellSlot(), nowMs + commutedMs,
+                confinement.priorSpawn(), confinement.suspendedAppointment(),
+                confinement.villagerConvict(), confinement.economyFrozen()));
+        return PoliceResult.ok("Prison sentence commuted.");
+    }
+
+    public Optional<PrisonConfinement> prisonConfinement(UUID playerId) {
+        return Optional.ofNullable(confinements.get(playerId));
+    }
+
     /** Anyone under an active prison sentence is ineligible for Parliament. */
     public boolean isParliamentEligible(UUID playerId) {
         return !isUnderPrisonSentence(playerId);

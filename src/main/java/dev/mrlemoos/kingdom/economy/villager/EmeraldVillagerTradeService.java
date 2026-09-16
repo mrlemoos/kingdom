@@ -2,16 +2,22 @@ package dev.mrlemoos.kingdom.economy.villager;
 
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.election.TerritoryVillagerCommercePolicy;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import java.util.Objects;
 
 public final class EmeraldVillagerTradeService {
 
     private final EmeraldVillagerTradeCalculator calculator;
     private final double commerceTaxRate;
+    private TreatyService treatyService;
 
     public EmeraldVillagerTradeService(EmeraldVillagerTradeCalculator calculator, double commerceTaxRate) {
         this.calculator = Objects.requireNonNull(calculator, "calculator");
         this.commerceTaxRate = commerceTaxRate;
+    }
+
+    public void setTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
     }
 
     public boolean settle(EconomyService economyService, EmeraldVillagerTradeRequest request) {
@@ -73,8 +79,13 @@ public final class EmeraldVillagerTradeService {
                 settlement);
     }
 
-    private static double tariffFor(EconomyService economyService, EmeraldVillagerTradeRequest request) {
+    private double tariffFor(EconomyService economyService, EmeraldVillagerTradeRequest request) {
         if (request.territoryMember() || request.kingdomId().isEmpty()) {
+            return 0.0;
+        }
+        if (treatyService != null
+                && request.traderKingdomId().isPresent()
+                && treatyService.waivesTariff(request.kingdomId().get(), request.traderKingdomId().get())) {
             return 0.0;
         }
         var economy = economyService.kingdomEconomies().get(request.kingdomId().get());

@@ -9,6 +9,8 @@ import dev.mrlemoos.kingdom.feedback.DailyRealmReport;
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.economy.service.PlayerTaxResult;
+import dev.mrlemoos.kingdom.economy.service.PlayerTaxService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipant;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipants;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
@@ -38,6 +40,7 @@ import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.hearth.HearthDayService;
 import dev.mrlemoos.kingdom.hearth.HearthSite;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
@@ -53,6 +56,7 @@ import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,6 +67,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -76,6 +81,7 @@ public final class VillagerGdpTask implements Runnable {
     private final YamlEconomyStore economyStore;
     private final VillagerEconomyConfig villagerEconomyConfig;
     private final VillagerEconomyProcessor processor;
+    private final PlayerTaxService playerTaxService;
     private final Random random;
     private RealmCalendarService calendarService;
     private LevyUpkeepService levyUpkeepService;
@@ -136,6 +142,7 @@ public final class VillagerGdpTask implements Runnable {
         this.economyStore = Objects.requireNonNull(economyStore, "economyStore");
         this.villagerEconomyConfig = villagerEconomyConfig != null ? villagerEconomyConfig : VillagerEconomyConfig.defaults();
         this.processor = Objects.requireNonNull(processor, "processor");
+        this.playerTaxService = new PlayerTaxService(coordinator.economyService());
         this.random = Objects.requireNonNull(random, "random");
     }
 
@@ -263,6 +270,8 @@ public final class VillagerGdpTask implements Runnable {
                     season,
                     chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season),
                     yieldFactors);
+            reportPlayerTax(kingdom.getId(), playerTaxService.settle(
+                    kingdom.getId(), memberIds(kingdom.getId()), day.incomeTaxCollected()));
             readTheDayToTheRealm(kingdom, participants, economyService, day, treasuryBefore, taxBefore);
             // Villagers whose rites were never held: the whole estate escheats to the Crown.
             if (churchService != null) {
@@ -675,6 +684,28 @@ public final class VillagerGdpTask implements Runnable {
                 richest == null ? null : professionLabel(richest.profession()),
                 richestBalance);
         RealmFeedback.kingdomMessage(kingdomService, kingdom.getId(), report.line());
+    }
+
+    private List<UUID> memberIds(String kingdomId) {
+        return kingdomService.getMembershipsView().values().stream()
+                .filter(membership -> kingdomId.equals(membership.getKingdomId()))
+                .map(PlayerMembership::getPlayerId)
+                .toList();
+    }
+
+    private void reportPlayerTax(String kingdomId, PlayerTaxResult settlement) {
+        if (settlement.payments().isEmpty()) {
+            return;
+        }
+        for (Player member : RealmFeedback.onlineMembers(kingdomService, kingdomId)) {
+            PlayerTaxResult.Payment payment = settlement.paymentFor(member.getUniqueId());
+            member.sendMessage(dev.mrlemoos.kingdom.helpers.ColourEncoder.c("&6[Tax] &fPaid &e"
+                    + corona(payment.paid()) + "&f Corona. Shortfall: &c" + corona(payment.shortfall()) + "&f."));
+        }
+    }
+
+    private static String corona(double amount) {
+        return String.format(Locale.UK, amount == Math.floor(amount) ? "%.0f" : "%.2f", amount);
     }
 
     /** A profession as the realm hears it: {@code weaponsmith} becomes {@code Weaponsmith}. */

@@ -5,6 +5,7 @@ import dev.mrlemoos.kingdom.calendar.SeasonProfile;
 import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.income.VillagerContribution;
 import dev.mrlemoos.kingdom.economy.income.VillagerGdpCalculator;
+import dev.mrlemoos.kingdom.economy.model.CreditResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import java.util.HashSet;
 import java.util.List;
@@ -96,12 +97,14 @@ public final class VillagerEconomyProcessor {
             Map<UUID, Double> villagerYieldFactors) {
         Map<UUID, Double> yieldFactors = villagerYieldFactors == null ? Map.of() : villagerYieldFactors;
         double totalGdp = 0.0;
+        double incomeTax = 0.0;
         for (VillagerEconomicParticipant participant : participants) {
             double gross = dailyIncomeFor(participant, economyConfig, season)
                     * yieldFactor(yieldFactors, participant.villagerId());
             if (gross > 0.0) {
-                economyService.creditVillagerGdp(kingdomId, participant.villagerId(), gross);
+                CreditResult credit = economyService.creditVillagerGdp(kingdomId, participant.villagerId(), gross);
                 totalGdp += gross;
+                incomeTax += credit.tax();
             }
         }
         economyService.setLastDailyGdp(kingdomId, totalGdp);
@@ -138,7 +141,7 @@ public final class VillagerEconomyProcessor {
         economyService.escheatFrozenWallets(
                 kingdomId, epochDay, villagerConfig.frozenWalletEscheatMcDays());
 
-        return new VillagerEconomyDayResult(totalGdp, settledTrades);
+        return new VillagerEconomyDayResult(totalGdp, settledTrades, incomeTax);
     }
 
     /** What the villager keeps of the day's gross; the whole of it unless the cold has taken a share. */
