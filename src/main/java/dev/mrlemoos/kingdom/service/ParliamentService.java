@@ -7,6 +7,7 @@ import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.election.ElectionResult;
 import dev.mrlemoos.kingdom.election.ElectionService;
+import dev.mrlemoos.kingdom.election.ProfessionConstituencyResolver;
 import dev.mrlemoos.kingdom.election.ProfessionVoteBias;
 import dev.mrlemoos.kingdom.election.StableSeatUuid;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
@@ -1320,11 +1321,16 @@ public final class ParliamentService {
         kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> {
             kingdom.getElectionState().seatsView().values().stream()
                     .filter(seat -> seat.kind() == MpSeatKind.VILLAGER)
-                    .filter(seat -> seat.profession().isPresent())
                     .forEach(seat -> {
-                        VoteChoice choice = professionVoteBias.resolve(
-                                bill.type(), seat.profession().orElseThrow());
-                        bill.recordVote(StableSeatUuid.forSeat(kingdomId, seat.index()), choice);
+                        UUID voterId = StableSeatUuid.forSeat(kingdomId, seat.index());
+                        // Whoever tabled the measure divides for it: no Premier abstains on his own bill.
+                        VoteChoice choice = voterId.equals(bill.proposerId())
+                                ? VoteChoice.AYE
+                                : professionVoteBias.resolve(
+                                        bill.type(),
+                                        seat.profession()
+                                                .orElse(ProfessionConstituencyResolver.CITIZEN_PROFESSION));
+                        bill.recordVote(voterId, choice);
                     });
         });
     }

@@ -345,33 +345,138 @@ election:
   max-player-seats: 4
   total-seats: 8
   ms-per-mc-day: 1200000
+  # How each profession bench leans. Anything omitted here keeps its built-in stance;
+  # 'none' is the Citizen backfill bench. No confidence in the Premier is left to the
+  # elected benches, so villager MPs abstain on it.
   profession-vote-bias:
     FISCAL:
-      farmer: nay
-      librarian: aye
       armorer: nay
-      weaponsmith: nay
-      toolsmith: aye
-    BUDGET:
-      farmer: aye
-      librarian: aye
-      armorer: nay
-      cleric: aye
-    SPEND_MINT:
-      farmer: aye
-      librarian: aye
-      armorer: nay
+      butcher: nay
       cartographer: aye
-    SPEND_STIPEND:
-      farmer: aye
-      librarian: nay
-      armorer: nay
-      shepherd: aye
-    SPEND_PUBLIC_WORK:
-      farmer: aye
+      cleric: nay
+      farmer: nay
+      fisherman: aye
+      fletcher: aye
+      leatherworker: nay
       librarian: aye
-      armorer: nay
       mason: aye
+      nitwit: nay
+      none: aye
+      shepherd: aye
+      toolsmith: aye
+      weaponsmith: nay
+    BUDGET:
+      armorer: nay
+      butcher: aye
+      cartographer: nay
+      cleric: aye
+      farmer: aye
+      fisherman: aye
+      fletcher: aye
+      leatherworker: aye
+      librarian: aye
+      mason: aye
+      nitwit: nay
+      none: aye
+      shepherd: aye
+      toolsmith: nay
+      weaponsmith: nay
+    SPEND_MINT:
+      armorer: nay
+      butcher: nay
+      cartographer: aye
+      cleric: aye
+      farmer: aye
+      fisherman: nay
+      fletcher: aye
+      leatherworker: aye
+      librarian: aye
+      mason: aye
+      nitwit: nay
+      none: aye
+      shepherd: nay
+      toolsmith: aye
+      weaponsmith: nay
+    SPEND_STIPEND:
+      armorer: nay
+      butcher: aye
+      cartographer: nay
+      cleric: aye
+      farmer: aye
+      fisherman: aye
+      fletcher: nay
+      leatherworker: aye
+      librarian: nay
+      mason: nay
+      nitwit: aye
+      none: aye
+      shepherd: aye
+      toolsmith: nay
+      weaponsmith: nay
+    SPEND_PUBLIC_WORK:
+      armorer: nay
+      butcher: nay
+      cartographer: aye
+      cleric: aye
+      farmer: aye
+      fisherman: nay
+      fletcher: nay
+      leatherworker: nay
+      librarian: aye
+      mason: aye
+      nitwit: nay
+      none: aye
+      shepherd: aye
+      toolsmith: aye
+      weaponsmith: nay
+    WAR:
+      armorer: aye
+      butcher: aye
+      cartographer: aye
+      cleric: nay
+      farmer: nay
+      fisherman: nay
+      fletcher: aye
+      leatherworker: aye
+      librarian: nay
+      mason: nay
+      nitwit: nay
+      none: nay
+      shepherd: nay
+      toolsmith: aye
+      weaponsmith: aye
+    PEACE:
+      armorer: nay
+      butcher: nay
+      cartographer: nay
+      cleric: aye
+      farmer: aye
+      fisherman: aye
+      fletcher: nay
+      leatherworker: nay
+      librarian: aye
+      mason: aye
+      nitwit: aye
+      none: aye
+      shepherd: aye
+      toolsmith: nay
+      weaponsmith: nay
+    TREATY:
+      armorer: nay
+      butcher: aye
+      cartographer: aye
+      cleric: aye
+      farmer: aye
+      fisherman: aye
+      fletcher: nay
+      leatherworker: aye
+      librarian: aye
+      mason: aye
+      nitwit: nay
+      none: aye
+      shepherd: aye
+      toolsmith: aye
+      weaponsmith: nay
 
 # What each season asks of the realm and grants it. The seasons themselves are fixed:
 # spring is Frostwane, Thawtide and Seedfall; summer Blossoming, Highmead and Sunwake;

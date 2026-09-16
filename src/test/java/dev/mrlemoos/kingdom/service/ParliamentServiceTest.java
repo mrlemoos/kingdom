@@ -181,6 +181,29 @@ class ParliamentServiceTest {
     }
 
     @Test
+    void villagerPremierDividesForHisOwnBill() {
+        clearPlayerMpTitles();
+        kingdomService.clearTitle(SPEAKER);
+        var electionState = kingdomService.getKingdom("northmarch").orElseThrow().getElectionState();
+        // An armourer leans nay on spending, yet he cannot abstain on the measure he himself tabled.
+        electionState.seat(1).orElseThrow().assignVillager("armorer", null);
+        electionState.seat(1).orElseThrow().setEntityId(UUID.randomUUID());
+        electionState.setPremierVillagerSeatIndex(1);
+
+        assertInstanceOf(ParliamentResult.Success.class, parliamentService.tableBudgetForVillagerPremier(
+                "northmarch", 1, 40, null));
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 100);
+        parliamentService.conductVillagerSpeakerDivision("northmarch", 200);
+
+        var armourers = parliamentService.lastDivisionBlocs("northmarch").stream()
+                .filter(bloc -> bloc.label().equals("Armorer"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(1, armourers.aye());
+        assertEquals(0, armourers.abstain());
+    }
+
+    @Test
     void premierCannotTableBillDuringElection() {
         kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().election().openPremier(9_999_999_999L);
 
