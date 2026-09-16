@@ -11,6 +11,7 @@ import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.service.PlayerTaxResult;
 import dev.mrlemoos.kingdom.economy.service.PlayerTaxService;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipant;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipants;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomyConfig;
@@ -149,6 +150,10 @@ public final class VillagerGdpTask implements Runnable {
     /** Gives the task the realm calendar, so the day's yield is reckoned by the season in force. */
     public void setCalendarService(RealmCalendarService calendarService) {
         this.calendarService = calendarService;
+    }
+
+    public void setPlayerTaxServiceCreditHook(LoyaltyService loyaltyService, java.util.function.LongSupplier currentMcDay) {
+        playerTaxService.setServiceCreditHook(loyaltyService, currentMcDay);
     }
 
     /**
@@ -699,8 +704,7 @@ public final class VillagerGdpTask implements Runnable {
         }
         for (Player member : RealmFeedback.onlineMembers(kingdomService, kingdomId)) {
             PlayerTaxResult.Payment payment = settlement.paymentFor(member.getUniqueId());
-            member.sendMessage(dev.mrlemoos.kingdom.helpers.ColourEncoder.c("&6[Tax] &fPaid &e"
-                    + corona(payment.paid()) + "&f Corona. Shortfall: &c" + corona(payment.shortfall()) + "&f."));
+            RealmFeedback.playerTax(member, payment.paid(), payment.shortfall());
         }
     }
 

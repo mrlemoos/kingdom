@@ -20,6 +20,7 @@ import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.police.CurfewEnforcementConfig;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,13 +62,16 @@ public final class TownCrierGuiListener implements Listener {
             EconomyService economyService,
             MechanicalJusticeService justiceService,
             RealmCalendarService calendarService,
-            PollingDay pollingDay) {
+            PollingDay pollingDay,
+            TreatyService treatyService) {
         this.townCrierService = Objects.requireNonNull(townCrierService, "townCrierService");
         this.gazetteService = Objects.requireNonNull(gazetteService, "gazetteService");
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.store = store;
         this.liveStateReader =
-                new GazetteLiveStateReader(economyService, justiceService, calendarService, pollingDay);
+                new GazetteLiveStateReader(economyService, justiceService, calendarService, pollingDay)
+                        .withTreatyService(treatyService)
+                        .withKingdomService(kingdomService);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

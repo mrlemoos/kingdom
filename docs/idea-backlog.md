@@ -72,17 +72,15 @@ Deliberately absent: chunk capture and the siege phases (Phase 6 in
 [`docs/build-order.md`](build-order.md)), and anything already shipped — Gazette, Town
 Crier, coronation, royal standard, marriage and funeral rites, arrest rewards, public works.
 
-## Diplomacy — the one missing layer
+## Diplomacy
 
-No treaty, alliance, or diplomacy code exists today. War is bilateral and unilateral: a realm
-declares, the other is simply at war. Everything below rides the bill pipeline, so divisions,
-royal assent, the Registrar, and Hansard come for free.
+Treaty bills, trade pacts, and non-aggression treaties are shipped. Alliance and the envoy remain ideas.
 
 | Idea | Sketch | Rides on |
 |---|---|---|
-| **Treaty bill** | `BillType.TREATY` naming one target realm and a kind: **non-aggression**, **trade pact**, **alliance**. Both realms must assent before the pact is stored; either may table a repeal. | `BillType`, division, royal assent, `data.yml` |
-| **Trade pact** | Members of a pact realm are taxed as members, not foreigners — the tariff surcharge is waived both ways. | `FiscalRates.tariff`, membership check in Corona merchant taxation |
-| **Non-aggression** | War bill validation rejects a target under an active pact. Repeal first, or declare anyway and take a loyalty hit across the realm. | `WarService` war-bill validation, `LoyaltyService` |
+| ~~**Treaty bill**~~ | Shipped: `BillType.TREATY` offers non-aggression or a trade pact. Both Crowns assent; either may repeal. | `BillType`, division, royal assent, `data.yml` |
+| ~~**Trade pact**~~ | Shipped: waives tariff both ways while commerce tax remains due. | `FiscalRates.tariff`, merchant settlement |
+| ~~**Non-aggression**~~ | Shipped: war bill validation rejects an active treaty target. | `WarService` war-bill validation |
 | **Alliance** | An ally's muster call reaches your rostered members; answering credits service, ignoring it costs morale as usual. | `MusterService`, `StandingRosterService` |
 | **Envoy** | A villager at the capital; right-click opens a paginated treaty register with the same confirm/revoke shape as the permit register. | `LordMayorService` / `TownCrierService` NPC pattern, permit register GUI |
 
@@ -90,7 +88,7 @@ royal assent, the Registrar, and Hansard come for free.
 
 | Idea | Sketch | Rides on |
 |---|---|---|
-| **Per-player tax hook** | There is no personal tax event today, only kingdom-level settlement — noted as a known gap by the Gazette work. A per-member share of the day's income tax gives every personal-feedback feature something to fire on. | Daily GDP + income tax settlement, `RealmFeedback` |
+| ~~**Per-player tax hook**~~ | Shipped: daily member share, personal feedback, and service credit on positive payment. | Daily GDP + income tax settlement, `RealmFeedback` |
 | **National debt** | The treasury may go negative; daily interest accrues against it; the balance and its trend show in **State of the Realm**. Nothing is blocked — bills simply get expensive. | Treasury, daily processor order, State of the Realm item |
 | **Gilts** | The Crown issues bonds against a BUDGET line; players buy with Corona, take a daily coupon from the treasury, redeem at maturity. An unpayable coupon is a **default**: loyalty drop, and the Commons may table no confidence. | Budget bills, wallet transfers, daily processor, `NO_CONFIDENCE` |
 | **Ground rent** | Estates inside linked territory owe the Crown a daily rent per valued block, collected with the other daily lines. Non-payment revokes the build permit before it revokes anything else. | Estate/realm-wealth scan, build permits |
@@ -126,7 +124,4 @@ fun per line of code is the worst on this page.
 
 ## Suggested first three
 
-**Treaty bill** (non-aggression and trade pact only — leave alliance and the envoy for later),
-the **per-player tax hook**, and **appeal to the Crown**. The first opens a layer the plugin
-does not have at all, the second is a field and an event that unblocks other work, and the
-third is a paper and a GUI branch on rails that already carry three other approval flows.
+Treaty bill and per-player tax hook are shipped. Alliance, envoy, and appeal to the Crown remain.

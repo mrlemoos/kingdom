@@ -13,7 +13,9 @@ public final class ParliamentChatSessions {
         STIPEND_PLAYER,
         STIPEND_AMOUNT,
         STIPEND_REASON,
-        WAR_TARGET
+        WAR_TARGET,
+        TREATY_COUNTERPART,
+        TREATY_KIND
     }
 
     public record Session(
@@ -23,22 +25,27 @@ public final class ParliamentChatSessions {
             String optionalTitle,
             UUID stipendRecipientId,
             String stipendPlayerName,
-            double stipendAmount) {
+            double stipendAmount,
+            String treatyCounterpartId) {
 
         public Session(SessionType type, String kingdomId, UUID playerId) {
-            this(type, kingdomId, playerId, null, null, null, 0);
+            this(type, kingdomId, playerId, null, null, null, 0, null);
         }
 
         public Session withTitle(String title) {
-            return new Session(type, kingdomId, playerId, title, stipendRecipientId, stipendPlayerName, stipendAmount);
+            return new Session(type, kingdomId, playerId, title, stipendRecipientId, stipendPlayerName, stipendAmount, treatyCounterpartId);
         }
 
         public Session withStipendRecipient(UUID recipientId, String playerName) {
-            return new Session(type, kingdomId, playerId, optionalTitle, recipientId, playerName, stipendAmount);
+            return new Session(type, kingdomId, playerId, optionalTitle, recipientId, playerName, stipendAmount, treatyCounterpartId);
         }
 
         public Session withStipendAmount(double amount) {
-            return new Session(type, kingdomId, playerId, optionalTitle, stipendRecipientId, stipendPlayerName, amount);
+            return new Session(type, kingdomId, playerId, optionalTitle, stipendRecipientId, stipendPlayerName, amount, treatyCounterpartId);
+        }
+
+        public Session withTreatyCounterpart(String counterpartId) {
+            return new Session(type, kingdomId, playerId, optionalTitle, stipendRecipientId, stipendPlayerName, stipendAmount, counterpartId);
         }
 
         public Session next(SessionType nextType) {
@@ -49,7 +56,8 @@ public final class ParliamentChatSessions {
                     optionalTitle,
                     stipendRecipientId,
                     stipendPlayerName,
-                    stipendAmount);
+                    stipendAmount,
+                    treatyCounterpartId);
         }
     }
 

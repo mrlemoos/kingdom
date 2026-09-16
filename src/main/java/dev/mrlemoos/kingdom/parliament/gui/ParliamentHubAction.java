@@ -8,6 +8,7 @@ public enum ParliamentHubAction {
     TABLE_SPEND_PUBLIC_WORK,
     TABLE_WAR,
     TABLE_PEACE,
+    TABLE_TREATY,
     STIPEND_OTHER,
     OPEN_DIVISION,
     CLOSE_DIVISION,

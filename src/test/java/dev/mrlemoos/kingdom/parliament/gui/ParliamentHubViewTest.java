@@ -90,6 +90,19 @@ class ParliamentHubViewTest {
     }
 
     @Test
+    void crownSeesTreatyButtonButPremierDoesNot() {
+        ParliamentHubView crown = new ParliamentHubView(
+                NobleRank.KING, null, true, false, false, false, false, false, false, false, false,
+                Optional.empty(), Optional.empty(), false, false, false, false, true);
+        ParliamentHubView premier = new ParliamentHubView(
+                NobleRank.PREMIER, null, true, false, false, false, false, false, false, false, false,
+                Optional.empty(), Optional.empty(), false, false, false, false, false);
+
+        assertTrue(crown.visibleActions().contains(ParliamentHubAction.TABLE_TREATY));
+        assertFalse(premier.visibleActions().contains(ParliamentHubAction.TABLE_TREATY));
+    }
+
+    @Test
     void speakerSeesOpenAndCloseDivisionInCommons() {
         ParliamentHubView openView = new ParliamentHubView(
                 NobleRank.SPEAKER,

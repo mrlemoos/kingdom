@@ -1002,7 +1002,7 @@ public final class ParliamentService {
     public ParliamentResult tableTreaty(
             String kingdomId, NobleRank rank, UUID proposerId, String counterpartKingdomId, TreatyKind kind,
             boolean repeal, String optionalTitle) {
-        if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
+        if (!RankAuthority.canTableTreaty(rank)) {
             return ParliamentResult.fail("Only the King or Queen may table a treaty bill.");
         }
         if (treatyService == null) {
@@ -1025,6 +1025,10 @@ public final class ParliamentService {
         return tableBill(
                 kingdomId, proposerId, BillType.TREATY, optionalTitle,
                 new BillPayload.Treaty(Kingdom.normaliseId(counterpartKingdomId), kind, repeal));
+    }
+
+    public boolean canTableTreaty(String kingdomId, NobleRank rank) {
+        return RankAuthority.canTableTreaty(rank) && treatyService != null && currentBill(kingdomId).isEmpty();
     }
 
     public ParliamentResult openDivision(String kingdomId, NobleRank rank) {

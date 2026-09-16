@@ -10,6 +10,7 @@ import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
+import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
 import dev.mrlemoos.kingdom.model.parliament.VoteChoice;
 import dev.mrlemoos.kingdom.parliament.ParliamentChatSessions;
 import dev.mrlemoos.kingdom.parliament.gui.DivisionVoteGui;
@@ -169,7 +170,8 @@ public final class ParliamentGuiListener implements Listener {
                 parliamentService.canTableNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
                 parliamentService.canSecondNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
                 parliamentService.canTableWar(kingdomId, membership.getRank()),
-                parliamentService.canTablePeace(kingdomId, membership.getRank()));
+                parliamentService.canTablePeace(kingdomId, membership.getRank()),
+                parliamentService.canTableTreaty(kingdomId, membership.getRank()));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -234,6 +236,7 @@ public final class ParliamentGuiListener implements Listener {
             case TABLE_SPEND_PUBLIC_WORK -> tablePublicWorkBill(player, membership.get());
             case TABLE_WAR -> startWarTargetPrompt(player, membership.get().getKingdomId());
             case TABLE_PEACE -> tablePeaceBill(player, membership.get());
+            case TABLE_TREATY -> startTreatyPrompt(player, kingdomId);
             case TABLE_SPEND_STIPEND -> openStipendSelect(player, kingdomId);
             case STIPEND_OTHER -> startStipendOtherPrompt(player, kingdomId);
             case BUDGET_PRESET -> hub.budgetPresetAmountForSlot(event.getRawSlot())
@@ -505,6 +508,13 @@ public final class ParliamentGuiListener implements Listener {
         player.sendMessage(c("&bType the target kingdom id in chat (or 'cancel'):"));
     }
 
+    private void startTreatyPrompt(Player player, String kingdomId) {
+        player.closeInventory();
+        chatSessions.start(new ParliamentChatSessions.Session(
+                ParliamentChatSessions.SessionType.TREATY_COUNTERPART, kingdomId, player.getUniqueId()));
+        player.sendMessage(c("&bType counterpart kingdom id in chat (or 'cancel'):"));
+    }
+
     private void tablePeaceBill(Player player, PlayerMembership membership) {
         handler.finish(player, handler.tablePeace(
                 membership.getKingdomId(), membership.getRank(), membership.getPlayerId(), null));
@@ -710,6 +720,8 @@ public final class ParliamentGuiListener implements Listener {
             case STIPEND_AMOUNT -> handleStipendAmountChat(player, session, message, membership.get());
             case STIPEND_REASON -> handleStipendReasonChat(player, session, message, membership.get());
             case WAR_TARGET -> handleWarTargetChat(player, session, message);
+            case TREATY_COUNTERPART -> handleTreatyCounterpartChat(player, session, message);
+            case TREATY_KIND -> handleTreatyKindChat(player, session, message, membership.get());
         }
     }
 
@@ -835,6 +847,29 @@ public final class ParliamentGuiListener implements Listener {
                         3,
                         parliamentService.isCounterWarEligible(session.kingdomId(), message))
                 .getInventory());
+    }
+
+    private void handleTreatyCounterpartChat(Player player, ParliamentChatSessions.Session session, String message) {
+        chatSessions.advance(player.getUniqueId(), session.withTreatyCounterpart(message)
+                .next(ParliamentChatSessions.SessionType.TREATY_KIND));
+        player.sendMessage(c("&bType non-aggression or trade-pact, then optional repeal (or 'cancel'):"));
+    }
+
+    private void handleTreatyKindChat(
+            Player player, ParliamentChatSessions.Session session, String message, PlayerMembership membership) {
+        String[] parts = message.split("\\s+");
+        TreatyKind kind = parts.length == 0 ? null : switch (parts[0].toLowerCase(java.util.Locale.ROOT)) {
+            case "non-aggression" -> TreatyKind.NON_AGGRESSION;
+            case "trade-pact" -> TreatyKind.TRADE_PACT;
+            default -> null;
+        };
+        if (kind == null) {
+            player.sendMessage(handler.error("Treaty kind must be non-aggression or trade-pact."));
+            return;
+        }
+        chatSessions.cancel(player.getUniqueId());
+        handler.finish(player, handler.tableTreaty(session.kingdomId(), membership.getRank(), membership.getPlayerId(),
+                session.treatyCounterpartId(), kind, parts.length > 1 && parts[1].equalsIgnoreCase("repeal"), null));
     }
 
     /** Members are reminded of an open referendum as they log in, wherever they happen to be. */

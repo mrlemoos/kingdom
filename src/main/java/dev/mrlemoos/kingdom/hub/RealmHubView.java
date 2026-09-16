@@ -225,6 +225,13 @@ public final class RealmHubView {
                     List.of(snapshot.siegeStatus(), "Only military participants count toward capture in defender territory."),
                     RealmHubAction.NONE));
         }
+        if (!snapshot.live().treatyLine().isBlank()) {
+            entries.add(RealmHubEntry.usable(
+                    RealmHubTopic.LIVE_TREATY,
+                    "Treaty Business",
+                    List.of(snapshot.live().treatyLine(), "The Crown may table a treaty bill in the Commons."),
+                    RealmHubAction.OPEN_PARLIAMENT_HUB));
+        }
         if (snapshot.resignationToReview()) {
             entries.add(RealmHubEntry.usable(
                     RealmHubTopic.LIVE_RESIGNATION,

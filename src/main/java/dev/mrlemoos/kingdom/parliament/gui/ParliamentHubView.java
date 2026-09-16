@@ -23,6 +23,7 @@ public final class ParliamentHubView {
     private final boolean canSecondMotion;
     private final boolean canTableWar;
     private final boolean canTablePeace;
+    private final boolean canTableTreaty;
     private final Optional<String> billTitle;
     private final Optional<String> resignationSummary;
 
@@ -172,6 +173,17 @@ public final class ParliamentHubView {
             boolean canSecondMotion,
             boolean canTableWar,
             boolean canTablePeace) {
+        this(rank, billState, inCommons, inLords, divisionTied, castingVoteSet, hasPreparedMint,
+                hasPreparedPublicWork, electionActive, pendingResignation, canResolveResignation, billTitle,
+                resignationSummary, canTableMotion, canSecondMotion, canTableWar, canTablePeace, false);
+    }
+
+    public ParliamentHubView(
+            NobleRank rank, BillState billState, boolean inCommons, boolean inLords, boolean divisionTied,
+            boolean castingVoteSet, boolean hasPreparedMint, boolean hasPreparedPublicWork, boolean electionActive,
+            boolean pendingResignation, boolean canResolveResignation, Optional<String> billTitle,
+            Optional<String> resignationSummary, boolean canTableMotion, boolean canSecondMotion, boolean canTableWar,
+            boolean canTablePeace, boolean canTableTreaty) {
         this.rank = rank;
         this.billState = billState;
         this.inCommons = inCommons;
@@ -189,6 +201,7 @@ public final class ParliamentHubView {
         this.canSecondMotion = canSecondMotion;
         this.canTableWar = canTableWar;
         this.canTablePeace = canTablePeace;
+        this.canTableTreaty = canTableTreaty;
     }
 
     /** Whether this Member may put the confidence question to the House. */
@@ -294,6 +307,9 @@ public final class ParliamentHubView {
             }
             if (billState == null && canTablePeace) {
                 actions.add(ParliamentHubAction.TABLE_PEACE);
+            }
+            if (billState == null && canTableTreaty) {
+                actions.add(ParliamentHubAction.TABLE_TREATY);
             }
             if (rank == NobleRank.MP && billState == BillState.DIVISION_OPEN) {
                 actions.add(ParliamentHubAction.VOTE_AYE);

@@ -750,7 +750,12 @@ public final class ParliamentHandler {
 
     public String help() {
         return info("Parliament:")
-                + "\n" + c("&e/kingdom parliament")+ c("&7 — open the parliamentary hub (in Commons or Lords)")+ "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")+ c("&7 — set chamber sites (monarch; hold a banner when setting lords to define the kingdom flag)")+ "\n" + c("&e/kingdom parliament status")+ c("&7 — view parliamentary state");
+                + "\n" + c("&e/kingdom parliament") + c("&7 — open the parliamentary hub (in Commons or Lords)")
+                + "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")
+                + c("&7 — set chamber sites (monarch; hold a banner when setting lords to define the kingdom flag)")
+                + "\n" + c("&e/kingdom parliament status") + c("&7 — view parliamentary state")
+                + "\n" + c("&e/kingdom parliament treaty <kingdom> <non-aggression|trade-pact> [repeal]")
+                + c("&7 — table a treaty bill (Crown)");
     }
 
     public String success(String message) {

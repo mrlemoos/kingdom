@@ -32,6 +32,8 @@ public enum RealmHubTopic {
     LIVE_MUSTER,
     /** Military participants are present in defender territory. */
     LIVE_SIEGE,
+    /** A treaty is active or awaits a Crown. */
+    LIVE_TREATY,
 
     /** Granting and revoking build permits. */
     POWER_PERMITS,

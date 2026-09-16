@@ -21,4 +21,12 @@ class GazetteLiveStateTest {
         GazetteLiveState state = new GazetteLiveState("", "none proclaimed", 0, 0, 0d);
         assertEquals("Open bill: none", state.lines().get(0));
     }
+
+    @Test
+    void treatyLineAppearsWhenTreatyBusinessIsLive() {
+        GazetteLiveState state = new GazetteLiveState(
+                "", "none proclaimed", 0, 0, 0d, "Treaty awaiting Crown: trade pact with Northmarch");
+
+        assertTrue(state.lines().contains("Treaty awaiting Crown: trade pact with Northmarch"));
+    }
 }

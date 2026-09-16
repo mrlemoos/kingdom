@@ -30,6 +30,19 @@ public final class RealmFeedback {
 
     private RealmFeedback() {}
 
+    /** Daily personal income-tax settlement. */
+    public static void playerTax(Player player, double paid, double shortfall) {
+        if (player == null || noServer()) {
+            return;
+        }
+        player.sendMessage(c("&6[Tax] &fPaid &e" + formatCorona(paid) + "&f Corona. Shortfall: &c"
+                + formatCorona(shortfall) + "&f."));
+    }
+
+    private static String formatCorona(double amount) {
+        return Math.rint(amount) == amount ? Long.toString((long) amount) : Double.toString(amount);
+    }
+
     // --- ceremonies of Parliament ----------------------------------------
 
     /** Royal assent: the dragon's growl over the Lords, and a totem's blessing on the Act. */

@@ -49,6 +49,11 @@ public final class RankAuthority {
         return isCrown(rank);
     }
 
+    /** Offering or repealing a treaty is an act of the Crown. */
+    public static boolean canTableTreaty(NobleRank rank) {
+        return isCrown(rank);
+    }
+
     /** Swearing in or dismissing constables, judges and clerics. The Crown alone. */
     public static boolean canAppointSwornRole(NobleRank rank) {
         return isCrown(rank);

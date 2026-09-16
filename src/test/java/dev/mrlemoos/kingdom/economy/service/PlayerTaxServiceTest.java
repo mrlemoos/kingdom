@@ -3,6 +3,9 @@ package dev.mrlemoos.kingdom.economy.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.mrlemoos.kingdom.loyalty.InMemoryLoyaltyStore;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyConfig;
+import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -43,5 +46,21 @@ class PlayerTaxServiceTest {
         assertEquals(0.0, result.collected(), 1e-9);
         assertEquals(4.0, economy.getWalletBalance(ALICE), 1e-9);
         assertTrue(result.payments().isEmpty());
+    }
+
+    @Test
+    void positivePartialPaymentEarnsServiceCredit() {
+        EconomyService economy = new EconomyService();
+        InMemoryLoyaltyStore store = new InMemoryLoyaltyStore();
+        LoyaltyService loyalty = new LoyaltyService(store, LoyaltyConfig.enabled());
+        loyalty.recordActBreach(ALICE);
+        loyalty.tickRecovery(ALICE, 10L);
+        economy.creditWalletDirect(ALICE, 1.0);
+        PlayerTaxService tax = new PlayerTaxService(economy);
+        tax.setServiceCreditHook(loyalty, () -> 10L);
+
+        tax.settle("northmarch", List.of(ALICE), 3.0);
+
+        assertEquals(9L, store.findMark(ALICE).orElseThrow().mcDay());
     }
 }

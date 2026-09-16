@@ -65,6 +65,11 @@ class RankAuthorityTest {
     }
 
     @Test
+    void treatyBillsAreCrownOnly() {
+        assertRanks(RankAuthority::canTableTreaty, CROWN);
+    }
+
+    @Test
     void swearingInSwornRolesIsCrownOnly() {
         assertRanks(RankAuthority::canAppointSwornRole, CROWN);
     }

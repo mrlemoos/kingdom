@@ -16,11 +16,17 @@ public record GazetteLiveState(
         String nextElectionLabel,
         int wantedCount,
         int permitCount,
-        double treasuryBalance) {
+        double treasuryBalance,
+        String treatyLine) {
+
+    public GazetteLiveState(String openBillTitle, String nextElectionLabel, int wantedCount, int permitCount, double treasuryBalance) {
+        this(openBillTitle, nextElectionLabel, wantedCount, permitCount, treasuryBalance, "");
+    }
 
     public GazetteLiveState {
         openBillTitle = openBillTitle == null ? "" : openBillTitle;
         nextElectionLabel = nextElectionLabel == null ? "none proclaimed" : nextElectionLabel;
+        treatyLine = treatyLine == null ? "" : treatyLine;
     }
 
     public List<String> lines() {
@@ -29,7 +35,8 @@ public record GazetteLiveState(
                 "Next election: " + nextElectionLabel,
                 "Wanted: " + wantedCount,
                 "Build permits: " + permitCount,
-                "Treasury: " + formatTreasury(treasuryBalance) + " Corona");
+                "Treasury: " + formatTreasury(treasuryBalance) + " Corona",
+                treatyLine).stream().filter(line -> !line.isBlank()).toList();
     }
 
     private static String formatTreasury(double balance) {

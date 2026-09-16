@@ -104,6 +104,7 @@ public final class RealmHubGui implements InventoryHolder {
             case LIVE_RESIGNATION -> Material.PAPER;
             case LIVE_MUSTER -> Material.IRON_SWORD;
             case LIVE_SIEGE -> Material.SHIELD;
+            case LIVE_TREATY -> Material.WRITABLE_BOOK;
             case POWER_PERMITS -> Material.WRITABLE_BOOK;
             case POWER_GAZETTE -> Material.FEATHER;
             case POWER_MINTS -> Material.GOLD_NUGGET;

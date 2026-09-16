@@ -9,6 +9,9 @@ import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.police.Warrant;
 import dev.mrlemoos.kingdom.model.police.WarrantStatus;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
+import dev.mrlemoos.kingdom.service.KingdomService;
+import dev.mrlemoos.kingdom.treaty.TreatyService;
+import dev.mrlemoos.kingdom.treaty.TreatyState;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -23,6 +26,8 @@ public final class GazetteLiveStateReader {
     private final MechanicalJusticeService justiceService;
     private final RealmCalendarService calendarService;
     private final PollingDay pollingDay;
+    private TreatyService treatyService;
+    private KingdomService kingdomService;
 
     public GazetteLiveStateReader(
             EconomyService economyService,
@@ -33,6 +38,16 @@ public final class GazetteLiveStateReader {
         this.justiceService = justiceService;
         this.calendarService = calendarService;
         this.pollingDay = pollingDay;
+    }
+
+    public GazetteLiveStateReader withTreatyService(TreatyService treatyService) {
+        this.treatyService = treatyService;
+        return this;
+    }
+
+    public GazetteLiveStateReader withKingdomService(KingdomService kingdomService) {
+        this.kingdomService = kingdomService;
+        return this;
     }
 
     public GazetteLiveState read(Kingdom kingdom) {
@@ -47,7 +62,34 @@ public final class GazetteLiveStateReader {
                 nextElectionLabel(kingdom),
                 wantedCount(kingdom),
                 kingdom.getCityState().permitCount(),
-                treasury);
+                treasury,
+                treatyLine(kingdom));
+    }
+
+    private String treatyLine(Kingdom kingdom) {
+        if (treatyService == null) return "";
+        for (TreatyState treaty : treatyService.treatiesView()) {
+            String counterpart = counterpart(kingdom.getId(), treaty);
+            if (counterpart == null) continue;
+            String kind = treaty.kind() == dev.mrlemoos.kingdom.model.parliament.TreatyKind.TRADE_PACT
+                    ? "trade pact" : "non-aggression treaty";
+            String counterpartName = displayName(counterpart);
+            if (treaty.active()) return "Treaty active: " + kind + " with " + counterpartName;
+            return "Treaty awaiting Crown: " + kind + " with " + counterpartName;
+        }
+        return "";
+    }
+
+    private static String counterpart(String kingdomId, TreatyState treaty) {
+        if (kingdomId.equals(treaty.firstKingdomId())) return treaty.secondKingdomId();
+        if (kingdomId.equals(treaty.secondKingdomId())) return treaty.firstKingdomId();
+        return null;
+    }
+
+    private String displayName(String kingdomId) {
+        if (kingdomService == null) return kingdomId;
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        return kingdom.isPresent() ? kingdom.get().getDisplayName() : kingdomId;
     }
 
     private int wantedCount(Kingdom kingdom) {

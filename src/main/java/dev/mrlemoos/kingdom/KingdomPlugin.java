@@ -691,7 +691,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 economyService,
                                                 mechanicalJusticeService,
                                                 realmCalendarService,
-                                                hubPollingDay);
+                                                hubPollingDay,
+                                                treatyService);
                 getServer().getPluginManager().registerEvents(townCrierGuiListener, this);
 
                 dev.mrlemoos.kingdom.listener.MusterGuiListener musterGuiListener =
@@ -816,7 +817,9 @@ public final class KingdomPlugin extends JavaPlugin {
                                                                 economyService,
                                                                 mechanicalJusticeService,
                                                                 realmCalendarService,
-                                                                hubPollingDay))
+                                                                hubPollingDay)
+                                                .withTreatyService(treatyService)
+                                                .withKingdomService(kingdomService))
                                                 .withCityService(cityService)
                                                 .withEconomyService(economyService)
                                                 .withJusticeService(mechanicalJusticeService)
@@ -964,6 +967,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 VillagerGdpTask gdpTask = new VillagerGdpTask(
                                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
                 gdpTask.setCalendarService(realmCalendarService);
+                gdpTask.setPlayerTaxServiceCreditHook(loyaltyService, realmCalendarService::currentRealmDay);
                 gdpTask.setChurchService(churchService);
                 gdpTask.setConscriptionService(conscriptionService);
                 LevyUpkeepService levyUpkeepService = new LevyUpkeepService(
