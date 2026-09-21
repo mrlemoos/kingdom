@@ -493,6 +493,8 @@ season:
     morale-recovery-factor: 1.0
     # Realm days in the field per step of morale lost, whatever else befalls the men. 0 never bites.
     siege-morale-decay-days: 0
+    # How readily a clearing sky is turned back. 0 never interferes.
+    storm-chance: 0.1
   summer:
     crop-growth-factor: 1.25
     outdoor-yield-factor: 1.25
@@ -503,6 +505,7 @@ season:
     hearths-required: false
     morale-recovery-factor: 1.25
     siege-morale-decay-days: 0
+    storm-chance: 0.0
   autumn:
     crop-growth-factor: 1.15
     outdoor-yield-factor: 1.25
@@ -513,6 +516,7 @@ season:
     hearths-required: false
     morale-recovery-factor: 1.0
     siege-morale-decay-days: 0
+    storm-chance: 0.2
   winter:
     crop-growth-factor: 0.5
     outdoor-yield-factor: 0.5
@@ -523,6 +527,26 @@ season:
     hearths-required: true
     morale-recovery-factor: 0.5
     siege-morale-decay-days: 3
+    storm-chance: 0.7
+
+# Come winter, the realm paints these lands snowy inside linked territory, and the thaw paints
+# them back. The pairing must be one-to-one — two warm biomes sharing one snowy counterpart
+# cannot be told apart at the thaw, so colliding pairs are dropped. Vanilla keeps roughly ten
+# snowy biomes, so the table tops out there. Desert, savanna and jungle go unmapped on purpose:
+# there is no spare snowy counterpart for them. Give a desert ice_spikes and drop sunflower_plains
+# if that land must snow — that trade is yours. An empty table turns snowfall off entirely;
+# anything unmapped never snows.
+snow:
+  biome-swap:
+    plains: snowy_plains
+    sunflower_plains: ice_spikes
+    forest: snowy_taiga
+    taiga: grove
+    meadow: snowy_slopes
+    beach: snowy_beach
+    river: frozen_river
+    ocean: frozen_ocean
+    deep_ocean: deep_frozen_ocean
 
 # Hearths: any lit campfire inside linked territory with a container set against it, face to face.
 # Nothing is placed or recorded — the daily sweep asks the world afresh. Only the seasons whose

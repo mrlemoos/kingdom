@@ -115,6 +115,7 @@ Treaty bills, trade pacts, and non-aggression treaties are shipped. Alliance and
 
 | Idea | Sketch | Rides on |
 |---|---|---|
+| ~~**Seasonal snowfall**~~ | **Done** — winter refuses a clearing sky by `storm-chance`; linked territory biomes rewrite via injective `snow.biome-swap` and thaw/melt when the season is not winter. | WorldGuard region bounds, `SeasonProfile`, ChunkLoad + 1200-tick sweep |
 | **Market day** | One day a season where commerce tax drops and villager trade limits reset. Broadcast by the Crier. | `SeasonTurn`, `FiscalRates`, Gazette |
 | **Bandit raid** | A hostile wave on a capital with no standing squads or patrol golems present; losing it costs treasury. | War squads, patrol golems, capital |
 | **Plague** | A season event with the same day-ramp shape as hunger and cold, cured at the church by the Celebrant. | `HungerDayService` / `HearthDayService` ramp, `ClericService` |

@@ -54,6 +54,14 @@ class SeasonProfileTest {
     }
 
     @Test
+    void winterKeepsTheSkyFromClearingAndSummerLetsItBe() {
+        assertEquals(0.7, SeasonProfile.defaults(Season.WINTER).stormChance(), 1.0e-9);
+        assertEquals(0.2, SeasonProfile.defaults(Season.AUTUMN).stormChance(), 1.0e-9);
+        assertEquals(0.1, SeasonProfile.defaults(Season.SPRING).stormChance(), 1.0e-9);
+        assertEquals(0.0, SeasonProfile.defaults(Season.SUMMER).stormChance(), 1.0e-9);
+    }
+
+    @Test
     void fromPluginConfigReadsTheSeasonKeySpace() {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("season.winter.crop-growth-factor", 0.1);
@@ -64,6 +72,7 @@ class SeasonProfileTest {
         yaml.set("season.winter.hostile-spawn-factor", 2.5);
         yaml.set("season.winter.hearths-required", false);
         yaml.set("season.winter.morale-recovery-factor", 0.4);
+        yaml.set("season.winter.storm-chance", 0.9);
 
         SeasonProfile winter = SeasonProfile.fromPluginConfig(yaml, Season.WINTER);
 
@@ -75,6 +84,7 @@ class SeasonProfileTest {
         assertEquals(2.5, winter.hostileSpawnFactor(), 1.0e-9);
         assertFalse(winter.hearthsRequired());
         assertEquals(0.4, winter.moraleRecoveryFactor(), 1.0e-9);
+        assertEquals(0.9, winter.stormChance(), 1.0e-9);
     }
 
     @Test

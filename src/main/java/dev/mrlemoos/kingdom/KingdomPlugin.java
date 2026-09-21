@@ -931,6 +931,11 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new dev.mrlemoos.kingdom.listener.SeasonalHostileSpawnListener(
                                                 this, realmCalendarService),
                                 this);
+                dev.mrlemoos.kingdom.listener.SeasonalSnowListener seasonalSnowListener =
+                                new dev.mrlemoos.kingdom.listener.SeasonalSnowListener(
+                                                this, realmCalendarService, kingdomService);
+                getServer().getPluginManager().registerEvents(seasonalSnowListener, this);
+                getServer().getScheduler().runTaskTimer(this, seasonalSnowListener, 20L, 1200L);
 
                 dev.mrlemoos.kingdom.task.RealmCalendarTask realmCalendarTask =
                                 new dev.mrlemoos.kingdom.task.RealmCalendarTask(

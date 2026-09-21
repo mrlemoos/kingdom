@@ -906,7 +906,7 @@ One quarter of the realm year: three whole **months**, server-wide, the same for
 _Avoid_: Weather, biome, Realm Year, quarter
 
 **Season profile**:
-What a season asks of the realm and grants it, held as one set of figures the whole plugin reads: how fast crops come on, what the fields and workshops yield, what the levy costs to keep, how thickly the hostile dark spawns, whether hearths must burn, how slowly a soldier's **morale** mends and how fast it wears away in the field. Tunable in config; the seasons themselves are not.
+What a season asks of the realm and grants it, held as one set of figures the whole plugin reads: how fast crops come on, what the fields and workshops yield, what the levy costs to keep, how thickly the hostile dark spawns, whether hearths must burn, how slowly a soldier's **morale** mends and how fast it wears away in the field, and how readily a clearing sky is turned back. Tunable in config; the seasons themselves are not.
 _Avoid_: Modifier table, multiplier, difficulty setting
 
 **Season turn**:
@@ -948,6 +948,18 @@ _Avoid_: War window, muster period, ceasefire
 **Winter censure**:
 The political price a **Premier** pays for taking the realm to war, or sending it to the country, in winter: their own political loyalty falls a step, the grievance is entered in Hansard, and the realm is told. It lands on the Premier alone and never on their subjects, and it tables nothing — a **motion of no confidence** still needs two seated MPs to choose it between them.
 _Avoid_: Automatic no confidence, winter penalty, censure motion
+
+**Snowfall**:
+Winter precipitation that actually settles: the season both keeps the sky from clearing and, inside linked territory, rewrites warm biomes to snowy counterparts so the client draws snow. Wilderness stays vanilla.
+_Avoid_: Fake snow, particles, per-player weather
+
+**Thaw**:
+Putting winter snow-lands back when the season is not winter: the inverse of the **biome swap**, then melting leftover ice to water and snow layers to air. Packed ice, blue ice and snow blocks are left as builds. Covers spring, summer and autumn in one rule.
+_Avoid_: Spring melt, snapshot restore, full-chunk melt
+
+**Biome swap**:
+The injective pairing of a warm biome to a snowy counterpart, read from config, by which winter snows linked territory and the **thaw** knows what to put back. Nothing is snapshotted. Two warm biomes may not share one snowy counterpart. An empty table turns **snowfall** off.
+_Avoid_: Biome snapshot, per-block rewrite, temperature override
 
 ## City
 
