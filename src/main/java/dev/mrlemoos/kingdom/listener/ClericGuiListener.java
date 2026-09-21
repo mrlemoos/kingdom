@@ -6,6 +6,7 @@ import dev.mrlemoos.kingdom.church.Celebrant;
 import dev.mrlemoos.kingdom.church.ChurchPresence;
 import dev.mrlemoos.kingdom.church.ChurchResult;
 import dev.mrlemoos.kingdom.church.ChurchService;
+import dev.mrlemoos.kingdom.church.ClericAudience;
 import dev.mrlemoos.kingdom.church.ClericService;
 import dev.mrlemoos.kingdom.church.gui.CoronationGui;
 import dev.mrlemoos.kingdom.church.gui.OathOfServiceGui;
@@ -77,20 +78,24 @@ public final class ClericGuiListener implements Listener {
             player.sendMessage(c("&cThis cleric serves no kingdom."));
             return;
         }
-        if (!oathService.config().enabled()) {
+        ClericAudience audience = ClericAudience.of(
+                isRoyalOf(kingdomId.get(), player.getUniqueId()),
+                oathService.config().enabled(),
+                ChurchPresence.atChurch(churchService, kingdomId.get(), player));
+        if (audience == ClericAudience.AT_PRAYER) {
             player.sendMessage(c("&7The cleric is at prayer, and keeps no trades."));
             return;
         }
-        if (!ChurchPresence.atChurch(churchService, kingdomId.get(), player)) {
+        if (audience == ClericAudience.AWAY_FROM_CHURCH) {
             player.sendMessage(c("&cStand at the church to swear the oath of service."));
             return;
         }
-
-        if (!isRoyalOf(kingdomId.get(), player.getUniqueId())) {
+        if (audience == ClericAudience.OATH) {
             openOath(player, kingdom.get());
             return;
         }
 
+        // The Crown's coronation is no part of the oath, and waits on no war flag.
         Optional<UUID> monarch = kingdomService.findMonarch(kingdomId.get()).map(PlayerMembership::getPlayerId);
         String monarchName = monarch.isPresent() ? Bukkit.getOfflinePlayer(monarch.get()).getName() : null;
         boolean crowned = monarch.isPresent() && churchService.isCrowned(kingdomId.get(), monarch.get());

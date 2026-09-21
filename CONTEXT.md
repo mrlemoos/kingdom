@@ -1140,7 +1140,7 @@ The realm's own villagers, called in to the **mass**. While a mass sits, every o
 _Avoid_: Flock, worshippers, crowd, parishioners
 
 **Coronation window**:
-The cleric's own GUI, opened by right-clicking the **cleric** — and only by the King, Queen or Prince of the realm the cleric serves. It shows the rite, names the realm's rightful monarch and offers the crown; pressing it holds the **coronation**, with the monarch standing at the altar. It is the only road to a crowning — there is no command for it. Any other subject is told the cleric is at prayer, and the cleric's vanilla trading window never opens for anybody.
+The cleric's own GUI, opened by right-clicking the **cleric** — and only by the King, Queen or Prince of the realm the cleric serves. It shows the rite, names the realm's rightful monarch and offers the crown; pressing it holds the **coronation**, with the monarch standing at the altar. It is the only road to a crowning — there is no command for it, and it opens for the Crown whether or not the **oath of service** is enabled. Any other subject is offered the oath instead, or told the cleric is at prayer where no oath may be sworn; the cleric's vanilla trading window never opens for anybody.
 _Avoid_: Crown menu, coronation shop, cleric trades
 
 **Blessing**:

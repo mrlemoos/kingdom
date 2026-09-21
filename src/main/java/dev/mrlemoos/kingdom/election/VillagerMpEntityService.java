@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -52,6 +53,7 @@ public final class VillagerMpEntityService {
     private final KingdomTerritoryResolver territoryResolver;
     private final NamespacedKey mpKingdomTagKey;
     private final NamespacedKey mpOriginKey;
+    private final NamespacedKey mpSpawnedKey;
     private final NamespacedKey treasuryLordTagKey;
     private final NamespacedKey townCrierTagKey;
     private final NamespacedKey clericTagKey;
@@ -62,6 +64,7 @@ public final class VillagerMpEntityService {
     private HearthConfig hearthConfig = HearthConfig.defaults();
     private HungerLedgerStore hungerLedger;
     private GranaryConfig granaryConfig = GranaryConfig.defaults();
+    private LongSupplier realmDayClock = () -> 0L;
 
     public VillagerMpEntityService(
             JavaPlugin plugin,
@@ -74,6 +77,7 @@ public final class VillagerMpEntityService {
         this.territoryResolver = territoryResolver;
         this.mpKingdomTagKey = new NamespacedKey(plugin, "kingdom_mp");
         this.mpOriginKey = new NamespacedKey(plugin, "kingdom_mp_origin");
+        this.mpSpawnedKey = new NamespacedKey(plugin, "kingdom_mp_spawned");
         this.treasuryLordTagKey = new NamespacedKey(plugin, "treasury_lord");
         this.townCrierTagKey = new NamespacedKey(plugin, "town_crier");
         this.clericTagKey = new NamespacedKey(plugin, "church_cleric");
@@ -93,8 +97,19 @@ public final class VillagerMpEntityService {
                 villagerEconomyConfig != null ? villagerEconomyConfig : VillagerEconomyConfig.defaults();
     }
 
+    /** Puts the sweep on the realm calendar; without it every sync reads as the first sitting day. */
+    public void setRealmDayClock(LongSupplier realmDayClock) {
+        this.realmDayClock = realmDayClock != null ? realmDayClock : () -> 0L;
+    }
+
+    /** Syncs against the realm calendar and the kingdom's own session, not an assumed sitting day. */
     public void syncKingdom(String kingdomId) {
-        syncKingdom(kingdomId, 0L, false);
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return;
+        }
+        syncKingdom(
+                kingdomId, realmDayClock.getAsLong(), !kingdom.get().getParliamentState().isSessionOpen());
     }
 
     /**
@@ -153,14 +168,18 @@ public final class VillagerMpEntityService {
     }
 
     public void releaseSeat(String kingdomId, int seatIndex) {
-        kingdomService.getKingdom(kingdomId).flatMap(k -> k.getElectionState().seat(seatIndex)).ifPresent(seat -> {
-            if (seat.kind() != MpSeatKind.VILLAGER) {
-                return;
-            }
-            seat.entityId().ifPresent(entityId -> releaseEntity(seat, entityId));
-            seat.setEntityId(null);
-            seat.setOriginLocation(null);
-        });
+        kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> kingdom.getElectionState()
+                .seat(seatIndex)
+                .ifPresent(seat -> {
+                    if (seat.kind() != MpSeatKind.VILLAGER) {
+                        return;
+                    }
+                    Optional<MpSeatLocation> bench = kingdom.getElectionState().seatLocation(seatIndex);
+                    seat.entityId().ifPresent(entityId -> releaseEntity(seat, entityId, bench));
+                    seat.setEntityId(null);
+                    seat.setOriginLocation(null);
+                    seat.setRecessed(false);
+                }));
     }
 
     /** @deprecated use {@link #releaseSeat(String, int)} */
@@ -474,7 +493,9 @@ public final class VillagerMpEntityService {
                 }
                 continue;
             }
-            if (seat.isRecessed()) {
+            // Where the member stands decides, not the flag: a State Opening summons carries a
+            // recessed member back to the bench, and the flag alone would leave it sitting there.
+            if (seat.isRecessed() && !isOnBench(kingdom, seat)) {
                 seat.entityId().flatMap(this::findEntity).ifPresent(entity -> {
                     if (entity instanceof Villager villager) {
                         refreshSeatNametag(villager, seat, kingdom.getId());
@@ -482,20 +503,35 @@ public final class VillagerMpEntityService {
                 });
                 continue;
             }
-            seat.entityId().ifPresent(entityId -> releaseEntityForRecess(seat, entityId, kingdom.getId()));
+            seat.entityId().ifPresent(entityId -> releaseEntityForRecess(kingdom, seat, entityId));
         }
     }
 
-    private void releaseEntityForRecess(MpSeat seat, UUID entityId, String kingdomId) {
+    /** True while the seat's member is loaded and standing at its bench in the chamber. */
+    private boolean isOnBench(Kingdom kingdom, MpSeat seat) {
+        Optional<MpSeatLocation> bench = kingdom.getElectionState().seatLocation(seat.index());
+        Optional<UUID> entityId = seat.entityId();
+        if (bench.isEmpty() || entityId.isEmpty()) {
+            return false;
+        }
+        Optional<Entity> entity = findEntity(entityId.get());
+        return entity.isPresent()
+                && VillagerMpOriginPolicy.isAtChamber(toSeatLocation(entity.get().getLocation()), bench.get());
+    }
+
+    private void releaseEntityForRecess(Kingdom kingdom, MpSeat seat, UUID entityId) {
+        String kingdomId = kingdom.getId();
         findEntity(entityId).ifPresent(entity -> {
             if (!(entity instanceof Villager villager)) {
                 return;
             }
-            Optional<MpSeatLocation> origin = seat.originLocation();
-            if (origin.isEmpty()) {
-                origin = readOriginFromEntity(villager);
+            if (sendHomeOrDismiss(villager, seat.originLocation(), kingdom.getElectionState()
+                    .seatLocation(seat.index()))) {
+                seat.setEntityId(null);
+                seat.setOriginLocation(null);
+                seat.setRecessed(false);
+                return;
             }
-            origin.ifPresent(stored -> villager.teleport(toBukkitLocation(stored)));
             villager.setAI(true);
             villager.setInvulnerable(false);
             villager.setPersistent(VillagerMpDespawnPolicy.persistentAfterRelease());
@@ -525,10 +561,18 @@ public final class VillagerMpEntityService {
     }
 
     private void claimExistingVillager(Kingdom kingdom, MpSeat seat, MpSeatLocation seatLocation, Villager villager) {
-        Location origin = villager.getLocation().clone();
-        MpSeatLocation originSeat = toSeatLocation(origin);
-        seat.setOriginLocation(originSeat);
-        storeOriginOnEntity(villager, originSeat);
+        Optional<MpSeatLocation> origin = Optional.of(toSeatLocation(villager.getLocation()));
+        // A villager already loitering in the chamber must not take the bench for its home, or the
+        // House would send it back to Parliament every recess. Its bed serves instead.
+        if (!VillagerMpOriginPolicy.shouldRecordOrigin(origin.get(), Optional.of(seatLocation))) {
+            origin = homeBedOf(villager);
+        }
+        seat.setOriginLocation(origin.orElse(null));
+        if (origin.isPresent()) {
+            storeOriginOnEntity(villager, origin.get());
+        } else {
+            clearOriginOnEntity(villager);
+        }
         Location destination = toBukkitLocation(seatLocation);
         villager.teleport(destination);
         configureMpBehaviour(villager, seat, kingdom.getId());
@@ -545,6 +589,9 @@ public final class VillagerMpEntityService {
         Villager villager = world.spawn(location, Villager.class, spawned -> {
             applyProfession(spawned, seat.profession().orElse("none"));
             configureMpBehaviour(spawned, seat, kingdomId);
+            // Marked as the House's own: it has no home in the realm, so release dismisses it
+            // rather than leaving it to loiter in the chamber for ever.
+            spawned.getPersistentDataContainer().set(mpSpawnedKey, PersistentDataType.BYTE, (byte) 1);
         });
         seat.setEntityId(villager.getUniqueId());
     }
@@ -573,24 +620,46 @@ public final class VillagerMpEntityService {
                 : NoblePrefixDisplay.mpVillagerNametag(label));
     }
 
-    private void releaseEntity(MpSeat seat, UUID entityId) {
+    private void releaseEntity(MpSeat seat, UUID entityId, Optional<MpSeatLocation> bench) {
         findEntity(entityId).ifPresent(entity -> {
             if (!(entity instanceof Villager villager)) {
                 entity.remove();
                 return;
             }
-            Optional<MpSeatLocation> origin = seat.originLocation();
-            if (origin.isEmpty()) {
-                origin = readOriginFromEntity(villager);
+            if (sendHomeOrDismiss(villager, seat.originLocation(), bench)) {
+                return;
             }
-            origin.ifPresentOrElse(
-                    stored -> {
-                        Location destination = toBukkitLocation(stored);
-                        villager.teleport(destination);
-                        restoreDefaultBehaviour(villager);
-                    },
-                    () -> villager.remove());
+            restoreDefaultBehaviour(villager);
         });
+    }
+
+    /**
+     * Sends a released villager back to its home, never to the bench it is being sent from. One the
+     * House itself spawned, with no home in the realm, is dismissed rather than left to loiter in
+     * the chamber. Returns true when the villager was dismissed.
+     */
+    private boolean sendHomeOrDismiss(
+            Villager villager, Optional<MpSeatLocation> seatOrigin, Optional<MpSeatLocation> bench) {
+        Optional<MpSeatLocation> home = VillagerMpOriginPolicy.releaseDestination(
+                seatOrigin, readOriginFromEntity(villager), homeBedOf(villager), bench);
+        if (VillagerMpOriginPolicy.shouldDismiss(isPluginSpawned(villager), home.isPresent())) {
+            villager.remove();
+            return true;
+        }
+        if (home.isPresent()) {
+            villager.teleport(toBukkitLocation(home.get()));
+        }
+        return false;
+    }
+
+    private Optional<MpSeatLocation> homeBedOf(Villager villager) {
+        Location bed = villager.getMemory(MemoryKey.HOME);
+        return bed == null || bed.getWorld() == null ? Optional.empty() : Optional.of(toSeatLocation(bed));
+    }
+
+    private boolean isPluginSpawned(Villager villager) {
+        Byte tag = villager.getPersistentDataContainer().get(mpSpawnedKey, PersistentDataType.BYTE);
+        return tag != null && tag == 1;
     }
 
     private void releaseOrphanedMpVillagers(String kingdomId) {
@@ -606,7 +675,9 @@ public final class VillagerMpEntityService {
             if (seatedIds.contains(villager.getUniqueId())) {
                 continue;
             }
-            readOriginFromEntity(villager).ifPresent(origin -> villager.teleport(toBukkitLocation(origin)));
+            if (sendHomeOrDismiss(villager, Optional.empty(), Optional.empty())) {
+                continue;
+            }
             restoreDefaultBehaviour(villager);
         }
     }
@@ -636,7 +707,9 @@ public final class VillagerMpEntityService {
                             villager.getCustomName())) {
                 continue;
             }
-            readOriginFromEntity(villager).ifPresent(origin -> villager.teleport(toBukkitLocation(origin)));
+            if (sendHomeOrDismiss(villager, Optional.empty(), Optional.empty())) {
+                continue;
+            }
             restoreDefaultBehaviour(villager);
         }
     }

@@ -355,6 +355,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 ProductiveVillagerScanner villagerScanner = new ProductiveVillagerScanner(kingdomService);
                 VillagerMpEntityService villagerMpEntityService = new VillagerMpEntityService(
                                 this, kingdomService, villagerScanner, territoryResolver);
+                villagerMpEntityService.setRealmDayClock(realmCalendarService::currentRealmDay);
                 villagerMpEntityService.setVillagerStrikeSource(economyService, villagerEconomyConfig);
                 villagerMpEntityService.setColdStrikeSource(coldLedgerStore, hearthConfig);
                 economyCoordinator.setColdStrikeSource(coldLedgerStore, hearthConfig);

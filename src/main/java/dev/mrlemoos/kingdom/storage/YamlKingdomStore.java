@@ -765,6 +765,7 @@ public final class YamlKingdomStore {
                 config.set(seatPath + ".party", null);
                 config.set(seatPath + ".party-colour", null);
             }
+            config.set(seatPath + ".recessed", seat.isRecessed());
             seat.originLocation().ifPresent(origin -> {
                 config.set(seatPath + ".origin.world", origin.worldName());
                 config.set(seatPath + ".origin.x", origin.x());
@@ -857,6 +858,8 @@ public final class YamlKingdomStore {
                                 (float) originSection.getDouble("yaw"),
                                 (float) originSection.getDouble("pitch")));
                     }
+                    // Without this the House would think a member at its profession still seated.
+                    seat.setRecessed(seatSection.getBoolean("recessed", false));
                 }
                 if (seatSection.contains("returned")) {
                     seat.setReturnCount(seatSection.getInt("returned"));

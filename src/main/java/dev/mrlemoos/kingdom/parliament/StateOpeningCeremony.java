@@ -317,11 +317,24 @@ public final class StateOpeningCeremony {
             if (villager == null) {
                 return;
             }
-            Location destination = kingdom.flatMap(k -> seatLocationOf(k, entityId)).orElse(origin);
+            Location destination = origin;
+            if (kingdom.isPresent() && !isRecessedSeat(kingdom.get(), entityId)) {
+                destination = seatLocationOf(kingdom.get(), entityId).orElse(origin);
+            }
             if (destination.getWorld() != null) {
                 villager.teleport(destination);
             }
         });
+    }
+
+    /** A member summoned from its profession during recess goes back there, not to its bench. */
+    private boolean isRecessedSeat(Kingdom kingdom, UUID entityId) {
+        OptionalInt seatIndex = kingdom.getElectionState().seatIndexForVillagerEntity(entityId);
+        return seatIndex.isPresent()
+                && kingdom.getElectionState()
+                        .seat(seatIndex.getAsInt())
+                        .filter(MpSeat::isRecessed)
+                        .isPresent();
     }
 
     private Optional<Location> seatLocationOf(Kingdom kingdom, UUID entityId) {
