@@ -96,6 +96,32 @@ class ConscriptionServiceTest {
     }
 
     @Test
+    void aTownCrierCannotBePressed() {
+        UUID crier = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        Kingdom kingdom = kingdomService.getKingdom(KINGDOM_ID).orElseThrow();
+        kingdom.getCityState().setTownCrierEntityId(crier);
+
+        WarResult result = conscriptionService.press(KINGDOM_ID, crier);
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertFalse(conscriptionService.isPressed(crier));
+        assertTrue(conscriptionService.isImmutableRealmNpc(KINGDOM_ID, crier));
+    }
+
+    @Test
+    void aClericCannotBePressed() {
+        UUID cleric = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        Kingdom kingdom = kingdomService.getKingdom(KINGDOM_ID).orElseThrow();
+        kingdom.getChurchState().setClericEntityId(cleric);
+
+        WarResult result = conscriptionService.press(KINGDOM_ID, cleric);
+
+        assertInstanceOf(WarResult.Failure.class, result);
+        assertFalse(conscriptionService.isPressed(cleric));
+        assertTrue(conscriptionService.isImmutableRealmNpc(KINGDOM_ID, cleric));
+    }
+
+    @Test
     void aVillagerNotSeatedAsAnMpIsEligible() {
         Kingdom kingdom = kingdomService.getKingdom(KINGDOM_ID).orElseThrow();
         kingdom.getElectionState().seat(1).orElseThrow().assignVillager("farmer", SEATED_MP_VILLAGER);

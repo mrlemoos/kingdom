@@ -444,7 +444,7 @@ public final class VillagerMpEntityService {
             if (reservedEntityIds.contains(villager.getUniqueId())) {
                 continue;
             }
-            if (isTreasuryLord(villager) || isMpVillager(villager) || isTownCrier(villager)) {
+            if (!canClaimAsMp(villager)) {
                 continue;
             }
             String profession = VillagerMpProfessionMatcher.professionName(villager);
@@ -552,7 +552,7 @@ public final class VillagerMpEntityService {
                 kingdom,
                 seat.profession().orElse("none"),
                 reservedEntityIds,
-                villager -> isTreasuryLord(villager) || isMpVillager(villager) || isClericVillager(villager));
+                villager -> !canClaimAsMp(villager));
         if (candidate.isPresent()) {
             claimExistingVillager(kingdom, seat, seatLocation, candidate.get());
             return;
@@ -1010,6 +1010,12 @@ public final class VillagerMpEntityService {
         return tag != null && tag == 1;
     }
 
+    /** True when this villager is a Town Crier, Treasury Lord or Cleric — an immutable realm NPC. */
+    public boolean isImmutableNpcVillager(Villager villager) {
+        return ImmutableNpcPolicy.isImmutable(
+                isTreasuryLord(villager), isTownCrier(villager), isClericVillager(villager));
+    }
+
     /** True when this villager holds a plugin role and so owns its own nametag. */
     public boolean isPluginNpcVillager(Villager villager) {
         return VillagerNametagRefreshEligibility.isPluginNpc(
@@ -1025,6 +1031,14 @@ public final class VillagerMpEntityService {
     public boolean isClericVillager(Villager villager) {
         Byte tag = villager.getPersistentDataContainer().get(clericTagKey, PersistentDataType.BYTE);
         return tag != null && tag == 1;
+    }
+
+    private boolean canClaimAsMp(Villager villager) {
+        return VillagerMpClaimEligibility.canClaim(
+                isTreasuryLord(villager),
+                isMpVillager(villager),
+                isTownCrier(villager),
+                isClericVillager(villager));
     }
 
     private boolean isTownCrier(Villager villager) {

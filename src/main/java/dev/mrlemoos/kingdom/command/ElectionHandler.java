@@ -293,7 +293,8 @@ public final class ElectionHandler {
         boolean premier = electionType == ElectionType.PREMIER;
         boolean villagerByElection = electionType == ElectionType.BY_ELECTION_VILLAGER;
         Integer byElectionSeat = election.byElectionSeatIndex().orElse(null);
-        Map<String, Integer> professionCounts = villagerScanner.professionCounts(kingdom);
+        Map<String, Integer> professionCounts =
+                villagerScanner.professionCounts(kingdom, villagerMpEntityService::isImmutableNpcVillager);
         if (general) {
             villagerMpEntityService.releaseKingdomVillagerMps(kingdomId);
         } else if (villagerByElection) {

@@ -48,6 +48,10 @@ _Avoid_: Payout, redeem, cash out
 A place inside a kingdom's territory where players deposit Corona nuggets into Corona or withdraw Corona as gold nuggets. One nugget equals one Corona. Mints are placed by the Premier using treasury funds within an approved budget; each kingdom has a limited number.
 _Avoid_: Bank, ATM, exchange
 
+**Lord of the Treasury**:
+The villager who stands at a **mint** to take deposits and pay withdrawals: cartographer profession, invulnerable, without AI. An **immutable NPC** — it cannot be elected, cannot vote, and cannot take any other office.
+_Avoid_: Banker, mint clerk, treasurer NPC
+
 **Ledger**:
 The authoritative record of Corona balances. Supports fractional amounts; physical gold nuggets exist only after withdrawal.
 _Avoid_: Database, account, balance sheet
@@ -1016,7 +1020,7 @@ An attempt to place or break a block inside linked territory without a **build p
 _Avoid_: Griefing, trespass, illegal build, build offence
 
 **Town Crier**:
-The realm NPC that keeps the **Gazette**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned when the **capital** is set (defaulting to the capital block), may be stood elsewhere in the kingdom's territory with `/kingdom crier set`, returned to the capital with `/kingdom crier clear`, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy. A text display above its head cycles the newest Crown posts when a player is nearby.
+The realm NPC that keeps the **Gazette**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned when the **capital** is set (defaulting to the capital block), may be stood elsewhere in the kingdom's territory with `/kingdom crier set`, returned to the capital with `/kingdom crier clear`, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, takes no part in the villager economy. An **immutable NPC** — it cannot be elected, cannot vote, and cannot take any other office. A text display above its head cycles the newest Crown posts when a player is nearby.
 _Avoid_: Herald, messenger, news NPC, bulletin board
 
 **Gazette**:
@@ -1044,7 +1048,7 @@ An odd **realm day** when the Commons does not sit. Ordinary **villager MPs** re
 _Avoid_: Holiday, adjournment, vacation, break
 
 **Villager jury**:
-A trial jury of three territory villagers claimed when fewer than three eligible players are online. They are released to their stored origins when the trial ends. The verdict still comes from the realm-handled sentence table; the spectacle is bodies in seats, sound, and the trial bar. Excludes the accused (if a villager), seated MPs and the Premier, the Speaker, Treasury Lords, the villager judge, the **Town Crier**, and striking villagers. Fewer than three eligible villagers falls to the villager judge alone.
+A trial jury of three territory villagers claimed when fewer than three eligible players are online. They are released to their stored origins when the trial ends. The verdict still comes from the realm-handled sentence table; the spectacle is bodies in seats, sound, and the trial bar. Excludes the accused (if a villager), seated MPs and the Premier, the Speaker, **immutable NPCs** (Treasury Lords, the **Town Crier**, the **Cleric**), the villager judge, and striking villagers. Fewer than three eligible villagers falls to the villager judge alone.
 _Avoid_: NPC jury, fake jury, auto jury
 
 **Realm Hub**:
@@ -1112,8 +1116,12 @@ A sworn office of the realm, one to a kingdom, sworn and unsworn by the **King o
 _Avoid_: Bishop, cleric (the villager), chaplain, monk
 
 **Cleric**:
-The villager who presides at the **church** while the **priest**'s seat is empty or its holder is in a cell. Spawned fresh at the church point on the pattern of the **villager Speaker**, cleric profession, `[Cleric]` nametag, never claimed off the territory and never given a **villager wallet**. Reconciled on startup and by the 60-second territory sweep, and despatched when a player is sworn priest. Its **tithe** goes to the **kingdom treasury**.
+The villager who presides at the **church** while the **priest**'s seat is empty or its holder is in a cell. Spawned fresh at the church point on the pattern of the **villager Speaker**, cleric profession, `[Cleric]` nametag, never claimed off the territory and never given a **villager wallet**. Reconciled on startup and by the 60-second territory sweep, and despatched when a player is sworn priest. Its **tithe** goes to the **kingdom treasury**. An **immutable NPC** — it cannot be elected, cannot vote, and cannot take any other office.
 _Avoid_: Villager priest, NPC priest, acolyte
+
+**Immutable NPC**:
+A realm villager spawned to a fixed post and never moved from it: the **Town Crier**, a **Lord of the Treasury**, and the **Cleric**. They cannot be elected, cannot vote, cannot be pressed into the levy, claimed as jurors, or seated in any other office.
+_Avoid_: Plugin villager, office villager, NPC officer
 
 **Rite**:
 A ceremony the **priest** or **cleric** performs in person at a **consecrated** **church**: **mass**, **marriage**, **divorce**, **funeral**, **coronation** or **consecration**. There is no faith score behind them — a rite is worth holding for what it does, not for what it scores.

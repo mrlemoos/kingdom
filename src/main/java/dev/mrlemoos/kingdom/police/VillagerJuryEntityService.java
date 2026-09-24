@@ -114,10 +114,11 @@ public final class VillagerJuryEntityService {
         boolean treasuryLord = villagerMpEntityService.isTreasuryLordVillager(villager);
         boolean villagerJudge = courtService.isJudgeEntity(villager);
         boolean townCrier = villagerMpEntityService.isTownCrierVillager(villager);
+        boolean cleric = villagerMpEntityService.isClericVillager(villager);
         boolean striking = villager.getCustomName() != null
                 && villager.getCustomName().toLowerCase(java.util.Locale.ROOT).contains("strike");
         return VillagerJurorEligibility.isEligible(new VillagerJurorEligibility.Flags(
-                accused, seatedMpOrPremier, speaker, treasuryLord, villagerJudge, townCrier, striking));
+                accused, seatedMpOrPremier, speaker, treasuryLord, villagerJudge, townCrier, striking, cleric));
     }
 
     private Set<UUID> seatedOfficeEntityIds(Kingdom kingdom) {

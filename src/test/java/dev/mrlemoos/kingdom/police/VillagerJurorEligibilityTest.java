@@ -9,18 +9,19 @@ class VillagerJurorEligibilityTest {
 
     @Test
     void ordinaryTerritoryVillagerIsEligible() {
-        assertTrue(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, false, false)));
+        assertTrue(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, false, false, false)));
     }
 
     @Test
-    void excludesAccusedSeatedOfficesJudgeCrierAndStrikers() {
-        assertFalse(VillagerJurorEligibility.isEligible(flags(true, false, false, false, false, false, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, true, false, false, false, false, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, true, false, false, false, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, true, false, false, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, true, false, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, true, false)));
-        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, false, true)));
+    void excludesAccusedSeatedOfficesJudgeCrierClericAndStrikers() {
+        assertFalse(VillagerJurorEligibility.isEligible(flags(true, false, false, false, false, false, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, true, false, false, false, false, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, true, false, false, false, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, true, false, false, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, true, false, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, true, false, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, false, true, false)));
+        assertFalse(VillagerJurorEligibility.isEligible(flags(false, false, false, false, false, false, false, true)));
     }
 
     private static VillagerJurorEligibility.Flags flags(
@@ -30,8 +31,9 @@ class VillagerJurorEligibilityTest {
             boolean treasuryLord,
             boolean villagerJudge,
             boolean townCrier,
-            boolean striking) {
+            boolean striking,
+            boolean cleric) {
         return new VillagerJurorEligibility.Flags(
-                accused, seatedMpOrPremier, speaker, treasuryLord, villagerJudge, townCrier, striking);
+                accused, seatedMpOrPremier, speaker, treasuryLord, villagerJudge, townCrier, striking, cleric);
     }
 }

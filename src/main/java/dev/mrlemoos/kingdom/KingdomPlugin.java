@@ -702,6 +702,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(musterGuiListener, this);
                 ConscriptionListener conscriptionListener = new ConscriptionListener(
                                 this, kingdomService, territoryResolver, conscriptionService,
+                                villagerMpEntityService,
                                 () -> store.saveFrom(kingdomService));
                 getServer().getPluginManager().registerEvents(conscriptionListener, this);
                 getServer().getScheduler().runTaskTimer(this, conscriptionListener::reconcileLoadedVillagers, 20L, 1200L);

@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.listener;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.election.VillagerMpEntityService;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -27,6 +28,7 @@ public final class ConscriptionListener implements Listener {
     private final KingdomService kingdomService;
     private final TerritoryResolver territoryResolver;
     private final ConscriptionService conscriptionService;
+    private final VillagerMpEntityService villagerMpEntityService;
     private final NamespacedKey pressedKey;
     private final Runnable save;
 
@@ -35,10 +37,13 @@ public final class ConscriptionListener implements Listener {
             KingdomService kingdomService,
             TerritoryResolver territoryResolver,
             ConscriptionService conscriptionService,
+            VillagerMpEntityService villagerMpEntityService,
             Runnable save) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.territoryResolver = Objects.requireNonNull(territoryResolver, "territoryResolver");
         this.conscriptionService = Objects.requireNonNull(conscriptionService, "conscriptionService");
+        this.villagerMpEntityService =
+                Objects.requireNonNull(villagerMpEntityService, "villagerMpEntityService");
         this.pressedKey = new NamespacedKey(Objects.requireNonNull(plugin, "plugin"), "pressed-villager");
         this.save = Objects.requireNonNull(save, "save");
     }
@@ -67,6 +72,9 @@ public final class ConscriptionListener implements Listener {
                         villager.getLocation().getBlockY(),
                         villager.getLocation().getBlockZ()).orElse(null))) {
             player.sendMessage(c("&cOnly a villager in this realm's linked territory may be pressed."));
+            return;
+        } else if (villagerMpEntityService.isImmutableNpcVillager(villager)) {
+            player.sendMessage(c("&cA realm NPC cannot be pressed into service."));
             return;
         } else {
             result = conscriptionService.press(kingdomId, villager.getUniqueId());

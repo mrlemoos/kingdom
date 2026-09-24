@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.war.conscription;
 
+import dev.mrlemoos.kingdom.election.ImmutableNpcPolicy;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.war.WarResult;
@@ -49,8 +50,8 @@ public final class ConscriptionService {
     /**
      * Presses {@code villagerId} into {@code kingdomId}'s wartime service. Fails when
      * conscription is disabled, the kingdom is unknown, the villager is already pressed
-     * (anywhere), the villager is a seated villager MP, or the kingdom's press cap is already
-     * full.
+     * (anywhere), the villager is a seated villager MP, the villager is an immutable realm NPC,
+     * or the kingdom's press cap is already full.
      */
     public WarResult press(String kingdomId, UUID villagerId) {
         Objects.requireNonNull(kingdomId, "kingdomId");
@@ -68,6 +69,9 @@ public final class ConscriptionService {
         }
         if (isSeatedVillagerMp(normalisedKingdomId, villagerId)) {
             return WarResult.fail("A seated villager MP cannot be pressed into service.");
+        }
+        if (isImmutableRealmNpc(kingdom.get(), villagerId)) {
+            return WarResult.fail("A realm NPC cannot be pressed into service.");
         }
         if (pressedCount(normalisedKingdomId) >= config.cap()) {
             return WarResult.fail("The conscription cap is full (" + config.cap() + ").");
@@ -133,6 +137,22 @@ public final class ConscriptionService {
             return false;
         }
         return kingdom.get().getElectionState().seatIndexForVillagerEntity(villagerId).isPresent();
+    }
+
+    /** Town Crier and Cleric, identified by the IDs the realm stores on the kingdom. */
+    public boolean isImmutableRealmNpc(String kingdomId, UUID villagerId) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return false;
+        }
+        return isImmutableRealmNpc(kingdom.get(), villagerId);
+    }
+
+    private static boolean isImmutableRealmNpc(Kingdom kingdom, UUID villagerId) {
+        return ImmutableNpcPolicy.matchesStoredIds(
+                villagerId,
+                kingdom.getCityState().townCrierEntityId(),
+                kingdom.getChurchState().clericEntityId());
     }
 
     public Set<UUID> pressedView(String kingdomId) {

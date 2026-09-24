@@ -24,6 +24,10 @@ public final class ProductiveVillagerScanner {
     }
 
     public Map<String, Integer> professionCounts(Kingdom kingdom) {
+        return professionCounts(kingdom, villager -> false);
+    }
+
+    public Map<String, Integer> professionCounts(Kingdom kingdom, Predicate<Villager> extraExclusions) {
         Map<String, Integer> counts = new HashMap<>();
         Set<String> regionIds = Set.copyOf(kingdom.getWorldGuardRegions());
         if (regionIds.isEmpty()) {
@@ -36,6 +40,9 @@ public final class ProductiveVillagerScanner {
         }
 
         for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+            if (extraExclusions != null && extraExclusions.test(villager)) {
+                continue;
+            }
             if (!isProductiveVillager(villager, worldName, regionIds)) {
                 continue;
             }
