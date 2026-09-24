@@ -25,7 +25,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
-/** The sword of honour: a monarch touching a subject with a golden sword opens the honours list. */
+/** The sword of honour: the Crown touching a subject with a golden sword opens the honours list. */
 public final class HonoursGuiListener implements Listener {
 
     private final KingdomService kingdomService;
@@ -53,24 +53,24 @@ public final class HonoursGuiListener implements Listener {
         if (!(event.getRightClicked() instanceof Player target)) {
             return;
         }
-        Player monarch = event.getPlayer();
-        if (monarch.getInventory().getItemInMainHand().getType() != Material.GOLDEN_SWORD) {
+        Player crownBearer = event.getPlayer();
+        if (crownBearer.getInventory().getItemInMainHand().getType() != Material.GOLDEN_SWORD) {
             return;
         }
-        if (monarch.getUniqueId().equals(target.getUniqueId())) {
+        if (crownBearer.getUniqueId().equals(target.getUniqueId())) {
             return;
         }
-        Optional<PlayerMembership> crown = kingdomService.getMembership(monarch.getUniqueId());
-        if (crown.isEmpty() || !isMonarch(crown.get().getRank())) {
+        Optional<PlayerMembership> crown = kingdomService.getMembership(crownBearer.getUniqueId());
+        if (crown.isEmpty() || !mayBestowHonours(crown.get().getRank())) {
             return;
         }
         Optional<PlayerMembership> subject = kingdomService.getMembership(target.getUniqueId());
         event.setCancelled(true);
         if (subject.isEmpty() || !crown.get().getKingdomId().equals(subject.get().getKingdomId())) {
-            monarch.sendMessage(c("&cThat player is no subject of your realm."));
+            crownBearer.sendMessage(c("&cThat player is no subject of your realm."));
             return;
         }
-        monarch.openInventory(
+        crownBearer.openInventory(
                 HonoursGui.create(target.getUniqueId(), target.getName(), subject.get().getRank()).getInventory());
     }
 
@@ -80,36 +80,36 @@ public final class HonoursGuiListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player monarch)) {
+        if (!(event.getWhoClicked() instanceof Player crownBearer)) {
             return;
         }
         if (event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
-        Optional<PlayerMembership> crown = kingdomService.getMembership(monarch.getUniqueId());
-        if (crown.isEmpty() || !isMonarch(crown.get().getRank())) {
+        Optional<PlayerMembership> crown = kingdomService.getMembership(crownBearer.getUniqueId());
+        if (crown.isEmpty() || !mayBestowHonours(crown.get().getRank())) {
             return;
         }
         Optional<PlayerMembership> subject = kingdomService.getMembership(gui.targetId());
         if (subject.isEmpty() || !crown.get().getKingdomId().equals(subject.get().getKingdomId())) {
-            monarch.sendMessage(c("&cThat player is no subject of your realm."));
-            monarch.closeInventory();
+            crownBearer.sendMessage(c("&cThat player is no subject of your realm."));
+            crownBearer.closeInventory();
             return;
         }
 
         if (churchService != null) {
             Optional<String> uncrowned = churchService.ceremonialRefusal(
-                    crown.get().getKingdomId(), monarch.getUniqueId(), crown.get().getRank());
+                    crown.get().getKingdomId(), crownBearer.getUniqueId(), crown.get().getRank());
             if (uncrowned.isPresent()) {
-                monarch.sendMessage(c("&c" + uncrowned.get()));
-                monarch.closeInventory();
+                crownBearer.sendMessage(c("&c" + uncrowned.get()));
+                crownBearer.closeInventory();
                 return;
             }
         }
 
         int slot = event.getSlot();
         if (HonoursGui.isStripSlot(slot)) {
-            apply(monarch, gui.targetId(), kingdomService.clearTitle(gui.targetId()), null);
+            apply(crownBearer, gui.targetId(), kingdomService.clearTitle(gui.targetId()), null);
             return;
         }
         NobleRank rank = HonoursGui.rankForSlot(slot);
@@ -117,7 +117,7 @@ public final class HonoursGuiListener implements Listener {
             return;
         }
         TitleStyle style = event.isRightClick() ? TitleStyle.FEMININE : TitleStyle.MASCULINE;
-        apply(monarch, gui.targetId(), kingdomService.assignTitle(gui.targetId(), rank, style),
+        apply(crownBearer, gui.targetId(), kingdomService.assignTitle(gui.targetId(), rank, style),
                 rank.displayTitle(style));
     }
 
@@ -147,7 +147,8 @@ public final class HonoursGuiListener implements Listener {
         }
     }
 
-    private static boolean isMonarch(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN;
+    private static boolean mayBestowHonours(NobleRank rank) {
+        return rank == NobleRank.KING || rank == NobleRank.QUEEN
+                || rank == NobleRank.PRINCE || rank == NobleRank.PRINCESS;
     }
 }
