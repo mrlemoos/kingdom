@@ -224,11 +224,13 @@ class ElectionServiceTest {
         assertTrue(generalClose.complete());
 
         assertInstanceOf(ElectionResult.Success.class, electionService.startPremierElection("northmarch"));
+        assertEquals(now + 10 * 60_000L,
+                kingdomService.getKingdom("northmarch").orElseThrow().getElectionState().election().endsAtMs());
         electionService.nominate("northmarch", CITIZEN_ONE);
         electionService.nominate("northmarch", CITIZEN_TWO);
         electionService.castElectionVote("northmarch", CITIZEN_ONE, CITIZEN_ONE);
         electionService.castElectionVote("northmarch", CITIZEN_TWO, CITIZEN_ONE);
-        now += ElectionConfig.defaults().durationMs() + 1;
+        now += 10 * 60_000L + 1;
 
         ElectionService.ElectionCloseOutcome premierClose =
                 electionService.tryCloseElection("northmarch", Map.of("farmer", 5));

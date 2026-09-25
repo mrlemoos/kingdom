@@ -148,7 +148,6 @@ public final class HonoursGuiListener implements Listener {
     }
 
     private static boolean mayBestowHonours(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN
-                || rank == NobleRank.PRINCE || rank == NobleRank.PRINCESS;
+        return rank == NobleRank.KING || rank == NobleRank.QUEEN || rank == NobleRank.PRINCE;
     }
 }

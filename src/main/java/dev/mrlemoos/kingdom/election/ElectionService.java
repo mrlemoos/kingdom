@@ -313,7 +313,7 @@ public final class ElectionService {
         }
         clearPremierTitle(kingdomId);
         electionState.clearPremierVillager();
-        electionState.election().openPremier(clockMs.get() + config.durationMs());
+        electionState.election().openPremier(clockMs.get() + 10 * 60_000L);
         return ElectionResult.ok("Premier election open. Seated MPs may nominate and vote.");
     }
 
