@@ -340,7 +340,7 @@ election:
     month: 7
     day: 1
   general-interval-mc-days: 120
-  duration-mc-days: 3
+  duration-mc-days: 1
   inaugural-fiscal-delay-mc-days: 2
   max-player-seats: 4
   total-seats: 8

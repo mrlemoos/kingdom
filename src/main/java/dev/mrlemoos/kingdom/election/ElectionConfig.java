@@ -11,7 +11,7 @@ public record ElectionConfig(
     public static final long DEFAULT_MS_PER_MC_DAY = 1_200_000L;
 
     public static ElectionConfig defaults() {
-        return new ElectionConfig(120, 3, 2, 4, 8, DEFAULT_MS_PER_MC_DAY);
+        return new ElectionConfig(120, 1, 2, 4, 8, DEFAULT_MS_PER_MC_DAY);
     }
 
     public long durationMs() {
