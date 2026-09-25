@@ -634,6 +634,8 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(new ChatPrefixListener(prefixComposer),
                                 this);
                 getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.CreativeVisibilityListener(this), this);
+                getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.ChurchRitesListener(
                                                 kingdomService, churchService, economyService, territoryResolver),
                                 this);

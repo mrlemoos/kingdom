@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.cloud;
 
 import dev.mrlemoos.kingdom.command.CommandArgTokenizer;
 import dev.mrlemoos.kingdom.command.CoronaCommand;
+import dev.mrlemoos.kingdom.command.GamemodeCommand;
 import dev.mrlemoos.kingdom.command.KingdomCommand;
 import dev.mrlemoos.kingdom.command.LocateCommand;
 import dev.mrlemoos.kingdom.command.ResignCommand;
@@ -38,6 +39,7 @@ public final class KingdomCloudCommands {
         registerWorldGuardCaptureSpike(manager, kingdomService);
         registerTpCommands(manager, tpCommand, kingdomService, teleportService);
         registerLocateCommands(manager, locateCommand, kingdomService, teleportService);
+        registerGamemodeCommands(manager);
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudCoronaCommands(coronaCommand));
         new AnnotationParser<CommandSender>(manager, CommandSender.class).parse(new CloudResignCommands(resignCommand));
     }
@@ -257,6 +259,18 @@ public final class KingdomCloudCommands {
                 .required("args", StringParser.greedyStringParser(), tpArgs)
                 .handler(ctx -> tpCommand.execute(
                         ctx.sender(), CommandArgTokenizer.tokenize(ctx.get("args")))));
+    }
+
+    private static void registerGamemodeCommands(LegacyPaperCommandManager<CommandSender> manager) {
+        GamemodeCommand gamemodeCommand = new GamemodeCommand();
+        SuggestionProvider<CommandSender> modes = SuggestionProvider.blockingStrings((context, input) ->
+                java.util.List.of("survival", "creative", "adventure", "spectator", "0", "1", "2", "3"));
+
+        manager.command(manager.commandBuilder("gamemode", "gm")
+                .required("mode", StringParser.stringParser(), modes)
+                .optional("player", StringParser.stringParser(), CloudSuggestionProviders.onlinePlayerNames())
+                .handler(ctx -> gamemodeCommand.execute(
+                        ctx.sender(), withOptional(new String[] { ctx.get("mode") }, ctx, "player"))));
     }
 
     private static String[] prepend(String head, String[] tail) {
