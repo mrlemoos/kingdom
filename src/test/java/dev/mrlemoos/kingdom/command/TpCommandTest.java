@@ -111,6 +111,26 @@ class TpCommandTest {
         assertTrue(observer.nextMessage().contains("Alice teleported Target to 10 64 20."));
     }
 
+    @Test
+    void atSelfCoordinatesTeleportSender() {
+        PlayerMock sender = addPlayerWithPerms("Sender", SENDER_ID, TpCommandSuggestions.PERM_TELEPORT);
+        World world = sender.getWorld();
+        sender.setLocation(new Location(world, 0, 64, 0, 0f, 0f));
+
+        tpCommand.execute(sender, new String[] {"@s", "10", "70", "20"});
+
+        sender.assertTeleported(new Location(world, 10, 70, 20, 0f, 0f), 0.01);
+    }
+
+    @Test
+    void atSelfCoordinatesRejectConsole() {
+        ConsoleCommandSenderMock console = new ConsoleCommandSenderMock();
+
+        tpCommand.execute(console, new String[] {"@s", "10", "70", "20"});
+
+        assertTrue(console.nextMessage().contains("console"));
+    }
+
     private PlayerMock addPlayerWithPerms(String name, UUID id, String... permissions) {
         PlayerMock player = new PlayerMock(server, name, id) {
             @Override

@@ -246,10 +246,18 @@ public final class TpCommand {
             target = player;
             coordStart = 0;
         } else if (args.length == 4 || args.length == 6) {
-            target = findOnlinePlayer(args[0]).orElse(null);
-            if (target == null) {
-                sender.sendMessage(error("Unknown player."));
-                return;
+            if (isBringHereToken(args[0])) {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(error("Specify a player when teleporting from the console."));
+                    return;
+                }
+                target = player;
+            } else {
+                target = findOnlinePlayer(args[0]).orElse(null);
+                if (target == null) {
+                    sender.sendMessage(error("Unknown player."));
+                    return;
+                }
             }
             coordStart = 1;
         } else {
@@ -540,6 +548,8 @@ public final class TpCommand {
             builder.append(c("&7")).append(" — teleport a player to another player or checkpoint");
             builder.append("\n").append(c("&e")).append("/tp <x> <y> <z>");
             builder.append(c("&7")).append(" — teleport to coordinates (~ supported)");
+            builder.append("\n").append(c("&e")).append("/tp @s <x> <y> <z>");
+            builder.append(c("&7")).append(" — teleport yourself to coordinates");
         }
         if (sender.isOp()) {
             builder.append("\n").append(c("&6")).append("/tp checkpoint create <name>");
