@@ -76,4 +76,10 @@ class AppealServiceTest {
         assertInstanceOf(AppealResult.Success.class, appeals.pardon("north", NobleRank.KING));
         assertFalse(trials.isUnderPrisonSentence(PRISONER));
     }
+
+    @Test void releaseBeforeCrownRulesLapsesTheAppeal() {
+        appeals.petition("north", PRISONER);
+        trials.releaseFromPrison(PRISONER);
+        assertTrue(appeals.pendingAppeal("north").isEmpty());
+    }
 }

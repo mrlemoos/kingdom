@@ -98,7 +98,7 @@ Treaty bills, trade pacts, and non-aggression treaties are shipped. Alliance and
 | Idea | Sketch | Rides on |
 |---|---|---|
 | ~~**Statute of limitations**~~ | Shipped: an active warrant lapses after `police.warrant-limitation-days` (default 7) realm days unserved; wanted nametag clears, reward refunds. | Police sweep, sitting calendar |
-| **Appeal to the Crown** | A sentenced player petitions; a paper reaches the monarch; the Crown upholds, commutes, or pardons from the review GUI. | Existing pardon, resignation-letter paper flow, prison sentence |
+| ~~**Appeal to the Crown**~~ | Shipped: `/kingdom police appeal` sends a petition paper to the monarch (or regent Prince); the Crown upholds, commutes (halves the remaining time), or pardons from the review GUI. The appeal lapses if the prisoner is released first. | Existing pardon, resignation-letter paper flow, prison sentence |
 | ~~**Prison labour**~~ | Shipped: mining stone in the cell takes 5 s off per block, capped at half the sentence. | Prison sentence clock, cell bounds |
 | ~~**Case persistence**~~ | Shipped: open trials and prison confinements survive a restart; restored trials are heard again after a grace period. | `data.yml` police section |
 
@@ -125,4 +125,4 @@ fun per line of code is the worst on this page.
 
 ## Suggested first three
 
-Treaty bill and per-player tax hook are shipped. Alliance, envoy, and appeal to the Crown remain.
+Treaty bill, per-player tax hook, and appeal to the Crown are shipped. Alliance and envoy remain.

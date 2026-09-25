@@ -35,7 +35,7 @@ public final class AppealService {
         if (!trialService.isUnderPrisonSentence(petitioner)) {
             return fail("Only an active prison sentence may be appealed.");
         }
-        if (pendingByKingdom.containsKey(kingdomId)) {
+        if (pendingAppeal(kingdomId).isPresent()) {
             return fail("An appeal is already awaiting the Crown.");
         }
         pendingByKingdom.put(kingdomId, petitioner);
@@ -54,18 +54,25 @@ public final class AppealService {
         return resolve(kingdomId, crownRank, Action.PARDON);
     }
 
+    /** An appeal lapses once its petitioner is no longer under a prison sentence. */
     public java.util.Optional<UUID> pendingAppeal(String kingdomId) {
-        return java.util.Optional.ofNullable(pendingByKingdom.get(kingdomId));
+        UUID petitioner = pendingByKingdom.get(kingdomId);
+        if (petitioner != null && !trialService.isUnderPrisonSentence(petitioner)) {
+            pendingByKingdom.remove(kingdomId);
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.ofNullable(petitioner);
     }
 
     private AppealResult resolve(String kingdomId, NobleRank crownRank, Action action) {
         if (!ResignationAuthority.canResolveResignation(kingdomId, kingdomService, crownRank)) {
             return fail("Only the Crown may resolve an appeal.");
         }
-        UUID petitioner = pendingByKingdom.get(kingdomId);
-        if (petitioner == null) {
+        java.util.Optional<UUID> pending = pendingAppeal(kingdomId);
+        if (pending.isEmpty()) {
             return fail("No appeal awaits the Crown.");
         }
+        UUID petitioner = pending.get();
         PoliceResult result = switch (action) {
             case UPHOLD -> PoliceResult.ok("Appeal upheld without commutation.");
             case COMMUTE -> trialService.commutePrisonSentence(petitioner, clockMs.get());
