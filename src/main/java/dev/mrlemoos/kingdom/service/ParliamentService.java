@@ -12,6 +12,7 @@ import dev.mrlemoos.kingdom.election.ProfessionVoteBias;
 import dev.mrlemoos.kingdom.election.StableSeatUuid;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.model.election.MpSeatKind;
+import dev.mrlemoos.kingdom.city.ParliamentGazette;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.RankAuthority;
@@ -812,6 +813,7 @@ public final class ParliamentService {
         }
 
         recordInHansard(kingdomId, bill, false, currentMcDay);
+        cryFiscal(kingdomId, bill, ParliamentGazette::fiscalBillLostInCommons);
         bill.setState(BillState.FAILED);
         clearBill(kingdomId);
         return ParliamentResult.ok("Bill failed the division.");
@@ -1145,6 +1147,7 @@ public final class ParliamentService {
         }
 
         recordInHansard(kingdomId, bill.get(), false, mcDayClock.getAsLong());
+        cryFiscal(kingdomId, bill.get(), ParliamentGazette::fiscalBillLostInCommons);
         bill.get().setState(BillState.FAILED);
         clearBill(kingdomId);
         return ParliamentResult.ok("Bill failed the division.");
@@ -1163,6 +1166,7 @@ public final class ParliamentService {
             return ParliamentResult.fail("No bill awaits royal assent.");
         }
         bill.get().setState(BillState.ASSENTED);
+        cryFiscal(kingdomId, bill.get(), ParliamentGazette::fiscalBillPassed);
         return ParliamentResult.ok("Royal assent granted.");
     }
 
@@ -1179,6 +1183,7 @@ public final class ParliamentService {
             return ParliamentResult.fail("No bill awaits royal assent.");
         }
         bill.get().setState(BillState.REJECTED);
+        cryFiscal(kingdomId, bill.get(), ParliamentGazette::fiscalBillRefusedAssent);
         clearBill(kingdomId);
         return ParliamentResult.ok("Royal assent withheld. Bill rejected.");
     }
@@ -1293,7 +1298,24 @@ public final class ParliamentService {
             return ParliamentResult.fail("Parliament is already in session.");
         }
         state.openSession();
+        ParliamentGazette.parliamentOpened(kingdom.get(), mcDayClock.getAsLong());
         return ParliamentResult.ok("Parliament is in session.");
+    }
+
+    /** The fate of a fiscal bill is cried by the town crier; other bills are not. */
+    private void cryFiscal(String kingdomId, Bill bill, FiscalCry cry) {
+        if (bill.type() != BillType.FISCAL) {
+            return;
+        }
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isPresent()) {
+            cry.hang(kingdom.get(), bill.title(), mcDayClock.getAsLong());
+        }
+    }
+
+    @FunctionalInterface
+    private interface FiscalCry {
+        void hang(Kingdom kingdom, String billTitle, long mcDay);
     }
 
     public boolean isPremierBlockedByElection(String kingdomId) {

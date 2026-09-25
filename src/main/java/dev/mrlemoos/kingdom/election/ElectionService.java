@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.election;
 
+import dev.mrlemoos.kingdom.city.ParliamentGazette;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 public final class ElectionService {
@@ -32,6 +34,7 @@ public final class ElectionService {
     private final Supplier<Long> clockMs;
     private BiConsumer<String, List<HansardRecord>> hansardArchivist = (kingdomId, records) -> {};
     private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
+    private LongSupplier mcDayClock = () -> 0L;
 
     public ElectionService(KingdomService kingdomService, ElectionConfig config) {
         this(kingdomService, config, System::currentTimeMillis);
@@ -46,6 +49,11 @@ public final class ElectionService {
     /** Who binds and shelves Hansard when a Parliament is prorogued. */
     public void setHansardArchivist(BiConsumer<String, List<HansardRecord>> hansardArchivist) {
         this.hansardArchivist = hansardArchivist != null ? hansardArchivist : (kingdomId, records) -> {};
+    }
+
+    /** The world day stamped on the Gazette posts the town crier cries when an election is called. */
+    public void setMcDayClock(LongSupplier mcDayClock) {
+        this.mcDayClock = mcDayClock != null ? mcDayClock : () -> 0L;
     }
 
     /**
@@ -93,6 +101,7 @@ public final class ElectionService {
         archiveHansard(kingdomId, kingdom.get());
         kingdom.get().getParliamentState().prorogue();
         electionState.election().openGeneral(clockMs.get() + config.durationMs());
+        ParliamentGazette.generalElectionCalled(kingdom.get(), config.durationMcDays(), mcDayClock.getAsLong());
         return ElectionResult
                 .ok("General election called. Nominations open for " + config.durationMcDays() + " in-game days.");
     }
@@ -120,6 +129,7 @@ public final class ElectionService {
         } else {
             electionState.election().openByElectionVillager(seatIndex, endsAt);
         }
+        ParliamentGazette.byElectionCalled(kingdom.get(), seatIndex, config.durationMcDays(), mcDayClock.getAsLong());
         return ElectionResult.ok("By-election called for seat " + seatIndex + ".");
     }
 
