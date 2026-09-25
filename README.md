@@ -1,26 +1,41 @@
 # Kingdom
 
-Paper plugin for admin-defined kingdoms, noble title slots, and a Corona economy.
+Kingdom is a Paper plugin for player-run kingdoms, parliamentary government, law enforcement, war, and a simulated Corona economy. Kingdoms are created and configured by server operators; players join one kingdom and hold titles within it.
 
-## Features
+## Ranks and responsibilities
 
-### Kingdoms and titles
-- `/kingdom create`, `move`, `title`, `setregion`, `setworld` (operators)
-- `/kingdom join`, `list`, `info` (players)
-- Fixed slots per kingdom: 1 King, 1 Queen, 1 Premier, 1 Speaker, 2 Dukes, 2 Lords, 4 Counts, 8 MPs, unlimited Knights
-- Duchess / Countess / Lady / Dame via `feminine` style (or `lady` for Lord)
-- Noble prefixes in chat, tab list, and nametags (scoreboard teams)
-- Optional WorldGuard region linking per kingdom (soft dependency)
-- YAML persistence in `plugins/Kingdom/data.yml`
+Titles are assigned by an operator with `/kingdom title`, except MP, which is filled through Commons elections. Slots are per kingdom: one King, one Queen, two Princes/Princesses, one Premier, one Speaker, two Dukes/Duchesses, two Lords/Ladies, four Counts/Countesses, eight MPs, and unlimited Knights/Dames. Feminine title style changes the displayed title; it does not change authority. Permissions below are kingdom-specific and apply while the holder is in office.
 
-### Corona economy
-- **Corona** — fractional ledger currency; 1 gold nugget = 1 Corona at mints
-- **Wallets** — players earn from harvest, craft, villager trades, life events, and `/corona pay` bonuses
-- **Treasury** — villager GDP, tax, transfer fees, and budget spending
-- **Tax** — skimmed at credit time; Premier proposes rates, King/Queen approves
-- **Mints** — lecterns in kingdom territory; `/corona deposit` / `/corona withdraw`
-- **Fiscal** — `/kingdom fiscal`, `budget`, `mint` subcommands
-- Economy persistence in `plugins/Kingdom/economy.yml`
+| Rank | Role and permissions |
+| --- | --- |
+| **King / Queen** | The Crown. Holds all rank-delegated powers: appoints sworn constables, judges and clerics; configures court, prison and other sites; sets the capital; issues build permits; posts to the Gazette; manages mints; commands the army and police golems; tables war, peace and treaties; and pays war debt. Grants or refuses royal assent to bills. Resolves resignation offers and appoints titles. |
+| **Prince / Princess** | Royal heir, second in precedence. May resolve resignation offers when no monarch is seated. No general Crown powers solely by virtue of this title. |
+| **Premier** | Leads the government and proposes fiscal rates and budgets; tables government bills and conducts parliamentary business. Elected by seated player MPs after general elections. When no player MPs are seated, a villager Premier may be selected. |
+| **Speaker** | Presides over the Commons, opens and closes divisions, and casts the deciding vote on a tie. Does not hold an MP seat or vote in ordinary divisions. A villager Speaker serves when no player holds the rank. |
+| **Duke / Duchess** | May issue and revoke build permits and publish announcements or decrees to the Gazette. |
+| **Lord / Lady** | May place and despawn kingdom mints. |
+| **Count / Countess** | May issue and revoke build permits. |
+| **MP** | Elected Commons member. Tables and seconds motions, votes in Commons divisions, and conducts other business available to seated MPs. MPs may offer to resign. |
+| **Knight / Dame** | May command rank-and-file squads, press territory villagers into wartime service, deploy patrol and guard golems, and grant morale pardons at court. |
+| **Citizen** | No noble title or rank powers. Players may join a kingdom as members without a title. |
+
+Rank permissions are explicit delegations, not cumulative: for example, a Count can issue permits but cannot publish Gazette notices. Some commands also have operator-only setup paths. Open PvP remains enabled.
+
+## Main systems
+
+- **Kingdoms and territory:** operator-created kingdoms, one kingdom per player, optional WorldGuard region links, named checkpoints, capital and city hall.
+- **Parliament:** Commons elections, bills, divisions, royal assent, State Opening, Hansard, no-confidence motions and advisory referendums.
+- **Police and courts:** sworn Constables and Judges, warrants, arrests, trials, jury ballots, prison sentences, fines, and wanted indicators.
+- **City and building:** a Lord Mayor issues free kingdom-wide build permits to members. Building inside linked territory requires a permit; unclaimed land is unrestricted.
+- **War and army:** kingdom war and peace, treaties, squads, standing forces and wartime service, subject to the server's enabled features.
+- **Corona economy:** player wallets, villager GDP and trade, taxes, treasury, budgets, mints, tariffs and transfers.
+- **Persistence:** kingdom and political state in `plugins/Kingdom/data.yml`; economy state in `plugins/Kingdom/economy.yml`.
+
+## Requirements
+
+- Java 21
+- Paper 26.x (currently tested on MC 26.2; compiles against the Paper 26.1.2 API)
+- WorldGuard is optional; it enables region-linked territory features.
 
 ## Build
 
@@ -28,31 +43,15 @@ Paper plugin for admin-defined kingdoms, noble title slots, and a Corona economy
 mvn test package
 ```
 
-Copy `target/kingdom-0.1.0-SNAPSHOT.jar` to your server's `plugins/` folder.
-
-Requires **Paper 1.21.x** (MC 26.x) and **Java 21**. WorldGuard is optional but recommended for territory-linked income and tax.
+The plugin JAR is `target/kingdom-0.1.0-SNAPSHOT.jar`. The package build also syncs it to the deploy directories under `deploy/`.
 
 ## Quick start
 
-1. Start the server once to generate config.
-2. As OP: `/kingdom create northmarch Northmarch`
-3. Players: `/kingdom join northmarch`
-4. As OP: `/kingdom title <player> premier` and `/kingdom title <player> king`
-5. With WorldGuard: `/kingdom setregion northmarch my_region`
-6. Premier: `/kingdom fiscal propose 0.10 0.10 0.01 0.03` then King: `/kingdom fiscal approve`
-7. King: `/kingdom budget approve 100` (sets spending cap; treasury must hold Corona to spend)
-8. If treasury is empty, OP: `/kingdom treasury credit <kingdom> 100` (or earn via tax and villager GDP)
-9. Premier: `/kingdom mint place` at a lectern in territory (costs 50 Corona from treasury by default)
-10. Players earn Corona from activity; use `/corona balance` and mints for gold nuggets
+1. Start the server once so the plugin can initialise.
+2. As an operator, create a kingdom: `/kingdom create northmarch Northmarch`.
+3. Set its world if it is not named `world`: `/kingdom setworld northmarch <world>`.
+4. Link a WorldGuard region if used: `/kingdom setregion northmarch <region>`.
+5. Players join with `/kingdom join northmarch`; inspect the realm with `/kingdom info` and `/kingdom list`.
+6. Assign the initial monarch with `/kingdom title <player> king` or `queen`. Other noble titles can be assigned with `/kingdom title <player> <rank>`; MPs are elected.
 
-New kingdoms default to linked world `world`. Use `/kingdom setworld <kingdom> <world>` if your overworld has a different name.
-
-## Tests
-
-Domain logic is covered with JUnit (kingdom slots, economy tax, income calculators, YAML round-trips).
-
-```bash
-mvn test
-```
-
-Domain terms and rules are documented in `CONTEXT.md`.
+Use `/kingdom help` for available commands. Detailed domain rules and terminology are in [`CONTEXT.md`](CONTEXT.md), and the implementation sequence is in [`docs/build-order.md`](docs/build-order.md).
