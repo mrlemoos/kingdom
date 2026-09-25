@@ -35,6 +35,7 @@ public final class RealmHubListener implements Listener {
     private Consumer<Player> parliamentOpener;
     private BiConsumer<Player, String> referendumOpener;
     private Consumer<Player> musterOpener;
+    private Consumer<Player> treatyRegisterOpener;
 
     public RealmHubListener(KingdomService kingdomService, RealmHubSnapshotFactory snapshots) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
@@ -63,6 +64,11 @@ public final class RealmHubListener implements Listener {
 
     public RealmHubListener withMusterOpener(Consumer<Player> musterOpener) {
         this.musterOpener = musterOpener;
+        return this;
+    }
+
+    public RealmHubListener withTreatyRegisterOpener(Consumer<Player> treatyRegisterOpener) {
+        this.treatyRegisterOpener = treatyRegisterOpener;
         return this;
     }
 
@@ -122,6 +128,7 @@ public final class RealmHubListener implements Listener {
             case OPEN_PARLIAMENT_HUB -> open(player, parliamentOpener, "Parliament is not available.");
             case OPEN_REFERENDUM_BALLOT -> openBallot(player);
             case OPEN_MUSTER -> open(player, musterOpener, "Muster is not available.");
+            case OPEN_TREATY_REGISTER -> open(player, treatyRegisterOpener, "The treaty register is not available.");
             case NONE -> {
                 // The lore names the command to type; nothing to open.
             }

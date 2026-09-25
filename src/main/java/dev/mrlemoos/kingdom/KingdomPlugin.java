@@ -858,8 +858,13 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 .withSiegePresenceService(siegePresenceService)
                                                 .withChunkCaptureService(chunkCaptureService)
                                                 .withCapitalService(capitalService);
+                dev.mrlemoos.kingdom.listener.TreatyRegisterListener treatyRegisterListener =
+                                new dev.mrlemoos.kingdom.listener.TreatyRegisterListener(
+                                                kingdomService, treatyService, parliamentHandler, mcDayClock);
+                getServer().getPluginManager().registerEvents(treatyRegisterListener, this);
                 dev.mrlemoos.kingdom.listener.RealmHubListener realmHubListener =
                                 new dev.mrlemoos.kingdom.listener.RealmHubListener(kingdomService, realmHubSnapshots)
+                                                .withTreatyRegisterOpener(treatyRegisterListener::open)
                                                 .withLoyaltyOpener(kingdomCommand::openLoyaltyLedger)
                                                 .withMusterOpener(player -> musterGuiListener.open(player))
                                                 .withParliamentOpener(parliamentGuiListener::openHubGui)

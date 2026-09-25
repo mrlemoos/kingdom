@@ -14,5 +14,7 @@ public enum RealmHubAction {
     /** Opens the referendum ballot while polling is open. */
     OPEN_REFERENDUM_BALLOT,
     /** Opens the active muster response. */
-    OPEN_MUSTER
+    OPEN_MUSTER,
+    /** Opens the realm's treaty register. */
+    OPEN_TREATY_REGISTER
 }

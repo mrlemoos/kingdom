@@ -229,8 +229,8 @@ public final class RealmHubView {
             entries.add(RealmHubEntry.usable(
                     RealmHubTopic.LIVE_TREATY,
                     "Treaty Business",
-                    List.of(snapshot.live().treatyLine(), "The Crown may table a treaty bill in the Commons."),
-                    RealmHubAction.OPEN_PARLIAMENT_HUB));
+                    List.of(snapshot.live().treatyLine(), "Click to open the treaty register."),
+                    RealmHubAction.OPEN_TREATY_REGISTER));
         }
         if (snapshot.resignationToReview()) {
             entries.add(RealmHubEntry.usable(

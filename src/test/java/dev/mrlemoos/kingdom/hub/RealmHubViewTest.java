@@ -324,6 +324,17 @@ class RealmHubViewTest {
     }
 
     @Test
+    void treatyBusinessOpensTheTreatyRegister() {
+        RealmHubSnapshot snapshot = subject(NobleRank.MP)
+                .live(new GazetteLiveState("", "none proclaimed", 0, 0, 0d, "Treaty active: trade pact with Southreach"))
+                .build();
+
+        assertEquals(
+                RealmHubAction.OPEN_TREATY_REGISTER,
+                entry(RealmHubView.entries(snapshot), RealmHubTopic.LIVE_TREATY).orElseThrow().action());
+    }
+
+    @Test
     void liveBusinessSurfacesWhileItIsLive() {
         RealmHubSnapshot snapshot = subject(NobleRank.MP)
                 .electionOpen(true)

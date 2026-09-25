@@ -250,6 +250,10 @@ _Avoid_: Peace treaty, truce, ceasefire
 A treaty that waives the tariff for each kingdom's members trading in the other's territory. The ordinary villager commerce tax remains due.
 _Avoid_: Free trade zone, customs union, tax exemption
 
+**Treaty register**:
+A realm's list of its treaties: in force, awaiting one Crown's assent, or under repeal. Every member may read it; from it the King or Queen may table the treaty bill that answers a proposal or seeks a repeal. It enacts nothing itself.
+_Avoid_: Treaty book, diplomatic ledger, envoy
+
 **Registrar**:
 The archive where assented Acts and **Hansard** volumes are stored as written books on chiseled bookshelves. The monarch sets the anchor bookshelf; the registrar is that shelf and every face-adjacent chiseled bookshelf reachable from it (no diagonals). Further volumes fill slots and extend along that contiguous run.
 _Avoid_: Archive, library, record office, Hansard shelf (the shelf is the Registrar; Hansard is what is shelved)

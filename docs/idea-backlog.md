@@ -82,7 +82,7 @@ Treaty bills, trade pacts, and non-aggression treaties are shipped. Alliance and
 | ~~**Trade pact**~~ | Shipped: waives tariff both ways while commerce tax remains due. | `FiscalRates.tariff`, merchant settlement |
 | ~~**Non-aggression**~~ | Shipped: war bill validation rejects an active treaty target. | `WarService` war-bill validation |
 | **Alliance** | An ally's muster call reaches your rostered members; answering credits service, ignoring it costs morale as usual. | `MusterService`, `StandingRosterService` |
-| **Envoy** | A villager at the capital; right-click opens a paginated treaty register with the same confirm/revoke shape as the permit register. | `LordMayorService` / `TownCrierService` NPC pattern, permit register GUI |
+| **Envoy** | ~~Treaty register~~ shipped without the NPC: the Realm Hub treaty topic opens a paginated register; the Crown's click tables the answering treaty or repeal bill. Still open: a villager at the capital as a second door to it. | `LordMayorService` / `TownCrierService` NPC pattern, permit register GUI |
 
 ## Crown finance — reuses the treasury and the daily processor
 
@@ -125,4 +125,4 @@ fun per line of code is the worst on this page.
 
 ## Suggested first three
 
-Treaty bill, per-player tax hook, and appeal to the Crown are shipped. Alliance and envoy remain.
+Treaty bill, per-player tax hook, appeal to the Crown, and the treaty register are shipped. Alliance and the envoy villager remain.
