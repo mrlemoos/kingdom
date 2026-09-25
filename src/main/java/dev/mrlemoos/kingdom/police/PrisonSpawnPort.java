@@ -16,4 +16,9 @@ public interface PrisonSpawnPort {
 
     /** Teleport into the assigned cell and set spawn there for the sentence. Default no-op. */
     default void confineToCell(UUID playerId, String kingdomId, int cellSlot) {}
+
+    /** Whether {@link #restore} can act now; an offline player's spawn cannot be moved. */
+    default boolean canRestore(UUID playerId) {
+        return true;
+    }
 }

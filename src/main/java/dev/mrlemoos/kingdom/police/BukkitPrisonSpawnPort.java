@@ -39,6 +39,11 @@ public final class BukkitPrisonSpawnPort implements PrisonSpawnPort {
     }
 
     @Override
+    public boolean canRestore(UUID playerId) {
+        return Bukkit.getPlayer(playerId) != null;
+    }
+
+    @Override
     public void restore(UUID playerId, Optional<SavedSpawn> prior) {
         Player player = Bukkit.getPlayer(playerId);
         if (player == null) {

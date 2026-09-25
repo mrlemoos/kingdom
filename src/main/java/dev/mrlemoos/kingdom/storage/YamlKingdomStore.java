@@ -47,7 +47,11 @@ import dev.mrlemoos.kingdom.model.city.GazettePostKind;
 import dev.mrlemoos.kingdom.police.CurfewEnforcementConfig;
 import dev.mrlemoos.kingdom.model.police.ArrestReward;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
+import dev.mrlemoos.kingdom.model.police.PoliceCase;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
+import dev.mrlemoos.kingdom.model.police.SavedSpawn;
+import dev.mrlemoos.kingdom.model.police.SuspendedAppointment;
+import dev.mrlemoos.kingdom.model.police.SwornRole;
 import dev.mrlemoos.kingdom.model.police.Warrant;
 import dev.mrlemoos.kingdom.model.police.WarrantStatus;
 import dev.mrlemoos.kingdom.model.war.ActiveWar;
@@ -67,6 +71,7 @@ import dev.mrlemoos.kingdom.model.war.MoraleTier;
 import dev.mrlemoos.kingdom.model.war.OnDutyState;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
+import dev.mrlemoos.kingdom.police.PoliceTrialService;
 import dev.mrlemoos.kingdom.war.WarService;
 import dev.mrlemoos.kingdom.war.capital.CapitalRegion;
 import dev.mrlemoos.kingdom.war.capital.CapitalService;
@@ -130,6 +135,7 @@ public final class YamlKingdomStore {
     private HungerLedgerStore hungerLedgerStore;
     private FamineWatch famineWatch;
     private MechanicalJusticeService mechanicalJusticeService;
+    private PoliceTrialService policeTrialService;
     private RealmCalendarService calendarService;
     private ShortfallWatch shortfallWatch;
 
@@ -209,6 +215,10 @@ public final class YamlKingdomStore {
 
     public void setMechanicalJusticeService(MechanicalJusticeService mechanicalJusticeService) {
         this.mechanicalJusticeService = mechanicalJusticeService;
+    }
+
+    public void setPoliceTrialService(PoliceTrialService policeTrialService) {
+        this.policeTrialService = policeTrialService;
     }
 
     public void setCalendarService(RealmCalendarService calendarService) {
@@ -301,6 +311,29 @@ public final class YamlKingdomStore {
             loaded.addAll(readWarrants(policeSection.getConfigurationSection("warrants"), id));
         }
         mechanicalJusticeService.replaceWarrants(loaded);
+    }
+
+    /** Loads pending trials and prison confinements after {@link PoliceTrialService} is constructed. */
+    public void loadPoliceCases() {
+        if (policeTrialService == null || !dataFile.exists()) {
+            return;
+        }
+        FileConfiguration data = YamlConfiguration.loadConfiguration(dataFile);
+        ConfigurationSection kingdomSection = data.getConfigurationSection("kingdoms");
+        if (kingdomSection == null) {
+            return;
+        }
+        List<PoliceCase> openCases = new ArrayList<>();
+        List<PoliceTrialService.PrisonConfinement> confinements = new ArrayList<>();
+        for (String id : kingdomSection.getKeys(false)) {
+            ConfigurationSection policeSection = kingdomSection.getConfigurationSection(id + ".police");
+            if (policeSection == null) {
+                continue;
+            }
+            openCases.addAll(readPoliceCases(policeSection.getConfigurationSection("open-cases"), id));
+            confinements.addAll(readConfinements(policeSection.getConfigurationSection("confinements"), id));
+        }
+        policeTrialService.restore(openCases, confinements);
     }
 
     public void loadInto(KingdomService service) {
@@ -440,6 +473,20 @@ public final class YamlKingdomStore {
                         path + ".police.warrants",
                         mechanicalJusticeService.warrantsView().stream()
                                 .filter(warrant -> kingdom.getId().equals(warrant.kingdomId()))
+                                .toList());
+            }
+            if (policeTrialService != null) {
+                writePoliceCases(
+                        data,
+                        path + ".police.open-cases",
+                        policeTrialService.openCasesView().stream()
+                                .filter(policeCase -> kingdom.getId().equals(policeCase.kingdomId()))
+                                .toList());
+                writeConfinements(
+                        data,
+                        path + ".police.confinements",
+                        policeTrialService.confinementsView().stream()
+                                .filter(confinement -> kingdom.getId().equals(confinement.kingdomId()))
                                 .toList());
             }
         }
@@ -1805,6 +1852,127 @@ public final class YamlKingdomStore {
         }
     }
 
+    static void writePoliceCases(FileConfiguration config, String path, List<PoliceCase> openCases) {
+        for (PoliceCase policeCase : openCases) {
+            String casePath = path + "." + policeCase.id();
+            config.set(casePath + ".accused", policeCase.accusedId().toString());
+            policeCase.arrestingConstableId().ifPresent(constableId ->
+                    config.set(casePath + ".constable", constableId.toString()));
+            config.set(casePath + ".warrant-id", policeCase.warrantId());
+            policeCase.actBillId().ifPresent(billId -> config.set(casePath + ".act-bill-id", billId));
+            config.set(casePath + ".opened-at-ms", policeCase.openedAtMs());
+        }
+    }
+
+    static List<PoliceCase> readPoliceCases(ConfigurationSection section, String kingdomId) {
+        if (section == null) {
+            return List.of();
+        }
+        List<PoliceCase> openCases = new ArrayList<>();
+        for (String caseId : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(caseId);
+            if (entry == null) {
+                continue;
+            }
+            String accused = entry.getString("accused");
+            String warrantId = entry.getString("warrant-id");
+            if (accused == null || warrantId == null) {
+                continue;
+            }
+            String constable = entry.getString("constable");
+            openCases.add(new PoliceCase(
+                    caseId,
+                    kingdomId,
+                    UUID.fromString(accused),
+                    constable == null ? Optional.empty() : Optional.of(UUID.fromString(constable)),
+                    warrantId,
+                    entry.getString("act-bill-id"),
+                    entry.getLong("opened-at-ms")));
+        }
+        return openCases;
+    }
+
+    static void writeConfinements(
+            FileConfiguration config, String path, List<PoliceTrialService.PrisonConfinement> confinements) {
+        for (PoliceTrialService.PrisonConfinement confinement : confinements) {
+            String entryPath = path + "." + confinement.convictId();
+            config.set(entryPath + ".cell", confinement.cellSlot());
+            config.set(entryPath + ".ends-at-ms", confinement.endsAtMs());
+            config.set(entryPath + ".villager", confinement.villagerConvict());
+            config.set(entryPath + ".economy-frozen", confinement.economyFrozen());
+            config.set(entryPath + ".sentence-ms", confinement.sentenceMs());
+            config.set(entryPath + ".laboured-ms", confinement.labouredMs());
+            confinement.priorSpawn().ifPresent(spawn -> {
+                config.set(entryPath + ".prior-spawn.world", spawn.worldName());
+                config.set(entryPath + ".prior-spawn.x", spawn.x());
+                config.set(entryPath + ".prior-spawn.y", spawn.y());
+                config.set(entryPath + ".prior-spawn.z", spawn.z());
+                config.set(entryPath + ".prior-spawn.yaw", (double) spawn.yaw());
+                config.set(entryPath + ".prior-spawn.pitch", (double) spawn.pitch());
+            });
+            confinement.suspendedAppointment().ifPresent(suspended -> {
+                suspended.nobleRank().ifPresent(rank ->
+                        config.set(entryPath + ".suspended.rank", rank.name()));
+                suspended.titleStyle().ifPresent(style ->
+                        config.set(entryPath + ".suspended.title-style", style.name()));
+                suspended.swornRole().ifPresent(role ->
+                        config.set(entryPath + ".suspended.sworn", role.name()));
+            });
+        }
+    }
+
+    static List<PoliceTrialService.PrisonConfinement> readConfinements(
+            ConfigurationSection section, String kingdomId) {
+        if (section == null) {
+            return List.of();
+        }
+        List<PoliceTrialService.PrisonConfinement> confinements = new ArrayList<>();
+        for (String convict : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(convict);
+            if (entry == null) {
+                continue;
+            }
+            Optional<SavedSpawn> priorSpawn = Optional.empty();
+            ConfigurationSection spawn = entry.getConfigurationSection("prior-spawn");
+            if (spawn != null && spawn.getString("world") != null) {
+                priorSpawn = Optional.of(new SavedSpawn(
+                        spawn.getString("world"),
+                        spawn.getDouble("x"),
+                        spawn.getDouble("y"),
+                        spawn.getDouble("z"),
+                        (float) spawn.getDouble("yaw"),
+                        (float) spawn.getDouble("pitch")));
+            }
+            Optional<SuspendedAppointment> suspended = Optional.empty();
+            ConfigurationSection suspendedSection = entry.getConfigurationSection("suspended");
+            if (suspendedSection != null) {
+                try {
+                    String rank = suspendedSection.getString("rank");
+                    String style = suspendedSection.getString("title-style");
+                    String sworn = suspendedSection.getString("sworn");
+                    suspended = Optional.of(new SuspendedAppointment(
+                            rank == null ? null : NobleRank.valueOf(rank),
+                            style == null ? null : TitleStyle.valueOf(style),
+                            sworn == null ? null : SwornRole.valueOf(sworn)));
+                } catch (IllegalArgumentException ignored) {
+                    // unknown enum name from an older build: release without restoring
+                }
+            }
+            confinements.add(new PoliceTrialService.PrisonConfinement(
+                    kingdomId,
+                    UUID.fromString(convict),
+                    entry.getInt("cell"),
+                    entry.getLong("ends-at-ms"),
+                    priorSpawn,
+                    suspended,
+                    entry.getBoolean("villager"),
+                    entry.getBoolean("economy-frozen"),
+                    entry.getLong("sentence-ms"),
+                    entry.getLong("laboured-ms")));
+        }
+        return confinements;
+    }
+
     static void writeWarrants(FileConfiguration config, String path, List<Warrant> warrants) {
         if (warrants == null || warrants.isEmpty()) {
             return;
@@ -1818,6 +1986,7 @@ public final class YamlKingdomStore {
             config.set(warrantPath + ".opened-at-ms", warrant.openedAtMs());
             warrant.approvedBy().ifPresent(crownId ->
                     config.set(warrantPath + ".approved-by", crownId.toString()));
+            warrant.activeSinceDay().ifPresent(day -> config.set(warrantPath + ".active-since-day", day));
             warrant.arrestReward().ifPresent(reward -> {
                 config.set(warrantPath + ".arrest-reward.poster", reward.posterId().toString());
                 config.set(warrantPath + ".arrest-reward.amount", reward.amount());
@@ -1873,6 +2042,9 @@ public final class YamlKingdomStore {
             String approvedBy = entry.getString("approved-by");
             if (approvedBy != null && !approvedBy.isBlank()) {
                 warrant.setApprovedBy(UUID.fromString(approvedBy));
+            }
+            if (entry.contains("active-since-day")) {
+                warrant.setActiveSinceDay(entry.getLong("active-since-day"));
             }
             warrants.add(warrant);
         }

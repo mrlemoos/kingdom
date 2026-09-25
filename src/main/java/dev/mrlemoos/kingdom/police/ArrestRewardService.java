@@ -1,10 +1,12 @@
 package dev.mrlemoos.kingdom.police;
 
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.police.ArrestReward;
 import dev.mrlemoos.kingdom.model.police.Warrant;
 import dev.mrlemoos.kingdom.service.KingdomService;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -81,6 +83,22 @@ public final class ArrestRewardService {
         ArrestReward purse = reward.get();
         economyService.creditWalletDirect(purse.posterId(), purse.amount());
         warrant.clearArrestReward();
+    }
+
+    /**
+     * Applies the statute of limitations: lapses overdue active warrants, refunds their purses, and
+     * tells the suspect and poster privately. The breach's loyalty drop stands.
+     */
+    public List<Warrant> lapseDueWarrants(long currentDay, int limitationDays) {
+        List<Warrant> lapsed = justiceService.lapseDueWarrants(currentDay, limitationDays);
+        for (Warrant warrant : lapsed) {
+            Optional<UUID> poster = warrant.arrestReward().isPresent()
+                    ? Optional.of(warrant.arrestReward().get().posterId())
+                    : Optional.empty();
+            refundPoster(warrant);
+            RealmFeedback.warrantLapsed(warrant.suspectId(), poster);
+        }
+        return lapsed;
     }
 
     /**

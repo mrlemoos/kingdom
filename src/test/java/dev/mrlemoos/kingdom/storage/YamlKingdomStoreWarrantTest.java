@@ -28,6 +28,7 @@ class YamlKingdomStoreWarrantTest {
                 WarrantStatus.ACTIVE,
                 1_700_000_000_000L);
         warrant.setArrestReward(new ArrestReward(POSTER, 25.0));
+        warrant.setActiveSinceDay(42L);
 
         YamlConfiguration config = new YamlConfiguration();
         YamlKingdomStore.writeWarrants(config, "kingdoms.northmarch.police.warrants", List.of(warrant));
@@ -45,5 +46,6 @@ class YamlKingdomStoreWarrantTest {
         assertTrue(restored.arrestReward().isPresent());
         assertEquals(POSTER, restored.arrestReward().orElseThrow().posterId());
         assertEquals(25.0, restored.arrestReward().orElseThrow().amount(), 1e-9);
+        assertEquals(42L, restored.activeSinceDay().orElseThrow());
     }
 }

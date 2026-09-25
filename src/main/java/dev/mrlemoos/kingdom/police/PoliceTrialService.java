@@ -49,6 +49,8 @@ public final class PoliceTrialService {
     private final Map<UUID, Integer> prisonCellByAccused = new HashMap<>();
     private final Map<UUID, PrisonConfinement> confinements = new HashMap<>();
     private final Map<UUID, SwornRole> lastRestoredSworn = new HashMap<>();
+    // ponytail: throttle is memory-only; a restart forgives at most one second.
+    private final Map<UUID, Long> lastLabourMs = new HashMap<>();
 
     public PoliceTrialService(
             KingdomService kingdomService,
@@ -310,6 +312,110 @@ public final class PoliceTrialService {
         return Optional.ofNullable(lastClosedSentences.get(accusedId));
     }
 
+    /** Pending trials, for persistence. Closed cases are not kept across restarts. */
+    public List<PoliceCase> openCasesView() {
+        return cases.stream()
+                .filter(policeCase -> policeCase.status() == PoliceCaseStatus.PENDING_TRIAL)
+                .toList();
+    }
+
+    public List<PrisonConfinement> confinementsView() {
+        return List.copyOf(confinements.values());
+    }
+
+    /**
+     * Restores persisted pending trials and confinements after a restart. Confinements keep their
+     * absolute end time, so downtime counts towards the sentence.
+     */
+    public void restore(List<PoliceCase> openCases, List<PrisonConfinement> restored) {
+        for (PoliceCase policeCase : openCases) {
+            cases.add(policeCase);
+            int marker = policeCase.id().lastIndexOf("-case-");
+            if (marker >= 0) {
+                try {
+                    long seq = Long.parseLong(policeCase.id().substring(marker + "-case-".length()));
+                    caseSequence.accumulateAndGet(seq + 1, Math::max);
+                } catch (NumberFormatException ignored) {
+                    // foreign id shape: cannot collide with generated ids
+                }
+            }
+        }
+        for (PrisonConfinement confinement : restored) {
+            UUID convictId = confinement.convictId();
+            confinements.put(convictId, confinement);
+            prisonCellByAccused.put(convictId, confinement.cellSlot());
+            if (!confinement.villagerConvict()) {
+                teleportBlocked.add(convictId);
+            }
+        }
+    }
+
+    /** Blocks a player convict may stray from their cell before hard confinement returns them. */
+    public static final double CELL_RADIUS_BLOCKS = 8.0;
+
+    /** True when a confined player convict stands beyond {@link #CELL_RADIUS_BLOCKS} of their cell. */
+    public boolean isOutsideCell(UUID playerId, String worldName, double x, double y, double z) {
+        PrisonConfinement confinement = confinements.get(playerId);
+        if (confinement == null || confinement.villagerConvict()) {
+            return false;
+        }
+        Optional<dev.mrlemoos.kingdom.model.police.PrisonCellLocation> cell =
+                policeService.cell(confinement.kingdomId(), confinement.cellSlot());
+        if (cell.isEmpty()) {
+            return false;
+        }
+        if (!cell.get().worldName().equals(worldName)) {
+            return true;
+        }
+        double dx = x - cell.get().x();
+        double dy = y - cell.get().y();
+        double dz = z - cell.get().z();
+        return dx * dx + dy * dy + dz * dz > CELL_RADIUS_BLOCKS * CELL_RADIUS_BLOCKS;
+    }
+
+    /**
+     * Prison labour: one block mined in the cell takes {@code secondsPerBlock} off the sentence, at
+     * most once a second, until labour has taken {@code maxShare} of the original sentence. Player
+     * convicts only.
+     */
+    public LabourCredit labour(UUID convictId, long nowMs, int secondsPerBlock, double maxShare) {
+        PrisonConfinement confinement = confinements.get(convictId);
+        if (confinement == null || confinement.villagerConvict()) {
+            return LabourCredit.NONE;
+        }
+        Long last = lastLabourMs.get(convictId);
+        if (last != null && nowMs - last < 1_000L) {
+            return LabourCredit.NONE;
+        }
+        long capMs = (long) (confinement.sentenceMs() * maxShare);
+        long creditMs = Math.min(secondsPerBlock * 1_000L, capMs - confinement.labouredMs());
+        if (creditMs <= 0) {
+            return LabourCredit.NONE;
+        }
+        lastLabourMs.put(convictId, nowMs);
+        long labouredMs = confinement.labouredMs() + creditMs;
+        long endsAtMs = confinement.endsAtMs() - creditMs;
+        confinements.put(convictId, new PrisonConfinement(
+                confinement.kingdomId(), convictId, confinement.cellSlot(), endsAtMs,
+                confinement.priorSpawn(), confinement.suspendedAppointment(),
+                confinement.villagerConvict(), confinement.economyFrozen(),
+                confinement.sentenceMs(), labouredMs));
+        return new LabourCredit(true, Math.max(0L, endsAtMs - nowMs), labouredMs >= capMs);
+    }
+
+    /** Outcome of one mined block: whether it counted, time left, and whether this hit the cap. */
+    public record LabourCredit(boolean credited, long remainingMs, boolean capReached) {
+        static final LabourCredit NONE = new LabourCredit(false, 0L, false);
+    }
+
+    /** Returns a convict who strayed to their cell. */
+    public void returnToCell(UUID playerId) {
+        PrisonConfinement confinement = confinements.get(playerId);
+        if (confinement != null && !confinement.villagerConvict()) {
+            prisonSpawnPort.confineToCell(playerId, confinement.kingdomId(), confinement.cellSlot());
+        }
+    }
+
     public boolean isKingdomTeleportBlocked(UUID playerId) {
         return teleportBlocked.contains(playerId);
     }
@@ -329,7 +435,8 @@ public final class PoliceTrialService {
         confinements.put(convictId, new PrisonConfinement(
                 confinement.kingdomId(), convictId, confinement.cellSlot(), nowMs + commutedMs,
                 confinement.priorSpawn(), confinement.suspendedAppointment(),
-                confinement.villagerConvict(), confinement.economyFrozen()));
+                confinement.villagerConvict(), confinement.economyFrozen(),
+                confinement.sentenceMs(), confinement.labouredMs()));
         return PoliceResult.ok("Prison sentence commuted.");
     }
 
@@ -390,15 +497,21 @@ public final class PoliceTrialService {
         teleportBlocked.remove(convictId);
         prisonCellByAccused.remove(convictId);
         confinements.remove(convictId);
+        lastLabourMs.remove(convictId);
         RealmFeedback.released(convictId);
         return PoliceResult.ok("Prison sentence completed. Release effected.");
     }
 
-    /** Releases any confinements whose real-time window has elapsed. */
+    /**
+     * Releases any confinements whose real-time window has elapsed. A player convict who is offline
+     * stays confined until they return, so their spawn can be moved off the cell.
+     */
     public int releaseDueSentences(long nowMs) {
         List<UUID> due = new ArrayList<>();
         for (Map.Entry<UUID, PrisonConfinement> entry : confinements.entrySet()) {
-            if (entry.getValue().endsAtMs() <= nowMs) {
+            PrisonConfinement confinement = entry.getValue();
+            if (confinement.endsAtMs() <= nowMs
+                    && (confinement.villagerConvict() || prisonSpawnPort.canRestore(entry.getKey()))) {
                 due.add(entry.getKey());
             }
         }
@@ -472,8 +585,11 @@ public final class PoliceTrialService {
                         priorSpawn,
                         suspended.isEmpty() ? Optional.empty() : Optional.of(suspended),
                         false,
-                        false));
+                        false,
+                        prisonMinutes * 60_000L,
+                        0L));
         lastClosedSentences.put(accusedId, SentenceType.PRISON);
+        RealmFeedback.labourHint(accusedId);
         return PoliceResult.ok(
                 "Prison sentence of " + prisonMinutes + " minutes in cell " + slot + ".");
     }
@@ -517,7 +633,9 @@ public final class PoliceTrialService {
                         Optional.empty(),
                         Optional.empty(),
                         true,
-                        true));
+                        true,
+                        prisonMinutes * 60_000L,
+                        0L));
         lastClosedSentences.put(accusedId, SentenceType.PRISON);
         return PoliceResult.ok(
                 "Villager prison sentence of " + prisonMinutes + " minutes in cell " + slot + ".");
@@ -633,7 +751,9 @@ public final class PoliceTrialService {
             Optional<SavedSpawn> priorSpawn,
             Optional<SuspendedAppointment> suspendedAppointment,
             boolean villagerConvict,
-            boolean economyFrozen) {
+            boolean economyFrozen,
+            long sentenceMs,
+            long labouredMs) {
 
         public PrisonConfinement {
             Objects.requireNonNull(kingdomId, "kingdomId");

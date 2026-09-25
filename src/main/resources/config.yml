@@ -259,6 +259,18 @@ police:
   trial-jury:
     # Legacy key — prefer police.trial.window-seconds.
     window-seconds: 120
+  # Real-time seconds after startup before trials restored from data.yml are heard again,
+  # so players can reconnect and a Judge or jury can sit.
+  case-resume-grace-seconds: 120
+  # Statute of limitations: realm days an active warrant may go unserved before it lapses.
+  warrant-limitation-days: 7
+  prison-labour:
+    # Mining this block within eight blocks of the cell shortens a player's sentence.
+    # The block is not broken.
+    material: STONE
+    seconds-per-block: 5
+    # Most of the original sentence labour may remove (0.5 = half).
+    max-reduction-share: 0.5
 
 enforcement:
   build:

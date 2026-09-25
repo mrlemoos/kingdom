@@ -148,6 +148,42 @@ public final class RealmFeedback {
     }
 
     /** A convict walks free at the end of their sentence. */
+    /** The statute of limitations ended the pursuit: told to the suspect and the reward poster. */
+    public static void warrantLapsed(UUID suspectId, Optional<UUID> posterId) {
+        Player suspect = player(suspectId);
+        if (suspect != null) {
+            suspect.sendMessage(c("&7[Police] &fThe warrant against you has lapsed unserved."));
+        }
+        if (posterId.isPresent()) {
+            Player poster = player(posterId.get());
+            if (poster != null) {
+                poster.sendMessage(c("&7[Police] &fA warrant you backed has lapsed unserved; "
+                        + "your arrest reward is refunded."));
+            }
+        }
+    }
+
+    /** Told once on a prison sentence, or nobody would find the labour. */
+    public static void labourHint(UUID convictId) {
+        Player convict = player(convictId);
+        if (convict != null) {
+            convict.sendMessage(c("&7[Prison] &fMine stone in your cell to shorten your sentence."));
+        }
+    }
+
+    /** A block of prison labour counted: time left on the action bar, and a line at the cap. */
+    public static void laboured(Player convict, long remainingMs, boolean capReached) {
+        if (convict == null || noServer()) {
+            return;
+        }
+        long seconds = (remainingMs + 999L) / 1_000L;
+        actionBar(convict, "&7Sentence: &f" + (seconds / 60) + "m " + (seconds % 60) + "s &7remaining");
+        if (capReached) {
+            convict.sendMessage(c("&7[Prison] &fYou have laboured all the court allows; "
+                    + "the rest must be served."));
+        }
+    }
+
     public static void released(UUID convictId) {
         Player convict = player(convictId);
         if (convict == null) {

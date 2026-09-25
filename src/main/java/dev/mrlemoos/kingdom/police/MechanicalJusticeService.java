@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 
 /**
  * Mechanical Act-breach → warrant draft → crown approval pipeline (Police hop 3).
@@ -27,6 +28,7 @@ public final class MechanicalJusticeService {
     private final AtomicLong warrantSequence = new AtomicLong(1);
     private final List<Warrant> warrants = new ArrayList<>();
     private Function<String, Optional<UUID>> speakerVillagerResolver = kingdomId -> Optional.empty();
+    private LongSupplier realmDay;
 
     public MechanicalJusticeService(
             KingdomService kingdomService,
@@ -35,6 +37,39 @@ public final class MechanicalJusticeService {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.policeService = Objects.requireNonNull(policeService, "policeService");
         this.config = Objects.requireNonNull(config, "config");
+    }
+
+    /** Stamps the realm day a warrant becomes active, for the statute of limitations. */
+    public void setRealmDaySupplier(LongSupplier realmDay) {
+        this.realmDay = realmDay;
+    }
+
+    private void stampActive(Warrant warrant) {
+        if (realmDay != null) {
+            warrant.setActiveSinceDay(realmDay.getAsLong());
+        }
+    }
+
+    /**
+     * Lapses every active warrant that has gone {@code limitationDays} realm days without arrest.
+     * An active warrant with no day stamped (from before the statute) starts its clock today.
+     */
+    public List<Warrant> lapseDueWarrants(long currentDay, int limitationDays) {
+        List<Warrant> lapsed = new ArrayList<>();
+        for (Warrant warrant : warrants) {
+            if (warrant.status() != WarrantStatus.ACTIVE) {
+                continue;
+            }
+            if (warrant.activeSinceDay().isEmpty()) {
+                warrant.setActiveSinceDay(currentDay);
+                continue;
+            }
+            if (currentDay - warrant.activeSinceDay().getAsLong() >= limitationDays) {
+                warrant.setStatus(WarrantStatus.LAPSED);
+                lapsed.add(warrant);
+            }
+        }
+        return lapsed;
     }
 
     /** Supplies the seated villager Speaker entity id for warrant immunity checks. */
@@ -109,6 +144,7 @@ public final class MechanicalJusticeService {
                 ConductKind.TREASON,
                 WarrantStatus.ACTIVE,
                 System.currentTimeMillis());
+        stampActive(warrant);
         warrants.add(warrant);
         return PoliceResult.ok("Flagrant treason warrant is active.");
     }
@@ -127,6 +163,7 @@ public final class MechanicalJusticeService {
         }
         warrant.setStatus(WarrantStatus.ACTIVE);
         warrant.setApprovedBy(crownId);
+        stampActive(warrant);
         return PoliceResult.ok("Warrant approved and now active.");
     }
 

@@ -112,6 +112,61 @@ class PrisonSentenceEffectsTest {
     }
 
     @Test
+    void aConvictMoreThanEightBlocksFromTheCellIsOutsideIt() {
+        assertFalse(trialService.isOutsideCell(SUSPECT, "world", 50, 64, 50));
+
+        openApproveAndArrest();
+        trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.PRISON, 0, 15);
+
+        assertFalse(trialService.isOutsideCell(SUSPECT, "world", 8, 64, 0));
+        assertTrue(trialService.isOutsideCell(SUSPECT, "world", 8.1, 64, 0));
+        assertTrue(trialService.isOutsideCell(SUSPECT, "world_nether", 0, 64, 0));
+
+        trialService.releaseFromPrison(SUSPECT);
+        assertFalse(trialService.isOutsideCell(SUSPECT, "world", 50, 64, 50));
+    }
+
+    @Test
+    void eachMinedBlockTakesFiveSecondsOffAtMostOncePerSecond() {
+        openApproveAndArrest();
+        trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.PRISON, 0, 15);
+        long endsAt = trialService.prisonConfinement(SUSPECT).orElseThrow().endsAtMs();
+
+        PoliceTrialService.LabourCredit first = trialService.labour(SUSPECT, 1_000L, 5, 0.5);
+        PoliceTrialService.LabourCredit tooSoon = trialService.labour(SUSPECT, 1_500L, 5, 0.5);
+        PoliceTrialService.LabourCredit second = trialService.labour(SUSPECT, 2_000L, 5, 0.5);
+
+        assertTrue(first.credited());
+        assertFalse(tooSoon.credited());
+        assertTrue(second.credited());
+        assertEquals(endsAt - 10_000L, trialService.prisonConfinement(SUSPECT).orElseThrow().endsAtMs());
+        assertEquals(endsAt - 10_000L - 2_000L, second.remainingMs());
+    }
+
+    @Test
+    void labourCannotTakeOffMoreThanHalfTheSentence() {
+        openApproveAndArrest();
+        trialService.sentence("northmarch", JUDGE, SUSPECT, SentenceType.PRISON, 0, 1);
+
+        PoliceTrialService.LabourCredit last = null;
+        for (int block = 0; block < 6; block++) {
+            last = trialService.labour(SUSPECT, block * 1_000L, 5, 0.5);
+            assertTrue(last.credited());
+        }
+        assertTrue(last.capReached());
+        PoliceTrialService.LabourCredit beyond = trialService.labour(SUSPECT, 10_000L, 5, 0.5);
+
+        assertFalse(beyond.credited());
+        assertFalse(beyond.capReached());
+        assertEquals(30_000L, trialService.prisonConfinement(SUSPECT).orElseThrow().labouredMs());
+    }
+
+    @Test
+    void labourNeedsAConfinedConvict() {
+        assertFalse(trialService.labour(SUSPECT, 1_000L, 5, 0.5).credited());
+    }
+
+    @Test
     void prisonNeverRemovesFromWhitelist() {
         assertFalse(PrisonOfficePolicy.mayRemoveFromWhitelist());
     }

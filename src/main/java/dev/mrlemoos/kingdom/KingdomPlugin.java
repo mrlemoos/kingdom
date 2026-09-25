@@ -269,6 +269,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 policeService,
                                 MechanicalJusticeConfig.fromPluginConfig(getConfig()));
                 this.mechanicalJusticeService = mechanicalJusticeService;
+                mechanicalJusticeService.setRealmDaySupplier(realmCalendarService::currentRealmDay);
                 store.setMechanicalJusticeService(mechanicalJusticeService);
                 store.loadWarrants();
 
@@ -312,6 +313,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 mechanicalJusticeService,
                                 economyService);
                 this.policeTrialService = policeTrialService;
+                store.setPoliceTrialService(policeTrialService);
+                store.loadPoliceCases();
 
                 EconomyConfig economyConfig = EconomyConfig.fromPluginConfig(getConfig());
                 VillagerEconomyConfig villagerEconomyConfig = VillagerEconomyConfig.fromPluginConfig(getConfig());
@@ -487,6 +490,12 @@ public final class KingdomPlugin extends JavaPlugin {
                 trialJuryRuntime.setVillagerJuryEntityService(villagerJuryEntityService);
                 policeHandler.setTrialJuryRuntime(policeTrialService, trialJuryRuntime);
                 policeTrialService.setTrialJuryService(trialJuryService);
+                // Give players time to reconnect so a Judge or jury can hear restored trials.
+                getServer().getScheduler().runTaskLater(
+                                this,
+                                () -> policeTrialService.openCasesView().forEach(policeCase -> trialJuryRuntime
+                                                .resolveAfterArrest(policeCase.kingdomId(), policeCase.accusedId())),
+                                20L * Math.max(1, getConfig().getInt("police.case-resume-grace-seconds", 120)));
                 TrialBossBarService trialBossBarService = new TrialBossBarService(
                                 this, kingdomService, trialJuryService::listSessions);
                 trialBossBarService.start();
@@ -633,6 +642,17 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(new NobleDisplayListener(nobleDisplay), this);
                 getServer().getPluginManager().registerEvents(
                                 new WantedNametagListener(nobleDisplay, jurisdictionPort), this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.PrisonConfinementListener(
+                                                policeTrialService,
+                                                java.util.Objects.requireNonNullElse(
+                                                                org.bukkit.Material.matchMaterial(getConfig().getString(
+                                                                                "police.prison-labour.material", "STONE")),
+                                                                org.bukkit.Material.STONE),
+                                                Math.max(1, getConfig().getInt("police.prison-labour.seconds-per-block", 5)),
+                                                Math.clamp(getConfig().getDouble(
+                                                                "police.prison-labour.max-reduction-share", 0.5), 0.0, 1.0)),
+                                this);
                 getServer().getPluginManager().registerEvents(
                                 new TrialJuryGuiListener(trialJuryRuntime), this);
                 getServer().getPluginManager().registerEvents(
@@ -959,6 +979,22 @@ public final class KingdomPlugin extends JavaPlugin {
                                 () -> policeTrialService.releaseDueSentences(System.currentTimeMillis()),
                                 20L,
                                 20L * 30);
+                int warrantLimitationDays = Math.max(1, getConfig().getInt("police.warrant-limitation-days", 7));
+                getServer().getScheduler().runTaskTimer(
+                                this,
+                                () -> {
+                                        if (!policeTrialService.arrestRewardService()
+                                                        .lapseDueWarrants(
+                                                                        realmCalendarService.currentRealmDay(),
+                                                                        warrantLimitationDays)
+                                                        .isEmpty()) {
+                                                nobleDisplay.refreshAllOnline();
+                                                store.saveFrom(kingdomService);
+                                                economyStore.saveFrom(economyService);
+                                        }
+                                },
+                                20L * 60,
+                                20L * 60);
                 getServer().getScheduler().runTaskTimer(
                                 this,
                                 () -> trialJuryRuntime.sweepTimeouts(System.currentTimeMillis()),

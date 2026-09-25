@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.model.police;
 import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 /**
@@ -19,6 +20,7 @@ public final class Warrant {
     private final long openedAtMs;
     private ArrestReward arrestReward;
     private UUID approvedBy;
+    private Long activeSinceDay;
 
     public Warrant(
             String id,
@@ -79,6 +81,15 @@ public final class Warrant {
 
     public void clearArrestReward() {
         this.arrestReward = null;
+    }
+
+    /** Realm day the warrant became active; the statute of limitations counts from here. */
+    public OptionalLong activeSinceDay() {
+        return activeSinceDay == null ? OptionalLong.empty() : OptionalLong.of(activeSinceDay);
+    }
+
+    public void setActiveSinceDay(long realmDay) {
+        this.activeSinceDay = realmDay;
     }
 
     public Optional<UUID> approvedBy() {
