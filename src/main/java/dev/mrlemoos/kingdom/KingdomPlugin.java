@@ -394,6 +394,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 hansardArchivist.setCalendarService(realmCalendarService);
                 electionService.setHansardArchivist(hansardArchivist::archive);
                 electionService.setMcDayClock(mcDayClock);
+                electionService.setNameResolver(id -> {
+                        String name = getServer().getOfflinePlayer(id).getName();
+                        return name == null ? id.toString() : name;
+                });
                 // A Premier who wars or dissolves in winter answers for it in political standing —
                 // never by a motion, which only the House may table.
                 WinterCensureService winterCensureService = new WinterCensureService(

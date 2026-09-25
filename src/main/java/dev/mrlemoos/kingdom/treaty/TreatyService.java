@@ -2,6 +2,7 @@ package dev.mrlemoos.kingdom.treaty;
 
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
+import dev.mrlemoos.kingdom.parliament.HansardRecord;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Collection;
 import java.util.HashMap;
@@ -55,6 +56,7 @@ public final class TreatyService {
         treaty.assentedBy.add(Kingdom.normaliseId(kingdomId));
         if (treaty.assentedBy.size() == 2) {
             treaty.active = true;
+            enterInHansard(key, "in force", mcDay);
             return TreatyResult.ok("Treaty is now active.");
         }
         return TreatyResult.ok("Treaty awaits the counterpart Crown's assent.");
@@ -80,19 +82,42 @@ public final class TreatyService {
         treaty.repealAssentedBy.add(Kingdom.normaliseId(kingdomId));
         if (treaty.repealAssentedBy.size() == 2) {
             treaties.remove(Key.of(kingdomId, counterpartId, kind));
+            enterInHansard(Key.of(kingdomId, counterpartId, kind), "repealed", mcDay);
             return TreatyResult.ok("Treaty repealed.");
         }
         return TreatyResult.ok("Treaty repeal awaits the counterpart Crown's assent.");
     }
 
     public void expire(long mcDay) {
-        treaties.entrySet().removeIf(entry -> !entry.getValue().active && entry.getValue().expiresOnMcDay <= mcDay);
-        treaties.values().forEach(treaty -> {
-            if (treaty.active && treaty.repealExpiresOnMcDay <= mcDay) {
+        var entries = treaties.entrySet().iterator();
+        while (entries.hasNext()) {
+            var entry = entries.next();
+            Treaty treaty = entry.getValue();
+            if (!treaty.active && treaty.expiresOnMcDay <= mcDay) {
+                entries.remove();
+                enterInHansard(entry.getKey(), "lapsed unanswered", mcDay);
+            } else if (treaty.active && treaty.repealExpiresOnMcDay <= mcDay) {
                 treaty.repealAssentedBy.clear();
                 treaty.repealExpiresOnMcDay = Long.MAX_VALUE;
+                enterInHansard(entry.getKey(), "repeal lapsed; the treaty remains in force", mcDay);
             }
-        });
+        }
+    }
+
+    /** Both realms keep the record: each Commons divided on its own bill, but the pact is shared. */
+    private void enterInHansard(Key key, String outcome, long mcDay) {
+        String title = (key.kind == TreatyKind.TRADE_PACT ? "Trade pact" : "Non-aggression treaty")
+                + " between " + displayName(key.first) + " and " + displayName(key.second);
+        HansardRecord record = HansardRecord.notice(title, "treaty", outcome, mcDay);
+        for (String kingdomId : new String[] {key.first, key.second}) {
+            kingdomService.getKingdom(kingdomId)
+                    .ifPresent(kingdom -> kingdom.getParliamentState().addHansardRecord(record));
+        }
+    }
+
+    private String displayName(String kingdomId) {
+        java.util.Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        return kingdom.isPresent() ? kingdom.get().getDisplayName() : kingdomId;
     }
 
     public boolean isActive(String kingdomId, String counterpartId, TreatyKind kind) {

@@ -35,6 +35,7 @@ public final class ElectionService {
     private BiConsumer<String, List<HansardRecord>> hansardArchivist = (kingdomId, records) -> {};
     private dev.mrlemoos.kingdom.parliament.WinterCensureService winterCensureService;
     private LongSupplier mcDayClock = () -> 0L;
+    private java.util.function.Function<UUID, String> nameResolver = UUID::toString;
 
     public ElectionService(KingdomService kingdomService, ElectionConfig config) {
         this(kingdomService, config, System::currentTimeMillis);
@@ -44,6 +45,11 @@ public final class ElectionService {
         this.kingdomService = kingdomService;
         this.config = config;
         this.clockMs = clockMs;
+    }
+
+    /** How a returned member is named in Hansard. */
+    public void setNameResolver(java.util.function.Function<UUID, String> nameResolver) {
+        this.nameResolver = nameResolver != null ? nameResolver : UUID::toString;
     }
 
     /** Who binds and shelves Hansard when a Parliament is prorogued. */
@@ -255,13 +261,44 @@ public final class ElectionService {
             return ElectionCloseOutcome.failed("The election period has not ended.");
         }
 
-        return switch (election.type().orElseThrow()) {
+        ElectionType type = election.type().orElseThrow();
+        String title = switch (type) {
+            case GENERAL -> "General election";
+            case BY_ELECTION_PLAYER, BY_ELECTION_VILLAGER ->
+                "By-election, seat " + election.byElectionSeatIndex().orElse(0);
+            case PREMIER -> "Premier election";
+        };
+        ElectionCloseOutcome outcome = switch (type) {
             case GENERAL -> closeGeneralElection(kingdom.get(), electionState, election, professionCounts);
             case BY_ELECTION_PLAYER -> closePlayerByElection(kingdom.get(), electionState, election);
             case BY_ELECTION_VILLAGER ->
                 closeVillagerByElection(kingdom.get(), electionState, election, professionCounts);
             case PREMIER -> closePremierElection(kingdom.get(), electionState, election);
         };
+        if (outcome.complete()) {
+            enterInHansard(kingdom.get(), title, returns(outcome));
+        }
+        return outcome;
+    }
+
+    private String returns(ElectionCloseOutcome outcome) {
+        if (outcome.premierWinner() != null) {
+            return nameResolver.apply(outcome.premierWinner()) + " elected Premier";
+        }
+        List<String> parts = new java.util.ArrayList<>();
+        if (!outcome.playerWinners().isEmpty()) {
+            parts.add("returned " + String.join(", ", outcome.playerWinners().stream().map(nameResolver).toList()));
+        }
+        if (!outcome.villagerProfessions().isEmpty()) {
+            parts.add("villager benches: " + String.join(", ", outcome.villagerProfessions().stream()
+                    .map(ProfessionConstituencyResolver::displayLabel).toList()));
+        }
+        return parts.isEmpty() ? "no member returned" : String.join("; ", parts);
+    }
+
+    private void enterInHansard(Kingdom kingdom, String title, String outcome) {
+        kingdom.getParliamentState().addHansardRecord(
+                HansardRecord.notice(title, "election", outcome, mcDayClock.getAsLong()));
     }
 
     public ElectionResult appointVillagerPremier(String kingdomId, Map<String, Integer> professionCounts) {
@@ -283,6 +320,8 @@ public final class ElectionService {
         String profession = electionState.seat(premierSeat.getAsInt())
                 .flatMap(MpSeat::profession)
                 .orElse("unknown");
+        enterInHansard(kingdom.get(), "Premier", "Premier villager appointed from the "
+                + ProfessionConstituencyResolver.displayLabel(profession) + " bench");
         return ElectionResult.ok("Premier villager appointed from seat "
                 + premierSeat.getAsInt()
                 + " ("

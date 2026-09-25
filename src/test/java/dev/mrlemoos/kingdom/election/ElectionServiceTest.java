@@ -278,6 +278,41 @@ class ElectionServiceTest {
     }
 
     @Test
+    void electionReturnsAreEnteredInHansard() {
+        electionService.setNameResolver(id -> id.equals(CITIZEN_ONE) ? "Alice" : "Bob");
+        assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        castVote(VOTER, CITIZEN_ONE);
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        electionService.startPremierElection("northmarch");
+        electionService.nominate("northmarch", CITIZEN_ONE);
+        electionService.castElectionVote("northmarch", CITIZEN_ONE, CITIZEN_ONE);
+        now += 10 * 60_000L + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 5));
+
+        var hansard = kingdomService.getKingdom("northmarch").orElseThrow().getParliamentState().hansardView();
+        assertEquals(2, hansard.size());
+        assertEquals("General election", hansard.get(0).title());
+        assertEquals("election", hansard.get(0).business());
+        assertTrue(hansard.get(0).outcome().startsWith("returned Alice; villager benches: Farmer"));
+        assertEquals("Premier election", hansard.get(1).title());
+        assertEquals("Alice elected Premier", hansard.get(1).outcome());
+    }
+
+    @Test
+    void villagerPremierAppointmentIsEnteredInHansard() {
+        electionService.startGeneralElection("northmarch");
+        now += ElectionConfig.defaults().durationMs() + 1;
+        electionService.tryCloseElection("northmarch", Map.of("farmer", 10));
+        electionService.appointVillagerPremier("northmarch", Map.of("farmer", 10));
+
+        var hansard = kingdomService.getKingdom("northmarch").orElseThrow().getParliamentState().hansardView();
+        assertEquals("Premier villager appointed from the Farmer bench", hansard.getLast().outcome());
+    }
+
+    @Test
     void noPlayerMpsAppointsVillagerPremier() {
         assertInstanceOf(ElectionResult.Success.class, electionService.startGeneralElection("northmarch"));
         now += ElectionConfig.defaults().durationMs() + 1;

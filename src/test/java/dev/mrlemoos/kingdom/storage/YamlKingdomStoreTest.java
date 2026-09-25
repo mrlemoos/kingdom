@@ -143,6 +143,8 @@ class YamlKingdomStoreTest {
                 142L));
         kingdom.getParliamentState().addHansardRecord(new HansardRecord(
                 "Budget Act 2026", "budget", false, 1, 4, 0, 8, java.util.List.of(), 143L));
+        kingdom.getParliamentState().addHansardRecord(
+                HansardRecord.notice("General election", "election", "returned Alice", 144L));
 
         YamlConfiguration config = new YamlConfiguration();
         YamlKingdomStore.writeParliament(config, "kingdoms.northmarch.parliament", kingdom);
@@ -151,7 +153,9 @@ class YamlKingdomStoreTest {
         YamlKingdomStore.readParliament(config.getConfigurationSection("kingdoms.northmarch.parliament"), loaded);
 
         java.util.List<HansardRecord> records = loaded.getParliamentState().hansardView();
-        assertEquals(2, records.size());
+        assertEquals(3, records.size());
+        assertEquals("", records.get(1).outcome());
+        assertEquals("returned Alice", records.get(2).outcome());
         HansardRecord first = records.get(0);
         assertEquals("Finance Act 2026", first.title());
         assertEquals("fiscal", first.business());

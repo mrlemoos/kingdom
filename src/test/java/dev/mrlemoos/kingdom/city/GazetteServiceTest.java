@@ -86,7 +86,7 @@ class GazetteServiceTest {
         assertEquals(1, hansard.size());
         assertEquals("decree", hansard.get(0).business());
         assertEquals("Night watch", hansard.get(0).title());
-        assertTrue(hansard.get(0).carried());
+        assertEquals("proclaimed", hansard.get(0).outcome());
 
         Optional<CurfewEnforcementConfig> curfew = kingdom.getCityState().decreeCurfew();
         assertTrue(curfew.isPresent());

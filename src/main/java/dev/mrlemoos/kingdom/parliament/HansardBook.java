@@ -72,6 +72,10 @@ public final class HansardBook {
         List<String> lines = new ArrayList<>();
         lines.add(dateStamp.apply(record.decidedOnMcDay()));
         lines.add(strip(record.title()));
+        if (record.isNotice()) {
+            lines.add(businessLabel(record.business()) + " - " + strip(record.outcome()));
+            return lines;
+        }
         lines.add(businessLabel(record.business()) + " - " + (record.carried() ? "carried" : "not carried"));
         lines.add("Ayes " + record.aye() + ", Noes " + record.nay() + ", Abstentions " + record.abstain());
         if (record.electorate() > 0) {

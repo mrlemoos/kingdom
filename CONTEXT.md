@@ -391,7 +391,7 @@ How villager MPs are grouped in a division tally — by the profession that retu
 _Avoid_: Villager party, profession party
 
 **Hansard**:
-The bound record of a parliamentary session: every division, its tally by party and profession bloc, and every referendum result. Written to the registrar as a book at prorogation, one volume per Parliament, from records kept as each division closes.
+The bound record of a parliamentary session: every division, its tally by party and profession bloc, and every referendum result; alongside them, business the House did not divide on — decrees proclaimed, election returns, and treaties coming into force, repealed, or lapsing (entered in both realms' records). Written to the registrar as a book at prorogation, one volume per Parliament, from records kept as each division closes.
 _Avoid_: Log, minutes, transcript
 
 **Questions to the Premier**:

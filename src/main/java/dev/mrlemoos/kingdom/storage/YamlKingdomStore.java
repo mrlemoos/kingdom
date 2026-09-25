@@ -1267,6 +1267,9 @@ public final class YamlKingdomStore {
             config.set(recordPath + ".abstain", record.abstain());
             config.set(recordPath + ".electorate", record.electorate());
             config.set(recordPath + ".mc-day", record.decidedOnMcDay());
+            if (record.isNotice()) {
+                config.set(recordPath + ".outcome", record.outcome());
+            }
             List<DivisionBloc> blocs = record.blocs();
             for (int blocIndex = 0; blocIndex < blocs.size(); blocIndex++) {
                 DivisionBloc bloc = blocs.get(blocIndex);
@@ -1322,7 +1325,8 @@ public final class YamlKingdomStore {
                     entry.getInt("abstain"),
                     entry.getInt("electorate"),
                     blocs,
-                    entry.getLong("mc-day")));
+                    entry.getLong("mc-day"),
+                    entry.getString("outcome", "")));
         }
         return List.copyOf(records);
     }

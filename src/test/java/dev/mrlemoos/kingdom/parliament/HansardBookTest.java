@@ -26,6 +26,14 @@ class HansardBookTest {
     }
 
     @Test
+    void aNoticeRendersItsOutcomeWithoutATally() {
+        List<String> lines = HansardBook.entryLines(
+                HansardRecord.notice("Night watch", "decree", "proclaimed", 12L));
+
+        assertEquals(List.of("Day 12", "Night watch", "Decree - proclaimed"), lines);
+    }
+
+    @Test
     void emptySessionRendersNoVolume() {
         assertTrue(HansardBook.render("Northmarch", List.of()).isEmpty());
     }

@@ -13,6 +13,8 @@ import java.util.List;
  * @param electorate    how many were entitled to decide, against which turnout is read
  * @param blocs         how the benches divided, empty where the business was not a division
  * @param decidedOnMcDay the in-game day the result was declared
+ * @param outcome       blank for a division; otherwise what befell business the House did not divide
+ *                      on — a decree proclaimed, an election's returns, a treaty coming into force
  */
 public record HansardRecord(
         String title,
@@ -23,12 +25,29 @@ public record HansardRecord(
         int abstain,
         int electorate,
         List<DivisionBloc> blocs,
-        long decidedOnMcDay) {
+        long decidedOnMcDay,
+        String outcome) {
 
     public HansardRecord {
         title = title == null ? "" : title;
         business = business == null ? "" : business;
         blocs = blocs == null ? List.of() : List.copyOf(blocs);
+        outcome = outcome == null ? "" : outcome;
+    }
+
+    public HansardRecord(
+            String title, String business, boolean carried, int aye, int nay, int abstain, int electorate,
+            List<DivisionBloc> blocs, long decidedOnMcDay) {
+        this(title, business, carried, aye, nay, abstain, electorate, blocs, decidedOnMcDay, "");
+    }
+
+    /** Business entered in the record without a division. */
+    public static HansardRecord notice(String title, String business, String outcome, long decidedOnMcDay) {
+        return new HansardRecord(title, business, true, 0, 0, 0, 0, List.of(), decidedOnMcDay, outcome);
+    }
+
+    public boolean isNotice() {
+        return !outcome.isBlank();
     }
 
     /** Votes recorded either way. */

@@ -107,16 +107,8 @@ public final class GazetteService {
         city.addGazettePost(new GazettePost(headline, text, authorId, mcDay, kind, postCurfew));
 
         if (kind == GazettePostKind.DECREE) {
-            kingdom.getParliamentState().addHansardRecord(new HansardRecord(
-                    headline,
-                    "decree",
-                    true,
-                    0,
-                    0,
-                    0,
-                    0,
-                    List.of(),
-                    mcDay));
+            kingdom.getParliamentState().addHansardRecord(
+                    HansardRecord.notice(headline, "decree", "proclaimed", mcDay));
             if (curfew.isPresent()) {
                 city.setDecreeCurfew(curfew.get());
             }
