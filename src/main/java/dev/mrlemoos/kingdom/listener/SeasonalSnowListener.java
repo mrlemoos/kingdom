@@ -33,6 +33,7 @@ public final class SeasonalSnowListener implements Listener, Runnable {
     private final RealmCalendarService calendarService;
     private final KingdomService kingdomService;
     private final Random random = new Random();
+    private Season lastSeason;
 
     public SeasonalSnowListener(
             JavaPlugin plugin, RealmCalendarService calendarService, KingdomService kingdomService) {
@@ -69,9 +70,15 @@ public final class SeasonalSnowListener implements Listener, Runnable {
 
     @Override
     public void run() {
+        Season season = currentSeason();
+        boolean winterStarted = season == Season.WINTER && lastSeason != Season.WINTER;
+        lastSeason = season;
         for (World world : plugin.getServer().getWorlds()) {
             if (world.getEnvironment() != World.Environment.NORMAL) {
                 continue;
+            }
+            if (winterStarted && currentSeasonProfile().stormChance() > 0.0 && !world.hasStorm()) {
+                world.setStorm(true);
             }
             for (Chunk chunk : world.getLoadedChunks()) {
                 reconcile(chunk);
