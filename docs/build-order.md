@@ -683,6 +683,121 @@ Ceremony layer per [`docs/adr/0008-a-priest-keeps-the-realms-rites.md`](adr/0008
 
 ---
 
+## Phase 9 — Experiences over commands
+
+Per [`docs/adr/0009-experiences-over-commands.md`](adr/0009-experiences-over-commands.md). Each slice moves one power into the world and makes its siting command operator-only. The Hub already has `RealmHubTopic.PLACE_*` for every site. Reuse `ItemBuilder` + PDC tagging (letter-item pattern), the existing siting policies (`CapitalSitingPolicy`, `GranarySiting`, `RoyalMintPlacementPolicy`), the NPC services' `spawn`/`reconcile`, and the `PermitRevokeConfirmGui` confirm pattern.
+
+### Slice 9.0 — Hub sections and the feedback vocabulary
+
+| | |
+|---|---|
+| **Goal** | The Realm Hub becomes a front page (standing, live business, section doors) and six **hub section**s; every entry's lore reads state / how / who; the feedback vocabulary is fixed once for every later slice. |
+| **Domain** | `RealmHubSection` enum; each `RealmHubTopic` belongs to exactly one section; section layout rows (places, powers, experiences) in `RealmHubLayout`; entry lore carries state, how and who. |
+| **Bukkit** | Front page and section pages in `RealmHubGui` with Back; `/kingdom` stays the only way in. Feedback helpers added to `RealmFeedback`: action-bar instruction and refusal, milestone title (involved or realm-wide), success sound + particles at a location, refusal sound; boss bars via the existing `feedback/*BossBarService` pattern. |
+| **Depends on** | Realm Hub. |
+| **Acceptance (domain)** | Tests: every topic maps to one section; no section overflows its rows without paging; live business lands on the front page. |
+| **Acceptance (Bukkit)** | Open `/kingdom`, walk every section and back; greyed entries still name who may. |
+| **Spike vs flag** | **Feature** — the frame each later slice fills. |
+
+**Every slice below** also adds its Hub entry (state / how / who) and uses the vocabulary: action bar while an item is held and on refusal; title for milestones to those involved (realm-wide only for coronation, founding the capital, polls opening); boss bar for any window; chat record; sound and particles on success, sound only on refusal.
+
+### Slice 9.1 — Church foundation stone (tracer)
+
+| | |
+|---|---|
+| **Goal** | The Crown takes the church's **foundation stone** from the Realm Hub, lays it in territory, and the church is sited there with its cleric; the site is cleared from the Hub behind a confirmation. |
+| **Domain** | `FoundationStone` kind enum and the rule that refusal returns the stone; siting reuses the existing church set/clear invariants. |
+| **Bukkit** | `PLACE_CHURCH` Hub action hands the tagged item; a `BlockPlaceEvent` listener cancels the placement, runs `CapitalSitingPolicy`, sets the church at the block, spawns the cleric and takes the item (or keeps it and names the refusal); "Clear site" → confirm GUI; `/kingdom church set|clear` become OP-only. |
+| **Depends on** | Phase 8.1; Realm Hub. |
+| **Acceptance (domain)** | Tests: laid outside territory refused and stone kept; non-Crown refused; re-siting unconsecrates as before. |
+| **Acceptance (Bukkit)** | Take stone, lay it, cleric appears, stone gone; lay in wilderness, stone stays; clear from Hub; Crown typing `church set` refused. |
+| **Spike vs flag** | **Feature** — proves the stone for every later site. |
+
+### Slice 9.2 — Capital, Town Crier and mint stones
+
+| | |
+|---|---|
+| **Goal** | The capital, the Town Crier's stand and mints are sited by stone; the capital stone also links the smallest WorldGuard subregion around it as the capital war region. |
+| **Bukkit** | `PLACE_CAPITAL`, `PLACE_TOWN_CRIER`, `PLACE_MINTS` hand stones; mint stones go to whoever may place a mint today; Hub clear for each (mint clear lists mints); `capital set|clear|setregion|clearregion`, `crier set|clear`, `mint place|remove` become OP-only. |
+| **Depends on** | 9.1. |
+| **Acceptance (domain)** | Tests: smallest containing subregion chosen; no subregion leaves the war region unset. |
+| **Acceptance (Bukkit)** | Lay each stone; Lord Mayor, Crier and Treasury Lord appear. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.3 — Parliament stones
+
+| | |
+|---|---|
+| **Goal** | Commons, Speaker's Chair, bar and MP seats are sited by stone, seats taking the next empty number; the Lords stone is a banner in the Crown's design and raises the **kingdom flag**; the registrar stone is a chiseled bookshelf that stays. |
+| **Domain** | Next-empty-seat rule (1→8, refused when full). |
+| **Bukkit** | `PLACE_COMMONS`/`PLACE_LORDS` hand stones; the Lords banner copies the design of a banner the Crown holds when asking, else Crown gold; registrar placement keeps the block; Hub clear per point, seats picked from a list; `parliament set …` becomes OP-only. |
+| **Depends on** | 9.1. |
+| **Acceptance (domain)** | Tests: seats fill in order; a cleared seat is filled next; ninth seat refused. |
+| **Acceptance (Bukkit)** | Lay all eight seats, clear seat 3, lay again, it becomes seat 3. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.4 — Court, cells and granary stones
+
+| | |
+|---|---|
+| **Goal** | The court stone is a lectern that stays and seats the judge; cell stones take the next free number; the granary stone (a hay bale) links the smallest region around it. |
+| **Bukkit** | `PLACE_COURT`, `PLACE_PRISON`, `PLACE_GRANARY` hand stones; Hub clear per site, cells picked from a list; `police setcell|clearcell|court`, `granary setregion|clear` become OP-only. |
+| **Depends on** | 9.1, 9.3 (numbering). |
+| **Acceptance (Bukkit)** | Lay the lectern, judge appears; lay two cell stones, cells 1 and 2; lay the hay bale inside a region, it becomes the granary. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.5 — Rites window
+
+| | |
+|---|---|
+| **Goal** | Right-clicking the cleric offers every rite the clicker may ask for; marriage consent is given in a window. |
+| **Bukkit** | `ClericGuiListener` gains a rites window beside coronation and the oath of service: consecrate, marry (partner picked from members at the church, who get an Accept/Refuse window), divorce with confirm, annul (Crown, couple list), funeral (deceased list); replaces the chat consent book; `church consecrate|marry|divorce|annul|funeral` become OP-only. |
+| **Depends on** | Phase 8. |
+| **Acceptance (Bukkit)** | Marry two players by clicks alone; refuse consent, no marriage; a non-member sees no rites. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.6 — Sworn roles by the sword
+
+| | |
+|---|---|
+| **Goal** | The honours window swears and unswears constable, judge and priest. |
+| **Bukkit** | `HonoursGui` gains a sworn-roles row with the constable/judge exclusion and coronation gate; `police appoint|dismiss` and `church swear|unswear` become OP-only. |
+| **Depends on** | Honours; Phase 8.2. |
+| **Acceptance (Bukkit)** | Strike a member, swear constable, then judge is refused until constable is unsworn. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.7 — Built police golems
+
+| | |
+|---|---|
+| **Goal** | An iron golem built inside territory by the Crown or a Knight becomes a **patrol golem**; its orders window sets guard or stands it down. |
+| **Bukkit** | Track the pumpkin placer (`BlockPlaceEvent`), match `CreatureSpawnEvent` `BUILD_IRONGOLEM` at that spot, tag it via `PoliceGolemService`; cap refusal leaves a vanilla golem; `PoliceGolemOrderGui` gains "Stand down"; `police deploy|despawn` become OP-only. |
+| **Depends on** | Police golems. |
+| **Acceptance (Bukkit)** | Knight builds a golem, it patrols; a commoner's golem stays vanilla; at the cap, the next is vanilla. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.8 — Poll card and Parliament hub buttons
+
+| | |
+|---|---|
+| **Goal** | Elections start, and referendums are called and closed, from the Parliament hub; members nominate and vote on a **poll card**. |
+| **Bukkit** | `ParliamentHubGui` buttons gated as the commands are; poll card delivered to online members on writ and on join while open (letter-delivery pattern); `ElectionBallotGui` shows nomination, ballot or Speaker's vote by phase; the card is taken after voting; the referendum ballot uses the same card; `election …` and `referendum call|close` become OP-only. |
+| **Depends on** | Elections; referendum. |
+| **Acceptance (Bukkit)** | Start an election from the hub, stand and vote by card alone; log in mid-poll, card delivered. |
+| **Spike vs flag** | **Feature**. |
+
+### Slice 9.9 — Deposit, arrest, reward, warrants and tribute
+
+| | |
+|---|---|
+| **Goal** | The remaining realm powers move to where they are exercised. |
+| **Bukkit** | Deposit button in the Lord of the Treasury window; constable arrests by striking a wanted player with an iron sword; reward posted from the court lectern; Crown cancels from a warrant register in the Hub with confirm; tribute paid from the Hub. Matching commands become OP-only. |
+| **Depends on** | 9.4 (court). |
+| **Acceptance (Bukkit)** | Each power exercised without typing. |
+| **Spike vs flag** | **Feature** — may split per power. |
+
+---
+
 ## Not in scope yet
 
 The following are explicitly deferred per ADR, evaluation doc, or `CONTEXT.md`:

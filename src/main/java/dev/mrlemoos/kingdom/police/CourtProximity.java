@@ -18,4 +18,12 @@ public final class CourtProximity {
             double fromX, double fromY, double fromZ, double courtX, double courtY, double courtZ) {
         return isWithinBallotRange(fromX - courtX, fromY - courtY, fromZ - courtZ);
     }
+
+    /**
+     * True when a lectern at {@code (x, y, z)} is the court's own: the judge sits behind it, so it
+     * stands one block beside the judge's seat on the same level.
+     */
+    public static boolean isCourtLectern(int courtX, int courtY, int courtZ, int x, int y, int z) {
+        return y == courtY && Math.abs(x - courtX) + Math.abs(z - courtZ) == 1;
+    }
 }

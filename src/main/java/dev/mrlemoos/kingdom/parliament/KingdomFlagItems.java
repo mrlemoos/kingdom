@@ -67,6 +67,12 @@ public final class KingdomFlagItems {
         if (!(block.getState() instanceof Banner banner)) {
             return true;
         }
+        banner.setPatterns(patterns(flag));
+        banner.update(true, false);
+        return true;
+    }
+
+    private static List<Pattern> patterns(KingdomFlag flag) {
         List<Pattern> patterns = new ArrayList<>();
         for (KingdomFlag.Layer layer : flag.layers()) {
             PatternType patternType = resolvePattern(layer.patternId());
@@ -81,9 +87,17 @@ public final class KingdomFlagItems {
             }
             patterns.add(new Pattern(colour, patternType));
         }
-        banner.setPatterns(patterns);
-        banner.update(true, false);
-        return true;
+        return patterns;
+    }
+
+    /** The banner item with the flag's loom layers laid on it; its base colour is the item's own. */
+    public static ItemStack withPatterns(ItemStack banner, KingdomFlag flag) {
+        if (banner == null || flag == null || !(banner.getItemMeta() instanceof BannerMeta meta)) {
+            return banner;
+        }
+        meta.setPatterns(patterns(flag));
+        banner.setItemMeta(meta);
+        return banner;
     }
 
     public static boolean clearIfBanner(Block block) {

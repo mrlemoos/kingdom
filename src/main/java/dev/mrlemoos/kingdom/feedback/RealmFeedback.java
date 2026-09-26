@@ -8,9 +8,11 @@ import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -274,6 +276,73 @@ public final class RealmFeedback {
         }
         play(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         title(player, "&6Elected", "&eYou are returned as " + officeLabel);
+    }
+
+    // --- the vocabulary every experience answers in -----------------------
+
+    /** What to do next, on the action bar while an item is in hand. */
+    public static void instruct(Player player, String instruction) {
+        if (player == null || noServer()) {
+            return;
+        }
+        actionBar(player, "&e" + instruction);
+    }
+
+    /** A refusal: said in red on the action bar and heard, never seen. */
+    public static void refuse(Player player, String refusal) {
+        if (player == null || noServer()) {
+            return;
+        }
+        actionBar(player, "&c" + refusal);
+        refusalSound(player);
+    }
+
+    /** The sound of a refusal, alone. */
+    public static void refusalSound(Player player) {
+        if (player == null || noServer()) {
+            return;
+        }
+        play(player, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+    }
+
+    /** A milestone titled to those it concerns. */
+    public static void milestone(Collection<? extends Player> players, String heading, String subheading) {
+        if (players == null || noServer()) {
+            return;
+        }
+        Title title = Title.title(ColourEncoder.component(heading), ColourEncoder.component(subheading));
+        for (Player player : players) {
+            if (player != null) {
+                player.showTitle(title);
+            }
+        }
+    }
+
+    /**
+     * A milestone titled to the whole realm. Kept for coronation, the founding of a capital and the
+     * opening of polls.
+     */
+    public static void realmMilestone(
+            KingdomService kingdomService, String kingdomId, String heading, String subheading) {
+        milestone(onlineMembers(kingdomService, kingdomId), heading, subheading);
+    }
+
+    /** A vote cast or a name put forward: said on the action bar and heard. */
+    public static void pollAnswered(Player player, String line) {
+        if (player == null || noServer()) {
+            return;
+        }
+        actionBar(player, "&a" + line);
+        play(player, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.2f);
+    }
+
+    /** A success, heard and seen at the spot it happened. */
+    public static void success(Location location) {
+        if (noServer() || location == null || location.getWorld() == null) {
+            return;
+        }
+        location.getWorld().playSound(location, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+        burst(location, Particle.HAPPY_VILLAGER, 16);
     }
 
     // --- the plumbing -----------------------------------------------------

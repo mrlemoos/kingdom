@@ -48,6 +48,10 @@ public final class ParliamentHubGui implements InventoryHolder {
     static final int SLOT_TABLE_NO_CONFIDENCE = 25;
     static final int SLOT_SECOND_NO_CONFIDENCE = 34;
 
+    static final int SLOT_START_ELECTION = 10;
+    static final int SLOT_CALL_REFERENDUM = 12;
+    static final int SLOT_CLOSE_REFERENDUM = 14;
+
     private static final int[] BUDGET_PRESET_SLOTS = {SLOT_BUDGET_50, SLOT_BUDGET_100, SLOT_BUDGET_250, SLOT_BUDGET_500};
     private static final int[] BUDGET_PRESET_AMOUNTS = {50, 100, 250, 500};
 
@@ -200,6 +204,31 @@ public final class ParliamentHubGui implements InventoryHolder {
                                 + "Second the motion",
                         "Confirm the motion so the House may divide"));
 
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.START_ELECTION,
+                SLOT_START_ELECTION,
+                ItemBuilder.labelled(
+                        Material.LECTERN,
+                        c("&bStart a general election"),
+                        "Dissolve Parliament; every member is handed a poll card"));
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.CALL_REFERENDUM,
+                SLOT_CALL_REFERENDUM,
+                ItemBuilder.labelled(
+                        Material.WRITABLE_BOOK,
+                        c("&bCall a referendum"),
+                        "Type the question in chat; every member is handed a poll card"));
+        placeIfVisible(
+                inventory,
+                view,
+                ParliamentHubAction.CLOSE_REFERENDUM,
+                SLOT_CLOSE_REFERENDUM,
+                ItemBuilder.labelled(Material.RED_BANNER, c("&cClose the referendum"), "End polling early and declare the answer"));
+
         view.resignationSummary()
                 .ifPresent(summary -> placeIfVisible(
                         inventory,
@@ -245,6 +274,9 @@ public final class ParliamentHubGui implements InventoryHolder {
             case SLOT_TABLE_NO_CONFIDENCE -> ParliamentHubAction.TABLE_NO_CONFIDENCE;
             case SLOT_SECOND_NO_CONFIDENCE -> ParliamentHubAction.SECOND_NO_CONFIDENCE;
             case SLOT_REVIEW_RESIGNATION -> ParliamentHubAction.REVIEW_RESIGNATION;
+            case SLOT_START_ELECTION -> ParliamentHubAction.START_ELECTION;
+            case SLOT_CALL_REFERENDUM -> ParliamentHubAction.CALL_REFERENDUM;
+            case SLOT_CLOSE_REFERENDUM -> ParliamentHubAction.CLOSE_REFERENDUM;
             default -> null;
         };
     }

@@ -3,29 +3,28 @@ package dev.mrlemoos.kingdom.command;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
-import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
+import dev.mrlemoos.kingdom.honours.SwornRoleAppointments;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
-import dev.mrlemoos.kingdom.police.ArrestRewardService;
+import dev.mrlemoos.kingdom.model.police.SwornRole;
 import dev.mrlemoos.kingdom.police.CourtBench;
-import dev.mrlemoos.kingdom.police.CourtProximity;
 import dev.mrlemoos.kingdom.police.PoliceAuthority;
 import dev.mrlemoos.kingdom.police.PoliceConfig;
 import dev.mrlemoos.kingdom.police.PoliceCourtService;
 import dev.mrlemoos.kingdom.police.PoliceGolemService;
 import dev.mrlemoos.kingdom.police.PoliceResult;
 import dev.mrlemoos.kingdom.police.PoliceService;
-import dev.mrlemoos.kingdom.police.PoliceTrialService;
+import dev.mrlemoos.kingdom.police.PoliceSiting;
 import dev.mrlemoos.kingdom.police.TrialJuryRuntime;
+import dev.mrlemoos.kingdom.police.WarrantDesk;
 import dev.mrlemoos.kingdom.appeal.AppealService;
 import dev.mrlemoos.kingdom.service.KingdomService;
-import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.List;
@@ -47,16 +46,15 @@ public final class KingdomPoliceHandler {
     private final PoliceGolemService golemService;
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
-    private final YamlEconomyStore economyStore;
-    private final EconomyService economyService;
     private final TerritoryResolver territoryResolver;
     private final NoblePrefixDisplay nobleDisplay;
-    private final ArrestRewardService arrestRewardService;
     private final PoliceConfig config;
-    private PoliceTrialService trialService;
+    private final PoliceSiting policeSiting;
     private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private TrialJuryRuntime trialJuryRuntime;
+    private SwornRoleAppointments swornRoles;
     private AppealService appealService;
+    private WarrantDesk warrantDesk;
     private java.util.function.Consumer<String> appealDelivery = ignored -> {};
 
     public KingdomPoliceHandler(
@@ -66,28 +64,29 @@ public final class KingdomPoliceHandler {
             KingdomService kingdomService,
             YamlKingdomStore store,
             TerritoryResolver territoryResolver,
-            NoblePrefixDisplay nobleDisplay,
-            ArrestRewardService arrestRewardService,
-            EconomyService economyService,
-            YamlEconomyStore economyStore) {
+            NoblePrefixDisplay nobleDisplay) {
         this.policeService = policeService;
         this.courtService = courtService;
         this.golemService = golemService;
         this.kingdomService = kingdomService;
         this.store = store;
-        this.economyStore = economyStore;
-        this.economyService = economyService;
         this.territoryResolver = territoryResolver;
         this.nobleDisplay = nobleDisplay;
-        this.arrestRewardService = arrestRewardService;
         this.config = policeService.config();
+        this.policeSiting = new PoliceSiting(policeService, courtService, golemService, kingdomService, store);
     }
 
-    public void setTrialJuryRuntime(PoliceTrialService trialService, TrialJuryRuntime trialJuryRuntime) {
-        this.trialService = trialService;
+    /** The court and cells, for the foundation stones as well as the operators' commands. */
+    public PoliceSiting policeSiting() {
+        return policeSiting;
+    }
+
+    public void setTrialJuryRuntime(TrialJuryRuntime trialJuryRuntime) {
         this.trialJuryRuntime = trialJuryRuntime;
     }
     public void setAppealService(AppealService appealService) { this.appealService = appealService; }
+    /** The one road for arrests, rewards and cancellations, shared with the sword, the court and the Hub. */
+    public void setWarrantDesk(WarrantDesk warrantDesk) { this.warrantDesk = warrantDesk; }
     public void setAppealDelivery(java.util.function.Consumer<String> appealDelivery) { this.appealDelivery = appealDelivery; }
 
     public boolean handlePolice(CommandSender sender, String[] args) {
@@ -98,17 +97,19 @@ public final class KingdomPoliceHandler {
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "appoint" -> handleAppoint(sender, args);
             case "dismiss" -> handleDismiss(sender, args);
-            case "setcell" -> handleSetCell(sender, args);
-            case "clearcell" -> handleClearCell(sender, args);
-            case "court" -> handleCourt(sender, args);
-            case "placecourt" -> handleCourt(sender, new String[] {"court", "set"});
-            case "deploy" -> handleDeploy(sender, args);
-            case "despawn" -> handleDespawn(sender);
+            case "setcell" -> refusedUnlessOperator(sender, CELLS_BY_STONE) || handleSetCell(sender, args);
+            case "clearcell" -> refusedUnlessOperator(sender, CELLS_BY_STONE) || handleClearCell(sender, args);
+            case "court" -> refusedUnlessOperator(sender, COURT_BY_STONE) || handleCourt(sender, args);
+            case "placecourt" -> refusedUnlessOperator(sender, COURT_BY_STONE)
+                    || handleCourt(sender, new String[] {"court", "set"});
+            case "deploy" -> refusedUnlessOperator(sender, GOLEMS_BY_BUILDING) || handleDeploy(sender, args);
+            case "despawn" -> refusedUnlessOperator(sender, GOLEMS_BY_BUILDING) || handleDespawn(sender);
             case "status" -> handleStatus(sender);
             case "list" -> handleList(sender);
-            case "reward" -> handleReward(sender, args);
-            case "cancelwarrant" -> handleCancelWarrant(sender, args);
-            case "arrest" -> handleArrest(sender, args);
+            case "reward" -> refusedUnlessOperator(sender, REWARD_AT_COURT) || handleReward(sender, args);
+            case "cancelwarrant" -> refusedUnlessOperator(sender, WARRANTS_FROM_REGISTER)
+                    || handleCancelWarrant(sender, args);
+            case "arrest" -> refusedUnlessOperator(sender, ARREST_BY_SWORD) || handleArrest(sender, args);
             case "jury" -> handleJury(sender);
             case "appeal" -> handleAppeal(sender);
             default -> {
@@ -144,72 +145,53 @@ public final class KingdomPoliceHandler {
     /** Wires the coronation gate over sworn appointments. */
     public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
         this.churchService = churchService;
+        this.swornRoles = churchService == null ? null : new SwornRoleAppointments(policeService, churchService);
+    }
+
+    /** The one road for sworn roles, shared with the golden sword. */
+    public SwornRoleAppointments swornRoles() {
+        return swornRoles;
     }
 
     private boolean handleAppoint(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage(error("Usage: /kingdom police appoint <constable|judge> <player>"));
-            return true;
-        }
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
-        UUID targetId = target.getUniqueId();
-        String kingdomId = membership.get().getKingdomId();
-        NobleRank rank = membership.get().getRank();
-        if (churchService != null) {
-            Optional<String> uncrowned =
-                    churchService.ceremonialRefusal(kingdomId, player.get().getUniqueId(), rank);
-            if (uncrowned.isPresent()) {
-                sender.sendMessage(error(uncrowned.get()));
-                return true;
-            }
-        }
-        PoliceResult result = switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "constable" -> policeService.appointConstable(kingdomId, rank, targetId);
-            case "judge" -> policeService.appointJudge(kingdomId, rank, targetId);
-            default -> PoliceResult.fail("Usage: /kingdom police appoint <constable|judge> <player>");
-        };
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-            refreshDisplayIfOnline(targetId);
-        }
-        return true;
+        return handleSworn(sender, args, true);
     }
 
     private boolean handleDismiss(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage(error("Usage: /kingdom police dismiss <constable|judge> <player>"));
-            return true;
-        }
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
+        return handleSworn(sender, args, false);
+    }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[2]);
-        UUID targetId = target.getUniqueId();
-        String kingdomId = membership.get().getKingdomId();
-        NobleRank rank = membership.get().getRank();
-        PoliceResult result = switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "constable" -> policeService.dismissConstable(kingdomId, rank, targetId);
-            case "judge" -> policeService.dismissJudge(kingdomId, rank, targetId);
-            default -> PoliceResult.fail("Usage: /kingdom police dismiss <constable|judge> <player>");
+    /** The operators' escape hatch: swear or unswear for the Crown of the subject's own realm. */
+    private boolean handleSworn(CommandSender sender, String[] args, boolean swearing) {
+        if (refusedUnlessOperator(sender, SWORN_BY_SWORD)) {
+            return true;
+        }
+        String usage = "Usage: /kingdom police " + (swearing ? "appoint" : "dismiss") + " <constable|judge> <player>";
+        if (args.length < 3 || swornRoles == null) {
+            sender.sendMessage(error(usage));
+            return true;
+        }
+        SwornRole role = switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "constable" -> SwornRole.CONSTABLE;
+            case "judge" -> SwornRole.JUDGE;
+            default -> null;
         };
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
+        if (role == null) {
+            sender.sendMessage(error(usage));
+            return true;
+        }
+        UUID targetId = Bukkit.getOfflinePlayer(args[2]).getUniqueId();
+        Optional<PlayerMembership> subject = kingdomService.getMembership(targetId);
+        if (subject.isEmpty()) {
+            sender.sendMessage(error("That player is not a member of any kingdom."));
+            return true;
+        }
+        String kingdomId = subject.get().getKingdomId();
+        SwornRoleAppointments.Outcome outcome = swearing
+                ? swornRoles.swear(kingdomId, null, NobleRank.KING, targetId, role)
+                : swornRoles.unswear(kingdomId, null, NobleRank.KING, targetId, role);
+        sender.sendMessage(outcome.success() ? success(outcome.message()) : error(outcome.message()));
+        if (outcome.success()) {
             store.saveFrom(kingdomService);
             refreshDisplayIfOnline(targetId);
         }
@@ -250,16 +232,12 @@ public final class KingdomPoliceHandler {
                 location.getBlockX(),
                 location.getBlockY(),
                 location.getBlockZ());
-        PoliceResult result = policeService.setCell(
+        sender.sendMessage(formatPolice(policeSiting.setCell(
                 kingdomId,
                 membership.get().getRank(),
                 sender.isOp(),
                 slot,
-                cell);
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-        }
+                cell)));
         return true;
     }
 
@@ -285,15 +263,11 @@ public final class KingdomPoliceHandler {
             return true;
         }
 
-        PoliceResult result = policeService.clearCell(
+        sender.sendMessage(formatPolice(policeSiting.clearCell(
                 membership.get().getKingdomId(),
                 membership.get().getRank(),
                 sender.isOp(),
-                slot);
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-        }
+                slot)));
         return true;
     }
 
@@ -337,34 +311,17 @@ public final class KingdomPoliceHandler {
             return true;
         }
 
-        boolean moving = policeService.hasCourt(kingdomId);
-        Optional<CourtLocation> previous = policeService.court(kingdomId);
-        if (moving) {
-            courtService.despawnJudge(kingdomId);
-        }
-
         CourtLocation court = new CourtLocation(
                 standing.getWorld().getName(),
                 standing.getBlockX(),
                 standing.getBlockY(),
                 standing.getBlockZ(),
                 CourtBench.normaliseYaw(standing.getYaw()));
-        PoliceResult result = policeService.setCourt(
+        sender.sendMessage(formatPolice(policeSiting.siteCourt(
                 kingdomId,
                 membership.get().getRank(),
                 sender.isOp(),
-                court);
-        sender.sendMessage(formatPolice(result));
-        if (!(result instanceof PoliceResult.Success)) {
-            return true;
-        }
-
-        courtService.ensureJudge(kingdomId);
-        if (moving && previous.isPresent()) {
-            golemService.relocateCourtGuards(kingdomId, previous.get(), court);
-        }
-        store.saveFrom(kingdomService);
-        sender.sendMessage(success(moving ? "Court moved. Magistrate reseated." : "Court set. Magistrate seated."));
+                court)));
         return true;
     }
 
@@ -382,16 +339,8 @@ public final class KingdomPoliceHandler {
             return true;
         }
 
-        String kingdomId = membership.get().getKingdomId();
-        Optional<CourtLocation> court = policeService.court(kingdomId);
-        courtService.despawnJudge(kingdomId);
-        court.ifPresent(location -> golemService.despawnCourtGuards(kingdomId, location));
-        PoliceResult result = policeService.clearCourt(
-                kingdomId, membership.get().getRank(), sender.isOp());
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-        }
+        sender.sendMessage(formatPolice(policeSiting.clearCourt(
+                membership.get().getKingdomId(), membership.get().getRank(), sender.isOp())));
         return true;
     }
 
@@ -559,7 +508,7 @@ public final class KingdomPoliceHandler {
 
     private boolean handleReward(CommandSender sender, String[] args) {
         Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
+        if (player.isEmpty() || deskMissing(sender)) {
             return true;
         }
         if (args.length < 3) {
@@ -571,12 +520,11 @@ public final class KingdomPoliceHandler {
             return true;
         }
         String kingdomId = membership.get().getKingdomId();
-        if (!isNearCourt(player.get(), kingdomId)) {
+        if (!warrantDesk.nearCourt(player.get().getLocation(), kingdomId)) {
             sender.sendMessage(error("Post arrest rewards at the court."));
             return true;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        UUID suspectId = target.getUniqueId();
         double amount;
         try {
             amount = Double.parseDouble(args[2]);
@@ -584,19 +532,14 @@ public final class KingdomPoliceHandler {
             sender.sendMessage(error("Amount must be a number."));
             return true;
         }
-        PoliceResult result = arrestRewardService.postOrTopUp(
-                kingdomId, player.get().getUniqueId(), suspectId, amount);
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-            economyStore.saveFrom(economyService);
-        }
+        sender.sendMessage(formatPolice(warrantDesk.postReward(
+                kingdomId, player.get().getUniqueId(), target.getUniqueId(), amount)));
         return true;
     }
 
     private boolean handleCancelWarrant(CommandSender sender, String[] args) {
         Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
+        if (player.isEmpty() || deskMissing(sender)) {
             return true;
         }
         if (args.length < 2) {
@@ -607,25 +550,15 @@ public final class KingdomPoliceHandler {
         if (membership.isEmpty()) {
             return true;
         }
-        String kingdomId = membership.get().getKingdomId();
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        PoliceResult result = arrestRewardService.cancelActiveForSuspect(
-                kingdomId, player.get().getUniqueId(), target.getUniqueId());
-        sender.sendMessage(formatPolice(result));
-        if (result instanceof PoliceResult.Success) {
-            store.saveFrom(kingdomService);
-            economyStore.saveFrom(economyService);
-        }
+        sender.sendMessage(formatPolice(warrantDesk.cancelForSuspect(
+                membership.get().getKingdomId(), player.get().getUniqueId(), target.getUniqueId())));
         return true;
     }
 
     private boolean handleArrest(CommandSender sender, String[] args) {
         Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        if (trialService == null || trialJuryRuntime == null) {
-            sender.sendMessage(error("Police trial services are not ready."));
+        if (player.isEmpty() || deskMissing(sender)) {
             return true;
         }
         Optional<PlayerMembership> membership = requireMembership(player.get());
@@ -633,7 +566,7 @@ public final class KingdomPoliceHandler {
             return true;
         }
         String kingdomId = membership.get().getKingdomId();
-        if (!policeService.isConstable(kingdomId, player.get().getUniqueId())) {
+        if (!warrantDesk.isConstable(kingdomId, player.get().getUniqueId())) {
             sender.sendMessage(error("Only a constable may arrest."));
             return true;
         }
@@ -642,20 +575,20 @@ public final class KingdomPoliceHandler {
             sender.sendMessage(error("Usage: /kingdom police arrest <player> (or aim at a player)"));
             return true;
         }
-        Location suspectLoc = suspect.get().getLocation();
-        if (suspectLoc == null || !isInOwnTerritory(suspectLoc, kingdomId)) {
+        if (!warrantDesk.inJurisdiction(suspect.get().getLocation(), kingdomId)) {
             sender.sendMessage(error("The suspect must be inside your kingdom's territory."));
             return true;
         }
-        PoliceResult arrested =
-                trialService.arrest(kingdomId, player.get().getUniqueId(), suspect.get().getUniqueId());
-        sender.sendMessage(formatPolice(arrested));
-        if (!(arrested instanceof PoliceResult.Success)) {
-            return true;
+        sender.sendMessage(formatPolice(
+                warrantDesk.arrest(kingdomId, player.get().getUniqueId(), suspect.get().getUniqueId())));
+        return true;
+    }
+
+    private boolean deskMissing(CommandSender sender) {
+        if (warrantDesk != null) {
+            return false;
         }
-        store.saveFrom(kingdomService);
-        economyStore.saveFrom(economyService);
-        trialJuryRuntime.resolveAfterArrest(kingdomId, suspect.get().getUniqueId());
+        sender.sendMessage(error("Police trial services are not ready."));
         return true;
     }
 
@@ -682,26 +615,6 @@ public final class KingdomPoliceHandler {
             return Optional.of(aimed);
         }
         return Optional.empty();
-    }
-
-    private boolean isNearCourt(Player player, String kingdomId) {
-        Optional<CourtLocation> court = policeService.court(kingdomId);
-        if (court.isEmpty()) {
-            return false;
-        }
-        CourtLocation location = court.get();
-        Location playerLoc = player.getLocation();
-        if (playerLoc == null) {
-            return false;
-        }
-        org.bukkit.World world = playerLoc.getWorld();
-        if (world == null || !world.getName().equals(location.worldName())) {
-            return false;
-        }
-        double dx = playerLoc.getX() - (location.x() + 0.5);
-        double dy = playerLoc.getY() - location.y();
-        double dz = playerLoc.getZ() - (location.z() + 0.5);
-        return CourtProximity.isWithinBallotRange(dx, dy, dz);
     }
 
     private void listSwornRole(CommandSender sender, String label, java.util.Set<UUID> playerIds) {
@@ -769,6 +682,31 @@ public final class KingdomPoliceHandler {
         return Optional.empty();
     }
 
+    private static final String CELLS_BY_STONE = "The cells are sited by laying their foundation stones. "
+            + "Type /kingdom, open Police and take one from The Prison Cells.";
+    static final String SWORN_BY_SWORD = "Constables, judges and the priest are sworn with the golden sword. "
+            + "Strike a subject with one to open the honours window.";
+    private static final String GOLEMS_BY_BUILDING = "Police golems are built, not summoned. "
+            + "The Crown or a Knight builds an iron golem inside the realm's territory; "
+            + "the Crown right-clicks an officer to stand it down.";
+    private static final String ARREST_BY_SWORD = "A constable arrests by striking a wanted subject "
+            + "with an iron sword inside the realm's territory.";
+    private static final String REWARD_AT_COURT = "Arrest rewards are posted at the court. "
+            + "Right-click the court's lectern, or sneak and right-click the judge.";
+    private static final String WARRANTS_FROM_REGISTER = "The Crown cancels warrants from the warrant register. "
+            + "Type /kingdom, open Police and click The Warrant Register.";
+    private static final String COURT_BY_STONE = "The court is sited by laying its lectern. "
+            + "Type /kingdom, open Police and take it from The Court.";
+
+    /** The siting commands are the operators' escape hatch; everyone else is pointed to the Hub. */
+    private boolean refusedUnlessOperator(CommandSender sender, String pointer) {
+        if (sender.isOp()) {
+            return false;
+        }
+        sender.sendMessage(error(pointer));
+        return true;
+    }
+
     private Optional<PlayerMembership> requireMembership(Player player) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
         if (membership.isEmpty()) {
@@ -780,20 +718,16 @@ public final class KingdomPoliceHandler {
 
     private String policeHelp() {
         return info("Police commands:")
-                + "\n" + c("&e/kingdom police appoint constable <player>") + c("&7 — King or Queen")
-                + "\n" + c("&e/kingdom police dismiss constable <player>")
-                + "\n" + c("&e/kingdom police appoint judge <player>")
-                + "\n" + c("&e/kingdom police dismiss judge <player>")
-                + "\n" + c("&e/kingdom police setcell <slot>") + c("&7 — mark prison cell in territory")
-                + "\n" + c("&e/kingdom police clearcell <slot>")
-                + "\n" + c("&e/kingdom police court set") + c("&7 — set court at your feet in territory")
-                + "\n" + c("&e/kingdom police court clear") + c("&7 — remove court, judge, and court guards")
-                + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — spawn patrol golem (King, Queen or Knight)")
-                + "\n" + c("&e/kingdom police deploy guard") + c("&7 — spawn guard golem (King, Queen or Knight)")
-                + "\n" + c("&e/kingdom police despawn") + c("&7 — remove aimed or nearest golem")
-                + "\n" + c("&e/kingdom police reward <player> <amount>") + c("&7 — post or top up arrest reward at court")
-                + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — Crown cancels active warrant")
-                + "\n" + c("&e/kingdom police arrest <player>") + c("&7 — constable arrest (seats jury if no Judge)")
+                + "\n" + c("&e/kingdom police appoint|dismiss constable|judge <player>")
+                + c("&7 — operators; the Crown strikes a subject with a golden sword")
+                + "\n" + c("&e/kingdom police setcell|clearcell <slot>") + c("&7 — operators; the Crown lays cell stones from /kingdom")
+                + "\n" + c("&e/kingdom police court set|clear") + c("&7 — operators; the Crown lays the court's lectern from /kingdom")
+                + "\n" + c("&e/kingdom police deploy patrol") + c("&7 — operators; the Crown or a Knight builds an iron golem")
+                + "\n" + c("&e/kingdom police deploy guard") + c("&7 — operators")
+                + "\n" + c("&e/kingdom police despawn") + c("&7 — operators; the Crown stands an officer down from its orders window")
+                + "\n" + c("&e/kingdom police reward <player> <amount>") + c("&7 — operators; posted at the court's lectern")
+                + "\n" + c("&e/kingdom police cancelwarrant <player>") + c("&7 — operators; the Crown uses the warrant register in /kingdom")
+                + "\n" + c("&e/kingdom police arrest <player>") + c("&7 — operators; a constable strikes the wanted with an iron sword")
                 + "\n" + c("&e/kingdom police jury") + c("&7 — reopen trial-jury ballot")
                 + "\n" + c("&e/kingdom police appeal") + c("&7 — petition Crown against active prison sentence")
                 + "\n" + c("&e/kingdom police status")

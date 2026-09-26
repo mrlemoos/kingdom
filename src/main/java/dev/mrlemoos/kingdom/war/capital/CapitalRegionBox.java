@@ -33,6 +33,16 @@ public record CapitalRegionBox(int minX, int minY, int minZ, int maxX, int maxY,
                 && inner.maxZ <= maxZ;
     }
 
+    /** True when the block lies inside this box. */
+    public boolean containsBlock(int x, int y, int z) {
+        return x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ;
+    }
+
+    /** The number of blocks the box holds. */
+    public long volume() {
+        return (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+    }
+
     /** True when the chunk's 16×16 column overlaps this box in X/Z. */
     public boolean containsChunk(int chunkX, int chunkZ) {
         int chunkMinX = chunkX * 16;

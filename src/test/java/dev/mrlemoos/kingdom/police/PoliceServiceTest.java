@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
+import dev.mrlemoos.kingdom.model.police.GolemOfficerKind;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.OptionalInt;
@@ -208,6 +209,52 @@ class PoliceServiceTest {
         PoliceResult thirdResult = policeService.registerGuardGolem("northmarch", third);
 
         assertInstanceOf(PoliceResult.Failure.class, thirdResult);
+    }
+
+    @Test
+    void aPatrolGolemIsPostedAsGuardAndBackAgain() {
+        policeService.registerPatrolGolem("northmarch", PATROL_GOLEM);
+
+        assertInstanceOf(
+                PoliceResult.Success.class,
+                policeService.reassignGolem("northmarch", PATROL_GOLEM, GolemOfficerKind.GUARD));
+        var police = kingdomService.getKingdom("northmarch").orElseThrow().getPoliceState();
+        assertTrue(police.isGuardGolem(PATROL_GOLEM));
+        assertFalse(police.isPatrolGolem(PATROL_GOLEM));
+
+        assertInstanceOf(
+                PoliceResult.Success.class,
+                policeService.reassignGolem("northmarch", PATROL_GOLEM, GolemOfficerKind.PATROL));
+        assertTrue(police.isPatrolGolem(PATROL_GOLEM));
+        assertFalse(police.isGuardGolem(PATROL_GOLEM));
+    }
+
+    @Test
+    void aGolemIsNotPostedToAFullWatch() {
+        policeService.registerGuardGolem("northmarch", UUID.randomUUID());
+        policeService.registerGuardGolem("northmarch", UUID.randomUUID());
+        policeService.registerPatrolGolem("northmarch", PATROL_GOLEM);
+
+        PoliceResult result = policeService.reassignGolem("northmarch", PATROL_GOLEM, GolemOfficerKind.GUARD);
+
+        assertInstanceOf(PoliceResult.Failure.class, result);
+        assertTrue(policeService.policeState("northmarch").isPatrolGolem(PATROL_GOLEM));
+    }
+
+    @Test
+    void anUnregisteredGolemCannotBeReassigned() {
+        assertInstanceOf(
+                PoliceResult.Failure.class,
+                policeService.reassignGolem("northmarch", GUARD_GOLEM, GolemOfficerKind.PATROL));
+    }
+
+    @Test
+    void aGolemAlreadyOfThatKindIsNotReassigned() {
+        policeService.registerGuardGolem("northmarch", GUARD_GOLEM);
+
+        assertInstanceOf(
+                PoliceResult.Failure.class,
+                policeService.reassignGolem("northmarch", GUARD_GOLEM, GolemOfficerKind.GUARD));
     }
 
     @Test

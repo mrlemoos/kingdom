@@ -15,7 +15,9 @@ public final class ParliamentChatSessions {
         STIPEND_REASON,
         WAR_TARGET,
         TREATY_COUNTERPART,
-        TREATY_KIND
+        TREATY_KIND,
+        REFERENDUM_QUESTION,
+        CANDIDATE_DECLARATION
     }
 
     public record Session(

@@ -589,7 +589,8 @@ hearth:
   # Cold days before the villager downs tools, on the same strike as any unpaid one. 0 never strikes.
   cold-strike-days: 3
 
-# The granary: the region a kingdom keeps its grain in, linked with /kingdom granary setregion.
+# The granary: the region a kingdom keeps its grain in, sited by laying its hay-bale foundation stone
+# (Realm Hub -> The Granary) inside the region.
 # Its stock is nothing but the hay standing in it and its capacity nothing but the air the builders
 # left, so neither is set here. The daily villager sweep counts the realm's farmers, credits their
 # wheat at the season's outdoor yield, takes up any loose wheat left on the granary floor, and lays
@@ -619,8 +620,8 @@ granary:
   # No motion is ever tabled for it: the House must choose that for itself.
   famine-tier-steps: 1
 
-# The church: the point a kingdom holds its rites at, sited with /kingdom church set inside your
-# own territory and brought into use by consecration. A kingdom that has sited no church has no
+# The church: the point a kingdom holds its rites at, sited by laying its foundation stone inside
+# your own territory and brought into use by consecration. A kingdom that has sited no church has no
 # religion at all — no rites, and no coronation gate over its monarch. The priest is sworn by the
 # King or Queen; while the seat stands empty, or its holder is in a cell, a cleric villager
 # presides at the altar.

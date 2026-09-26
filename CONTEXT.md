@@ -37,7 +37,7 @@ The kingdom economy's unit of wealth. Tracked on an abstract ledger; one gold nu
 _Avoid_: Coin, crown, currency, money
 
 **Deposit**:
-Converting held Corona nuggets into Corona on a player's wallet. Only whole nuggets accepted.
+Converting held Corona nuggets into Corona on a player's wallet. Only whole nuggets accepted. Done at a **Lord of the Treasury**, beside withdrawal.
 _Avoid_: Mint, convert, cash in
 
 **Withdrawal**:
@@ -211,7 +211,7 @@ The chamber where the King or Queen grants or withholds royal assent on bills pa
 _Avoid_: Upper house (in player-facing text), senate
 
 **Kingdom flag**:
-The banner that identifies the kingdom, flown as the Royal Standard one block east of the House of Lords. Set when the monarch runs `/kingdom parliament set lords` while holding a finished banner (consumed); otherwise the first raise defaults to Crown gold, and later empty-hand re-sets keep the stored design. Persisted with base colour and loom patterns; break is temporary until the next raise or Lords set; moving Lords clears the old banner block if it still holds a banner.
+The banner that identifies the kingdom, flown as the Royal Standard one block east of the House of Lords. Set when the monarch lays the House of Lords' **foundation stone**, a banner in the Crown's own design; otherwise the first raise defaults to Crown gold, and later re-sets keep the stored design. Persisted with base colour and loom patterns; break is temporary until the next raise or Lords set; moving Lords clears the old banner block if it still holds a banner.
 _Avoid_: Faction banner, custom map art, coat of arms GUI
 
 **Act**:
@@ -331,7 +331,7 @@ The summons delivered to the King or Queen — or to the heir acting as regent w
 _Avoid_: Royal decree, king's speech scroll, opening address book
 
 **Bar of the House**:
-Where the Speaker stands to address the Crown with the return of the Commons, set by the monarch with `/kingdom parliament set bar`. The Speaker crosses to it when the reading begins and resumes their place when it ends. Where none is set, the Speaker reads from wherever they stand.
+Where the Speaker stands to address the Crown with the return of the Commons, set by the monarch by laying its **foundation stone**. The Speaker crosses to it when the reading begins and resumes their place when it ends. Where none is set, the Speaker reads from wherever they stand.
 _Avoid_: Podium, lectern, stage
 
 **Return of the Commons**:
@@ -405,7 +405,7 @@ The kingdom law-and-order system administered under `/kingdom police`. Cases fol
 _Avoid_: Police force, sheriff's office, militia
 
 **Sworn role**:
-A kingdom law-enforcement appointment separate from noble rank. Constable and Judge are sworn roles; the King or Queen appoints and removes them.
+A kingdom appointment separate from noble rank. Constable, Judge and **Priest** are sworn roles; the King or Queen swears and unswears them with the golden sword, in the same window as **honours**.
 _Avoid_: Noble title, rank, office of state
 
 **Constable**:
@@ -417,7 +417,7 @@ A sworn role that adjudicates trials and passes sentence. Displays a **[Judge]**
 _Avoid_: Magistrate, justice, arbiter
 
 **Court**:
-The kingdom trial venue, anchored at a lectern placed in linked territory. When no player judges are online, the seated villager judge at the court conducts a realm-handled trial.
+The kingdom trial venue, anchored at a lectern in linked territory — the court's **foundation stone**, which stays where it is laid, with the villager judge seated behind it. When no player judges are online, the seated villager judge at the court conducts a realm-handled trial.
 _Avoid_: Courthouse, tribunal hall, hearing room
 
 **Villager judge**:
@@ -427,6 +427,10 @@ _Avoid_: NPC justice, court clerk, automated judge
 **Warrant**:
 A constable's formal application to pursue a named suspect—player or territory villager. Inactive until the Crown approves it; until then patrol golems and constables may not act on it. The villager Speaker cannot be named.
 _Avoid_: Bounty, hit list, detention order
+
+**Warrant register**:
+The Crown's roll of the realm's **active warrants**, read from the **Realm Hub**. The King or Queen cancels a warrant there, behind a confirmation; any **arrest reward** on it returns to its poster.
+_Avoid_: Wanted list, bounty board, most-wanted
 
 **Royal warrant approval**:
 The Crown's acceptance or rejection of a warrant application, using the same paper-and-review workflow as a resignation letter. On approval the warrant becomes active; on rejection it does not. Does not apply to a **flagrant warrant**.
@@ -457,11 +461,11 @@ A requirement that at least one numbered prison cell and one court lectern are c
 _Avoid_: Police unlock, setup check, readiness flag
 
 **Cell**:
-A numbered confinement point inside kingdom territory, set by the King, Queen, or an operator. Kingdoms may configure any number of cells. Prison sentences assign the lowest free numbered configured slot.
+A numbered confinement point inside kingdom territory, set by the King or Queen by laying a cell's **foundation stone**, which takes the lowest free number. Kingdoms may configure any number of cells. Prison sentences assign the lowest free numbered configured slot.
 _Avoid_: Jail bed, spawn point, detention zone
 
 **Patrol golem**:
-An iron golem officer tagged as kingdom police. Inside linked territory it automatically pursues and detains players with an active warrant, placing them in the same pending-trial flow as a constable arrest. Deployed separately from guard golems; each kingdom has a configurable cap (default two).
+An iron golem officer tagged as kingdom police. Inside linked territory it automatically pursues and detains players with an active warrant, placing them in the same pending-trial flow as a constable arrest. Built, not summoned: an iron golem built in the vanilla way inside the realm's linked territory by the King, Queen or a Knight takes the oath as a patrol golem; one built by anyone else, outside territory, or once the cap is reached stays an ordinary golem. The Crown stands one down from its orders window. Counted separately from guard golems; each kingdom has a configurable cap (default two).
 _Avoid_: Warrant bot, auto-cop, pursuit mob
 
 **Guard golem**:
@@ -477,7 +481,7 @@ The King, Queen, and Prince cannot be subject to a warrant or arrest under kingd
 _Avoid_: Royal exemption, crown privilege, diplomatic immunity
 
 **Arrest**:
-Taking a suspect with an active warrant into custody and opening a pending trial. Suspects may be players or territory villagers (claimed economy villagers and seated MP or Premier villagers). Constables arrest manually; patrol golems detain automatically inside territory, including immediately after a **flagrant warrant** for **assault on the Crown**. A player judge is chosen at random from online judges, excluding the accused when the accused is a player, the arresting constable, and the Crown who approved the warrant; if none qualify, a trial jury is seated when possible, otherwise the villager judge hears the case.
+Taking a suspect with an active warrant into custody and opening a pending trial. Suspects may be players or territory villagers (claimed economy villagers and seated MP or Premier villagers). A constable arrests by striking a **wanted** player inside **jurisdiction** with an iron sword—the blow does no harm; patrol golems detain automatically inside territory, including immediately after a **flagrant warrant** for **assault on the Crown**. A player judge is chosen at random from online judges, excluding the accused when the accused is a player, the arresting constable, and the Crown who approved the warrant; if none qualify, a trial jury is seated when possible, otherwise the villager judge hears the case.
 _Avoid_: Ban, kick, instant jail
 
 **Pending trial**:
@@ -862,7 +866,7 @@ A **decisive victory** outcome named in the **war bill**: the defeated kingdom p
 _Avoid_: Reparations fine, loot pool, war reparations command
 
 **War debt**:
-The unpaid remainder of an enacted **war tribute** after **decisive victory**. Owed by the defeated kingdom's treasury to the victor; persists across peace until paid or superseded by a later Act.
+The unpaid remainder of an enacted **war tribute** after **decisive victory**. Owed by the defeated kingdom's treasury to the victor; persists across peace until paid or superseded by a later Act. The King or Queen pays it down from the **Realm Hub**.
 _Avoid_: Loan plugin, interest tick, credit score
 
 ## Calendar
@@ -992,7 +996,7 @@ The signed written book given to a new **member** when they complete the **oath 
 _Avoid_: Citizenship papers, membership card, naturalisation certificate
 
 **Capital**:
-The single point a monarch designates as the seat of their kingdom, set with `/kingdom capital set` from inside the kingdom's linked territory and removed with `/kingdom capital clear`. Setting it again moves the seat. The capital is the **city hall** and the place the **lord mayor** stands; a kingdom with no capital issues no **build permits** and is not gated at all.
+The single point a monarch designates as the seat of their kingdom, sited by laying its **foundation stone** inside the kingdom's linked territory and cleared from the **Realm Hub**. Setting it again moves the seat. The capital is the **city hall** and the place the **lord mayor** stands; a kingdom with no capital issues no **build permits** and is not gated at all.
 _Avoid_: Home, spawn, capital city, seat of government
 
 **City hall**:
@@ -1000,7 +1004,7 @@ The civic office at the **capital** where the **oath of allegiance** is sworn an
 _Avoid_: Town hall, mayor's office, civic centre, guild hall
 
 **Lord Mayor**:
-The realm NPC that administers the **oath of allegiance** and issues **build permits**, standing at the **city hall**: a tamed wolf, seated, invulnerable, without AI, showing a **[Lord Mayor]** nametag. Spawned by `/kingdom capital set`, removed by `/kingdom capital clear`, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy.
+The realm NPC that administers the **oath of allegiance** and issues **build permits**, standing at the **city hall**: a tamed wolf, seated, invulnerable, without AI, showing a **[Lord Mayor]** nametag. Stood up when the **capital**'s **foundation stone** is laid, taken down when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, is never claimed as an **MP**, and takes no part in the villager economy.
 _Avoid_: Mayor NPC, town crier, clerk, magistrate
 
 **Build permit**:
@@ -1032,7 +1036,7 @@ An attempt to place or break a block inside linked territory without a **build p
 _Avoid_: Griefing, trespass, illegal build, build offence
 
 **Town Crier**:
-The realm NPC that keeps the **Gazette**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned when the **capital** is set (defaulting to the capital block), may be stood elsewhere in the kingdom's territory with `/kingdom crier set`, returned to the capital with `/kingdom crier clear`, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, takes no part in the villager economy. An **immutable NPC** — it cannot be elected, cannot vote, and cannot take any other office. A text display above its head cycles the newest Crown posts when a player is nearby.
+The realm NPC that keeps the **Gazette**: a nitwit villager, invulnerable, without AI, showing a **Town Crier** nametag. Spawned when the **capital** is set (defaulting to the capital block), may be stood elsewhere in the kingdom's territory by laying its **foundation stone**, returned to the capital from the **Realm Hub**, removed when the capital is cleared, and respawned by the periodic sweep if it goes missing. Holds no wallet, trades with nobody, takes no part in the villager economy. An **immutable NPC** — it cannot be elected, cannot vote, and cannot take any other office. A text display above its head cycles the newest Crown posts when a player is nearby.
 _Avoid_: Herald, messenger, news NPC, bulletin board
 
 **Gazette**:
@@ -1064,7 +1068,7 @@ A trial jury of three territory villagers claimed when fewer than three eligible
 _Avoid_: NPC jury, fake jury, auto jury
 
 **Realm Hub**:
-The single screen a bare `/kingdom` opens for a player: their realm, rank and style; the **loyalty ledger**; the **Gazette** and where the **Town Crier** stands; their **build permit**; whatever business is live in the realm this moment; every power delegated down the ladder; and where each of the realm's offices stands, with the reader's distance from it. Powers that are not the reader's are shown greyed and refused, naming who may — never hidden. The console keeps the written help.
+The screen a bare `/kingdom` opens for a player, and the only door to it. Its front page shows their realm, rank and style and whatever business is live in the realm this moment, with a door to each **hub section**. Across the sections: the **loyalty ledger**; the **Gazette** and where the **Town Crier** stands; their **build permit**; every power delegated down the ladder; where each of the realm's offices stands, with the reader's distance from it; and every **experience**, each saying where things stand, how it is done and who may do it. Powers that are not the reader's are shown greyed and refused, naming who may — never hidden. The console keeps the written help.
 _Avoid_: Menu, main menu, dashboard, compass, help GUI
 
 ## Granary
@@ -1074,7 +1078,7 @@ The place a kingdom keeps its grain against the winter: a **granary region** the
 _Avoid_: Silo, barn, warehouse, food store, stockpile
 
 **Granary region**:
-The WorldGuard region a **granary** occupies, linked by the **King or Queen** with `/kingdom granary setregion` and released with `/kingdom granary clear`. It must lie within the kingdom's linked territory. Nothing of the region is kept but its name.
+The WorldGuard region a **granary** occupies, linked by the **King or Queen** by laying the granary's **foundation stone** — a bale of hay — inside it, the smallest region around the bale being taken, and released from the **Realm Hub**. It must lie within the kingdom's linked territory. Nothing of the region is kept but its name.
 _Avoid_: Granary block, granary plot, claim, zone
 
 **Stock**:
@@ -1116,7 +1120,7 @@ _Avoid_: Looting, plunder, raiding, stealing food
 ## Church
 
 **Church**:
-The place a kingdom holds its **rite**s: a point the **King or Queen** sets inside linked territory with `/kingdom church set` and clears with `/kingdom church clear`. One to a kingdom. It does nothing until **consecrated**, and a kingdom that has sited none has no religion at all — no rites, no **coronation gate**.
+The place a kingdom holds its **rite**s: a point the **King or Queen** sites inside linked territory by laying its **foundation stone**, and clears from the **Realm Hub**. One to a kingdom. It does nothing until **consecrated**, and a kingdom that has sited none has no religion at all — no rites, no **coronation gate**.
 _Avoid_: Temple, cathedral, shrine, chapel, altar
 
 **Consecration**:
@@ -1186,3 +1190,25 @@ _Avoid_: Investiture, enthronement, appointment, election
 **Coronation gate**:
 The bar on an uncrowned monarch's ceremonial powers: no royal assent, no **honours**, no swearing of roles and no granting of titles. Everyday powers — **build permit**s, the whitelist, `/kingdom` administration — are untouched, and the gate applies only in a kingdom that has a **consecrated** **church** to be crowned in. A realm without one cannot be locked out.
 _Avoid_: Regency, interregnum, lockout, suspension
+
+## Experience
+
+**Experience**:
+A power exercised by doing something in the world — laying a block, right-clicking an NPC, striking with a sword, opening a card — rather than by typing. The road the realm's own people take; commands for the same powers are left to operators.
+_Avoid_: Interaction, feature, flow, UX
+
+**Foundation stone**:
+The item the **Realm Hub** hands the Crown for a site it means to raise — the **capital**, **church**, **Town Crier**, **mint**, the chambers of Parliament and their seats, the **registrar**, the **court**, a **cell**, the **granary**. Laying it inside the kingdom's own territory sites the place there. A stone that is refused returns to the hand that laid it; one that holds is spent, and the site is marked by what stands there, not by the stone. Where the site is itself a block the stone is that block: the registrar's is a chiseled bookshelf and the court's a lectern, and each stays where it is put; the House of Lords' is a banner in the Crown's design, spent to fly as the **kingdom flag** beside the Lords. Stones for numbered places take the next free number; stones for regions take the smallest region around them.
+_Avoid_: Marker, wand, placement tool, site item, cornerstone
+
+**Rites window**:
+The window a right-click on the **cleric** opens, offering each **rite** the clicker may ask for and no other. The road to consecration, marriage, divorce, annulment and funeral; **marriage** is consented to in it.
+_Avoid_: Church menu, rite menu, cleric shop
+
+**Poll card**:
+The paper every **member** is handed when polls open for an election, and again on joining while they stay open. Right-clicked, it offers the member what the election asks of them at that moment — standing as a candidate (as an independent or with a party declaration), casting a ballot, or — for the Speaker alone, when the count is tied — the Speaker's casting vote. Spent once the member has voted.
+_Avoid_: Ballot paper, voting slip, election item
+
+**Hub section**:
+One of the **Realm Hub**'s pages behind its front page — City, Church, Parliament, Police, War or Treasury — laying out that part of the realm's places, then its powers, then its **experience**s.
+_Avoid_: Tab, category, submenu, folder

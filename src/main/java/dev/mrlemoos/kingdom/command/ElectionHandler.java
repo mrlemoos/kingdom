@@ -36,6 +36,9 @@ import org.bukkit.entity.Player;
 
 public final class ElectionHandler {
 
+    /** Kept for operators; the realm's own people use the Parliament hub and the poll card. */
+    private static final java.util.Set<String> OPERATOR_ONLY = java.util.Set.of("start", "nominate", "vote", "speaker-vote");
+
     private final ElectionService electionService;
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
@@ -73,13 +76,24 @@ public final class ElectionHandler {
 
     public boolean handle(CommandSender sender, String[] args) {
         if (args.length == 0) {
+            if (!sender.isOp()) {
+                sender.sendMessage(error("Usage: /kingdom election status"));
+                sender.sendMessage(info("Right-click your poll card to stand or vote."));
+                return true;
+            }
             sender.sendMessage(error(
                     "Usage: /kingdom election <start|nominate|vote|speaker-vote|status>"));
             sender.sendMessage(info("To stand under a party: /kingdom election nominate "
                     + "<party> <colour> [manifesto...]"));
             return true;
         }
-        return switch (args[0].toLowerCase(Locale.ROOT)) {
+        String subcommand = args[0].toLowerCase(Locale.ROOT);
+        if (OPERATOR_ONLY.contains(subcommand) && !sender.isOp()) {
+            sender.sendMessage(error("Elections are carried on a poll card. The Crown starts one from the "
+                    + "Parliament hub; members stand and vote by right-clicking their poll card."));
+            return true;
+        }
+        return switch (subcommand) {
             case "start" -> handleStart(sender);
             case "nominate" -> handleNominate(sender, args);
             case "vote" -> handleVote(sender, args);
@@ -135,34 +149,30 @@ public final class ElectionHandler {
             sender.sendMessage(error("Only players can call an election."));
             return true;
         }
+        sender.sendMessage(format(callGeneralElection(player)));
+        return true;
+    }
+
+    /** The Crown dissolves Parliament and sends the realm to the polls. */
+    public ElectionResult callGeneralElection(Player player) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
         if (membership.isEmpty()) {
-            sender.sendMessage(error("You are not in a kingdom."));
-            return true;
+            return ElectionResult.fail("You are not in a kingdom.");
         }
         NobleRank rank = membership.get().getRank();
         if (rank != NobleRank.KING && rank != NobleRank.QUEEN) {
-            sender.sendMessage(error("Only the King or Queen may call a general election."));
-            return true;
+            return ElectionResult.fail("Only the King or Queen may call a general election.");
         }
-
-        String kingdomId = membership.get().getKingdomId();
-        ElectionResult result = openGeneralElection(kingdomId);
-        sender.sendMessage(format(result));
+        ElectionResult result = openGeneralElection(membership.get().getKingdomId());
         if (result instanceof ElectionResult.Success) {
             store.saveFrom(kingdomService);
         }
-        return true;
+        return result;
     }
 
     private boolean handleNominate(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Only players can nominate."));
-            return true;
-        }
-        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
-        if (membership.isEmpty()) {
-            sender.sendMessage(error("You are not in a kingdom."));
             return true;
         }
         CandidateDeclaration declaration;
@@ -172,13 +182,22 @@ public final class ElectionHandler {
             sender.sendMessage(error(rejected.getMessage()));
             return true;
         }
+        sender.sendMessage(format(standForElection(player, declaration)));
+        return true;
+    }
+
+    /** A member puts their name forward in their realm's open election. */
+    public ElectionResult standForElection(Player player, CandidateDeclaration declaration) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty()) {
+            return ElectionResult.fail("You are not in a kingdom.");
+        }
         ElectionResult result =
                 electionService.nominate(membership.get().getKingdomId(), player.getUniqueId(), declaration);
-        sender.sendMessage(format(result));
         if (result instanceof ElectionResult.Success) {
             store.saveFrom(kingdomService);
         }
-        return true;
+        return result;
     }
 
     private boolean handleVote(CommandSender sender, String[] args) {
@@ -190,19 +209,23 @@ public final class ElectionHandler {
             sender.sendMessage(error("Usage: /kingdom election vote <player>"));
             return true;
         }
+        OfflinePlayer candidate = Bukkit.getOfflinePlayer(args[1]);
+        sender.sendMessage(format(castVote(player, candidate.getUniqueId())));
+        return true;
+    }
+
+    /** A member casts their ballot for a nominated candidate. */
+    public ElectionResult castVote(Player player, UUID candidateId) {
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
         if (membership.isEmpty()) {
-            sender.sendMessage(error("You are not in a kingdom."));
-            return true;
+            return ElectionResult.fail("You are not in a kingdom.");
         }
-        OfflinePlayer candidate = Bukkit.getOfflinePlayer(args[1]);
         ElectionResult result = electionService.castElectionVote(
-                membership.get().getKingdomId(), player.getUniqueId(), candidate.getUniqueId());
-        sender.sendMessage(format(result));
+                membership.get().getKingdomId(), player.getUniqueId(), candidateId);
         if (result instanceof ElectionResult.Success) {
             store.saveFrom(kingdomService);
         }
-        return true;
+        return result;
     }
 
     private boolean handleSpeakerVote(CommandSender sender, String[] args) {
@@ -214,20 +237,27 @@ public final class ElectionHandler {
             sender.sendMessage(error("Usage: /kingdom election speaker-vote <player>"));
             return true;
         }
-        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
-        if (membership.isEmpty()) {
-            sender.sendMessage(error("You are not in a kingdom."));
-            return true;
-        }
         OfflinePlayer candidate = Bukkit.getOfflinePlayer(args[1]);
-        ElectionResult result = electionService.castSpeakerElectionVote(
-                membership.get().getKingdomId(), player.getUniqueId(), candidate.getUniqueId());
+        ElectionResult result = castSpeakerVote(player, candidate.getUniqueId());
         sender.sendMessage(format(result));
         if (result instanceof ElectionResult.Success) {
-            finishElection(membership.get().getKingdomId());
             sender.sendMessage(success("Election closed."));
         }
         return true;
+    }
+
+    /** The Speaker breaks a tied count; the election then closes at once. */
+    public ElectionResult castSpeakerVote(Player player, UUID candidateId) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty()) {
+            return ElectionResult.fail("You are not in a kingdom.");
+        }
+        ElectionResult result = electionService.castSpeakerElectionVote(
+                membership.get().getKingdomId(), player.getUniqueId(), candidateId);
+        if (result instanceof ElectionResult.Success) {
+            finishElection(membership.get().getKingdomId());
+        }
+        return result;
     }
 
     private boolean handleStatus(CommandSender sender) {
@@ -272,17 +302,8 @@ public final class ElectionHandler {
      * [colour] [manifesto...]}. A candidate may decline to declare and simply stand.
      */
     private static CandidateDeclaration readDeclaration(String[] args) {
-        if (args.length < 2) {
-            return CandidateDeclaration.blank();
-        }
-        String party = args[1];
-        String colour = args.length >= 3 ? args[2] : "";
-        if (args.length >= 3 && CandidateDeclaration.parseColour(colour).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "That is not a party colour the realm recognises. Try: red, blue, green, gold, purple.");
-        }
-        String manifesto = args.length >= 4 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : "";
-        return CandidateDeclaration.of(manifesto, party, colour);
+        return CandidateDeclaration.parse(
+                args.length < 2 ? "" : String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
     }
 
     private void finishElection(String kingdomId) {

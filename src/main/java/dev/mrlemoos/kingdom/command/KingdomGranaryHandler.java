@@ -17,7 +17,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** {@code /kingdom granary …}: the Crown links the region its realm keeps its grain in. */
+/** {@code /kingdom granary …}: operators link the region a realm keeps its grain in; the Crown lays a hay bale. */
 public final class KingdomGranaryHandler {
 
     private final KingdomService kingdomService;
@@ -34,8 +34,8 @@ public final class KingdomGranaryHandler {
             return true;
         }
         return switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "setregion" -> handleSetRegion(sender, args);
-            case "clear" -> handleClear(sender);
+            case "setregion" -> refusedUnlessOperator(sender) || handleSetRegion(sender, args);
+            case "clear" -> refusedUnlessOperator(sender) || handleClear(sender);
             default -> {
                 sender.sendMessage(granaryHelp());
                 yield true;
@@ -121,6 +121,16 @@ public final class KingdomGranaryHandler {
         return true;
     }
 
+    /** Siting the granary by command is the operators' escape hatch; the Crown lays its hay bale. */
+    private boolean refusedUnlessOperator(CommandSender sender) {
+        if (sender.isOp()) {
+            return false;
+        }
+        sender.sendMessage(error("The granary is sited by laying its hay bale inside a region in your territory. "
+                + "Type /kingdom, open Treasury and take it from The Granary."));
+        return true;
+    }
+
     private Optional<PlayerMembership> requireMembership(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error("Only players may site a granary."));
@@ -142,9 +152,8 @@ public final class KingdomGranaryHandler {
 
     private String granaryHelp() {
         return info("Granary commands:")
-                + "\n" + c("&e/kingdom granary setregion <region>")
-                + c("&7 — King or Queen, inside your territory")
-                + "\n" + c("&e/kingdom granary clear") + c("&7 — release the granary region");
+                + "\n" + c("&e/kingdom granary setregion <region>|clear")
+                + c("&7 — operators; the Crown lays the hay bale from /kingdom");
     }
 
     private String success(String message) {

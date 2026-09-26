@@ -1,6 +1,10 @@
 package dev.mrlemoos.kingdom.granary;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.war.capital.CapitalRegionBox;
+import dev.mrlemoos.kingdom.worldguard.SubregionChooser;
+import dev.mrlemoos.kingdom.worldguard.SubregionChooser.Candidate;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -18,7 +22,20 @@ public final class GranarySiting {
         UNKNOWN_REGION,
         OUTSIDE_TERRITORY,
         TOO_LARGE,
-        NO_GRANARY
+        NO_GRANARY,
+        NO_REGION_AROUND
+    }
+
+    /**
+     * What came of laying the granary's hay bale: the verdict, and the region it links when allowed.
+     *
+     * @param regionId the region linked; empty unless the verdict is {@link Verdict#ALLOWED}
+     */
+    public record Stone(Verdict verdict, Optional<String> regionId) {
+
+        static Stone refused(Verdict verdict) {
+            return new Stone(verdict, Optional.empty());
+        }
     }
 
     /**
@@ -78,6 +95,53 @@ public final class GranarySiting {
         return Verdict.ALLOWED;
     }
 
+    /**
+     * The granary's hay bale links the smallest region around it that lies inside the territory and
+     * is not the territory itself, on the same terms as a region linked by name.
+     *
+     * @param around the regions WorldGuard reports at the hay bale's block
+     * @param territory the kingdom's linked territory regions
+     */
+    public static Stone evaluateStone(
+            NobleRank rank,
+            boolean worldGuardAvailable,
+            int x,
+            int y,
+            int z,
+            Collection<Candidate> around,
+            Collection<Candidate> territory) {
+        if (!canSite(rank, false)) {
+            return Stone.refused(Verdict.NOT_THE_CROWN);
+        }
+        if (!worldGuardAvailable) {
+            return Stone.refused(Verdict.WORLDGUARD_ABSENT);
+        }
+        if (territory.isEmpty()) {
+            return Stone.refused(Verdict.NO_TERRITORY);
+        }
+        Optional<Candidate> chosen = SubregionChooser.smallest(x, y, z, around, territory);
+        if (chosen.isEmpty()) {
+            return Stone.refused(Verdict.NO_REGION_AROUND);
+        }
+        GranaryBounds granary = bounds(chosen.get().bounds());
+        Optional<GranaryBounds> enclosing = Optional.empty();
+        for (Candidate linked : territory) {
+            if (bounds(linked.bounds()).contains(granary)) {
+                enclosing = Optional.of(bounds(linked.bounds()));
+                break;
+            }
+        }
+        Verdict verdict = evaluateLink(
+                rank, false, true, territory.iterator().next().regionId(), enclosing, Optional.of(granary));
+        return verdict == Verdict.ALLOWED
+                ? new Stone(verdict, Optional.of(chosen.get().regionId()))
+                : Stone.refused(verdict);
+    }
+
+    private static GranaryBounds bounds(CapitalRegionBox box) {
+        return new GranaryBounds(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ());
+    }
+
     /** Releasing a granary asks only that the actor be the Crown and that there be one to release. */
     public static Verdict evaluateClear(NobleRank rank, boolean operator, String granaryRegionId) {
         if (!canSite(rank, operator)) {
@@ -101,6 +165,8 @@ public final class GranarySiting {
             case TOO_LARGE -> "That region is too great to keep grain in — no more than "
                     + "a hundred blocks on a side. Set its floor and ceiling with /rg selection.";
             case NO_GRANARY -> "Your kingdom has no granary to release.";
+            case NO_REGION_AROUND -> "No region lies around the hay bale inside your territory. "
+                    + "Mark the granary out as a WorldGuard region first, then lay the bale inside it.";
         };
     }
 }

@@ -75,6 +75,19 @@ public final class PoliceGolemService {
         return spawnGolem(kingdomId, location, GolemOfficerKind.GUARD);
     }
 
+    /** Swears in a golem a subject has built, as a patrol officer of that kingdom. */
+    public void adoptPatrol(String kingdomId, IronGolem golem) {
+        configureGolem(golem, kingdomId, GolemOfficerKind.PATROL);
+    }
+
+    /** Re-dresses a sworn golem as the kind it has been turned to; a guard holds its post, a patrol walks. */
+    public void convertGolem(IronGolem golem, GolemOfficerKind kind) {
+        golem.getPersistentDataContainer().set(orderTagKey, PersistentDataType.STRING, GolemOrder.PATROL.name());
+        golem.getPersistentDataContainer().remove(followTagKey);
+        String kingdomId = golem.getPersistentDataContainer().get(kingdomTagKey, PersistentDataType.STRING);
+        configureGolem(golem, kingdomId == null ? "" : kingdomId, kind);
+    }
+
     public boolean isPoliceGolem(Entity entity) {
         if (!(entity instanceof IronGolem)) {
             return false;

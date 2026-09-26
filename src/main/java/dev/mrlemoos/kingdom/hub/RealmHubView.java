@@ -1,10 +1,14 @@
 package dev.mrlemoos.kingdom.hub;
 
 import dev.mrlemoos.kingdom.city.CityService;
+import dev.mrlemoos.kingdom.foundation.FoundationStone;
+import dev.mrlemoos.kingdom.parliament.MpSeatNumbering;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.RankAuthority;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Chooses what one subject sees on the Realm Hub, and says of each entry whether it is theirs to use.
@@ -27,14 +31,40 @@ public final class RealmHubView {
         entries.add(standing(snapshot));
         entries.add(loyalty());
         entries.add(oathOfService(snapshot));
+        entries.add(rites(snapshot));
         entries.add(gazette(snapshot));
         entries.add(buildPermit(snapshot));
+        entries.add(arrestReward(snapshot));
+        entries.add(wallet(snapshot));
         entries.addAll(liveBusiness(snapshot));
         entries.addAll(powers(snapshot));
         if (snapshot.member()) {
             entries.addAll(places(snapshot));
         }
         return List.copyOf(entries);
+    }
+
+    /** The front page: the reader's standing, then whatever business is live. */
+    public static List<RealmHubEntry> frontPage(RealmHubSnapshot snapshot) {
+        List<RealmHubEntry> front = new ArrayList<>();
+        for (RealmHubEntry entry : entries(snapshot)) {
+            if (RealmHubSection.onFrontPage(entry.topic())) {
+                front.add(entry);
+            }
+        }
+        return List.copyOf(front);
+    }
+
+    /** One section's entries: its places, then its powers, then its experiences. */
+    public static List<RealmHubEntry> section(RealmHubSnapshot snapshot, RealmHubSection section) {
+        List<RealmHubEntry> inSection = new ArrayList<>();
+        for (RealmHubEntry entry : entries(snapshot)) {
+            if (RealmHubSection.of(entry.topic()).equals(Optional.of(section))) {
+                inSection.add(entry);
+            }
+        }
+        inSection.sort(Comparator.comparing(entry -> RealmHubSection.row(entry.topic())));
+        return List.copyOf(inSection);
     }
 
     // --- who you are -----------------------------------------------------
@@ -84,6 +114,17 @@ public final class RealmHubView {
                     lines);
         }
         return RealmHubEntry.usable(RealmHubTopic.OATH_OF_SERVICE, "Oath of Service", lines, RealmHubAction.NONE);
+    }
+
+    private static RealmHubEntry rites(RealmHubSnapshot snapshot) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Church: " + churchLine(snapshot));
+        lines.add("Right-click the cleric at the church.");
+        lines.add("Subjects ask for consecration, marriage, divorce and funerals; the Crown annuls.");
+        if (!snapshot.member()) {
+            return RealmHubEntry.refused(RealmHubTopic.RITES, "The Rites", NOT_SWORN, lines);
+        }
+        return RealmHubEntry.usable(RealmHubTopic.RITES, "The Rites", lines, RealmHubAction.NONE);
     }
 
     private static String churchLine(RealmHubSnapshot snapshot) {
@@ -155,6 +196,30 @@ public final class RealmHubView {
                 lines);
     }
 
+    private static RealmHubEntry arrestReward(RealmHubSnapshot snapshot) {
+        List<String> lines = List.of(
+                "Out: " + count(snapshot.activeWarrants(), "warrant") + ".",
+                "Right-click the court's lectern, or sneak and right-click the judge.",
+                "Choose a warrant and a sum; the constable who makes the arrest is paid it.",
+                courtLine(snapshot));
+        if (!snapshot.member()) {
+            return RealmHubEntry.refused(RealmHubTopic.ARREST_REWARD, "Post an Arrest Reward", NOT_SWORN, lines);
+        }
+        return RealmHubEntry.usable(RealmHubTopic.ARREST_REWARD, "Post an Arrest Reward", lines, RealmHubAction.NONE)
+                .withWho("Any subject of the realm may post a reward, from their own wallet.");
+    }
+
+    private static RealmHubEntry wallet(RealmHubSnapshot snapshot) {
+        List<String> lines = List.of(
+                "Right-click a Lord of the Treasury at one of the realm's mints.",
+                "Deposit the Corona nuggets you carry, or withdraw from your wallet.");
+        if (!snapshot.member()) {
+            return RealmHubEntry.refused(RealmHubTopic.WALLET, "Deposit and Withdraw", NOT_SWORN, lines);
+        }
+        return RealmHubEntry.usable(RealmHubTopic.WALLET, "Deposit and Withdraw", lines, RealmHubAction.NONE)
+                .withWho("Every subject, at their own realm's mint.");
+    }
+
     private static String capitalLine(RealmHubSnapshot snapshot) {
         List<SitePoint> capital = snapshot.sites(RealmHubTopic.PLACE_CAPITAL);
         if (capital.isEmpty()) {
@@ -176,9 +241,10 @@ public final class RealmHubView {
                     "An Election Is Under Way",
                     List.of(
                             snapshot.electionLabel().isBlank() ? "The realm goes to the polls." : snapshot.electionLabel(),
-                            "Type /kingdom election status to follow it.",
-                            "Type /kingdom election nominate to put your name forward."),
-                    RealmHubAction.NONE));
+                            "Right-click your poll card.",
+                            "It offers standing, then the ballot."),
+                    RealmHubAction.NONE)
+                    .withWho("Members vote; untitled citizens may stand."));
         }
         if (snapshot.pollingOpen()) {
             entries.add(RealmHubEntry.usable(
@@ -188,8 +254,10 @@ public final class RealmHubView {
                             snapshot.referendumQuestion().isBlank()
                                     ? "A question is put to the whole realm."
                                     : snapshot.referendumQuestion(),
-                            "Click to cast your ballot, or type /kingdom referendum."),
-                    RealmHubAction.OPEN_REFERENDUM_BALLOT));
+                            "Right-click your poll card.",
+                            "Or click here to cast your ballot."),
+                    RealmHubAction.OPEN_REFERENDUM_BALLOT)
+                    .withWho("Every member of the realm may answer."));
         }
         if (snapshot.divisionAwaitingVote()) {
             entries.add(RealmHubEntry.usable(
@@ -279,7 +347,10 @@ public final class RealmHubView {
                 "Site the Realm's Mints",
                 RankAuthority.canManageMints(rank),
                 "A Lord or the Crown may site a mint.",
-                List.of("/kingdom mint place", "/kingdom mint despawn", "/kingdom mint list"),
+                List.of(
+                        "Take a mint's foundation stone from The Royal Mints and lay it.",
+                        "/kingdom mint despawn",
+                        "/kingdom mint list"),
                 RealmHubAction.NONE));
         entries.add(power(
                 snapshot,
@@ -288,9 +359,10 @@ public final class RealmHubView {
                 RankAuthority.canDeployPoliceGolems(rank),
                 "A Knight or the Crown may deploy officers.",
                 List.of(
-                        "/kingdom police deploy patrol",
-                        "/kingdom police deploy guard",
-                        "/kingdom police despawn"),
+                        "On duty: " + snapshot.patrolGolems() + " of " + snapshot.patrolGolemCap() + " patrol, "
+                                + snapshot.guardGolems() + " of " + snapshot.guardGolemCap() + " guard.",
+                        "Build an iron golem inside your realm's territory.",
+                        "The Crown right-clicks an officer to give orders, post it as a guard or send it on patrol, or stand it down."),
                 RealmHubAction.NONE));
         entries.add(standingRoster(snapshot));
         entries.add(conscription(snapshot));
@@ -342,8 +414,12 @@ public final class RealmHubView {
                 "Pay War Debt",
                 RankAuthority.canPayWarDebt(rank),
                 "The Crown alone may pay war debt from the treasury.",
-                List.of("/kingdom tribute status", "/kingdom tribute pay <creditor> [amount]"),
-                RealmHubAction.NONE));
+                List.of(
+                        snapshot.warDebtOwed() > 0
+                                ? "Owed: " + corona(snapshot.warDebtOwed()) + " Corona."
+                                : "The realm owes no war debt.",
+                        "Click, choose a creditor and how much to pay from the treasury."),
+                RealmHubAction.OPEN_WAR_DEBT));
         entries.add(power(
                 snapshot,
                 RealmHubTopic.POWER_CAPITAL,
@@ -354,23 +430,44 @@ public final class RealmHubView {
                         snapshot.warCapitalRegion().isBlank()
                                 ? "No capital-fall region linked."
                                 : "Capital-fall region: " + snapshot.warCapitalRegion(),
-                        "/kingdom capital set",
-                        "/kingdom capital clear",
-                        "/kingdom capital setregion <region>",
-                        "/kingdom capital clearregion",
-                        "/kingdom crier set|clear"),
+                        "Take the capital's or the Town Crier's foundation stone from its place and lay it.",
+                        "The capital's stone links the smallest region around it for capital fall."),
                 RealmHubAction.NONE));
         entries.add(power(
                 snapshot,
                 RealmHubTopic.POWER_SWORN_ROLES,
                 "Swear In the Realm's Officers",
                 RankAuthority.canAppointSwornRole(rank),
-                "The Crown alone may swear in constables, judges and clerics.",
+                "The King or Queen alone may swear constables, judges and the priest.",
                 List.of(
-                        "/kingdom police appoint constable|judge <player>",
-                        "/kingdom police dismiss constable|judge <player>",
-                        "/kingdom church swear <player>"),
+                        "Sworn: " + count(snapshot.constables(), "constable") + ", "
+                                + count(snapshot.judges(), "judge") + ", "
+                                + (snapshot.priestSworn() ? "priest sworn." : "no priest."),
+                        "Strike a subject with a golden sword.",
+                        "Click Constable, Judge or Priest to swear or unswear them."),
                 RealmHubAction.NONE));
+        entries.add(power(
+                snapshot,
+                RealmHubTopic.POWER_ARREST,
+                "Arrest the Wanted",
+                snapshot.constableSworn(),
+                "Only a sworn constable may arrest; the King or Queen swears them.",
+                List.of(
+                        "Out: " + count(snapshot.activeWarrants(), "warrant") + ".",
+                        "Strike a [WANTED] subject with an iron sword inside the realm.",
+                        "The blow does no harm; the suspect is taken to trial."),
+                RealmHubAction.NONE));
+        entries.add(power(
+                snapshot,
+                RealmHubTopic.POWER_WARRANTS,
+                "The Warrant Register",
+                RankAuthority.isCrown(rank),
+                "The King or Queen alone may cancel a warrant.",
+                List.of(
+                        "Out: " + count(snapshot.activeWarrants(), "warrant") + ".",
+                        "Click to open the register, then click a warrant to cancel it.",
+                        "Any arrest reward on it goes back to its poster."),
+                RealmHubAction.OPEN_WARRANT_REGISTER));
         entries.add(power(
                 snapshot,
                 RealmHubTopic.POWER_SITES,
@@ -378,13 +475,22 @@ public final class RealmHubView {
                 RankAuthority.canConfigureSites(rank),
                 "The Crown alone may site the realm's offices.",
                 List.of(
-                        "/kingdom police court set",
-                        "/kingdom police setcell",
-                        "/kingdom parliament set commons|lords|speaker-chair",
-                        "/kingdom church set",
-                        "/kingdom granary setregion <region>"),
+                        "The court and cells: their stones, from Police",
+                        "The chambers, seats and registrar: their stones, from Parliament",
+                        "The church: its foundation stone, from The Church",
+                        "The granary: its hay bale, from Treasury"),
                 RealmHubAction.NONE));
         return entries;
+    }
+
+    private static String corona(double amount) {
+        return Math.rint(amount) == amount
+                ? String.format(java.util.Locale.UK, "%.0f", amount)
+                : String.format(java.util.Locale.UK, "%.2f", amount);
+    }
+
+    private static String count(int number, String noun) {
+        return number + " " + noun + (number == 1 ? "" : "s");
     }
 
     private static RealmHubEntry standingRoster(RealmHubSnapshot snapshot) {
@@ -451,140 +557,253 @@ public final class RealmHubView {
         if (!rankHoldsIt) {
             return RealmHubEntry.refused(topic, title, rankRefusal, lines);
         }
-        return RealmHubEntry.usable(topic, title, lines, action);
+        return RealmHubEntry.usable(topic, title, lines, action).withWho(rankRefusal);
     }
 
     // --- where things stand -----------------------------------------------
 
     private static List<RealmHubEntry> places(RealmHubSnapshot snapshot) {
         List<RealmHubEntry> entries = new ArrayList<>();
-        entries.add(place(
+        List<SitePoint> capital = snapshot.sites(RealmHubTopic.PLACE_CAPITAL);
+        entries.add(laidByStone(
                 snapshot,
+                FoundationStone.CAPITAL,
                 RealmHubTopic.PLACE_CAPITAL,
                 "The Capital and City Hall",
-                "the Crown, with /kingdom capital set",
-                List.of("The Lord Mayor stands here and hears permit applications.")));
-        entries.add(place(
+                firstSite(snapshot, capital),
+                List.of("The Lord Mayor and the Town Crier stand here; the stone links the war region around it."),
+                capital.isEmpty() ? "" : "Right-click to clear the site."));
+        List<SitePoint> stand = snapshot.sites(RealmHubTopic.PLACE_TOWN_CRIER);
+        entries.add(laidByStone(
                 snapshot,
+                FoundationStone.TOWN_CRIER,
                 RealmHubTopic.PLACE_TOWN_CRIER,
                 "The Town Crier",
-                "the Crown, with /kingdom crier set",
-                List.of("Right-click the Crier to read the Gazette.")));
-        entries.add(place(
+                firstSite(snapshot, stand),
+                List.of("Right-click the Crier to read the Gazette."),
+                stand.isEmpty() || stand.equals(capital) ? "" : "Right-click to return the Crier to the city hall."));
+        List<SitePoint> church = snapshot.sites(RealmHubTopic.PLACE_CHURCH);
+        entries.add(laidByStone(
                 snapshot,
+                FoundationStone.CHURCH,
                 RealmHubTopic.PLACE_CHURCH,
                 "The Church",
-                "the Crown, with /kingdom church set",
-                List.of("Coronations, marriages, funerals and mass.")));
-        entries.add(place(
+                firstSite(snapshot, church),
+                List.of("Coronations, marriages, funerals and mass."),
+                church.isEmpty() ? "" : "Right-click to clear the site."));
+        List<SitePoint> court = snapshot.sites(RealmHubTopic.PLACE_COURT);
+        entries.add(laidByStone(
                 snapshot,
+                FoundationStone.COURT,
                 RealmHubTopic.PLACE_COURT,
                 "The Court",
-                "the Crown, with /kingdom police court set",
-                List.of("Where the judge sits and cases are heard.")));
+                firstSite(snapshot, court),
+                List.of(
+                        "Where the judge sits and cases are heard.",
+                        "Its stone is a lectern, and stays; the judge sits behind it."),
+                court.isEmpty() ? "" : "Right-click to clear the site."));
         entries.add(cells(snapshot));
         entries.add(granary(snapshot));
         entries.add(mints(snapshot));
-        entries.add(place(
+        entries.add(chamber(
                 snapshot,
+                FoundationStone.COMMONS,
                 RealmHubTopic.PLACE_COMMONS,
                 "The House of Commons",
-                "the Crown, with /kingdom parliament set commons",
                 List.of("Bills are tabled and divided here.")));
-        entries.add(place(
+        entries.add(chamber(
                 snapshot,
+                FoundationStone.LORDS,
                 RealmHubTopic.PLACE_LORDS,
                 "The House of Lords",
-                "the Crown, with /kingdom parliament set lords",
-                List.of("Royal assent is granted here.")));
-        entries.add(place(
+                List.of(
+                        "Royal assent is granted here; the kingdom flag flies a block east.",
+                        "Hold a banner when you take it to fly your own design.")));
+        entries.add(chamber(
                 snapshot,
+                FoundationStone.SPEAKER_CHAIR,
                 RealmHubTopic.PLACE_SPEAKER_CHAIR,
                 "The Speaker's Chair",
-                "the Crown, with /kingdom parliament set speaker-chair",
                 List.of("Where the Speaker presides over a division.")));
+        entries.add(chamber(
+                snapshot,
+                FoundationStone.BAR,
+                RealmHubTopic.PLACE_BAR,
+                "The Bar of the House",
+                List.of("Where the Speaker reads the Commons' return to the Crown.")));
+        entries.add(mpSeats(snapshot));
+        entries.add(chamber(
+                snapshot,
+                FoundationStone.REGISTRAR,
+                RealmHubTopic.PLACE_REGISTRAR,
+                "The Registrar",
+                List.of("Acts and Hansard are shelved here.", "Its stone is a chiseled bookshelf, and stays.")));
         return entries;
     }
 
-    private static RealmHubEntry place(
-            RealmHubSnapshot snapshot, RealmHubTopic topic, String title, String whoSitesIt, List<String> notes) {
+    /** A single point of Parliament, laid by its stone and cleared from here. */
+    private static RealmHubEntry chamber(
+            RealmHubSnapshot snapshot, FoundationStone kind, RealmHubTopic topic, String title, List<String> notes) {
         List<SitePoint> points = snapshot.sites(topic);
-        List<String> lines = new ArrayList<>();
-        if (points.isEmpty()) {
-            lines.add("Sited by " + whoSitesIt);
-            lines.addAll(notes);
-            return RealmHubEntry.refused(topic, title, "Not yet sited.", lines);
-        }
-        lines.add(describe(points.get(0), snapshot.viewer()));
-        lines.addAll(notes);
-        return RealmHubEntry.usable(topic, title, lines, RealmHubAction.NONE);
+        return laidByStone(
+                snapshot,
+                kind,
+                topic,
+                title,
+                firstSite(snapshot, points),
+                notes,
+                points.isEmpty() ? "" : "Right-click to clear the site.");
     }
 
+    /** The eight MP seats: each stone sets the next empty seat, and a full House takes no more. */
+    private static RealmHubEntry mpSeats(RealmHubSnapshot snapshot) {
+        List<SitePoint> points = snapshot.sites(RealmHubTopic.PLACE_MP_SEATS);
+        List<String> state = new ArrayList<>();
+        state.add(MpSeatNumbering.describe(points.size()));
+        int position = 0;
+        for (SitePoint point : points) {
+            position++;
+            state.add("Seat " + numberOf(point, position) + ": " + describe(point, snapshot.viewer()));
+        }
+        List<String> notes = List.of("Each stone sets the next empty seat, from 1 to 8.");
+        String clearLine = points.isEmpty() ? "" : "Right-click to clear a seat.";
+        RealmHubEntry entry = laidByStone(
+                snapshot, FoundationStone.MP_SEAT, RealmHubTopic.PLACE_MP_SEATS, "The MP Seats", state, notes, clearLine);
+        if (points.size() < MpSeatNumbering.SEATS || entry.action() != RealmHubAction.TAKE_FOUNDATION_STONE) {
+            return entry;
+        }
+        // A full House: the stone is not handed out, but a seat may still be cleared.
+        List<String> lines = new ArrayList<>(state);
+        lines.addAll(notes);
+        lines.add(clearLine);
+        return RealmHubEntry.usable(RealmHubTopic.PLACE_MP_SEATS, "The MP Seats", lines, RealmHubAction.TAKE_FOUNDATION_STONE)
+                .withWho(entry.whoLine());
+    }
+
+    /** A numbered place's own number, falling back to its position in the list when it has none. */
+    private static int numberOf(SitePoint point, int position) {
+        return point.number() > 0 ? point.number() : position;
+    }
+
+    private static List<String> firstSite(RealmHubSnapshot snapshot, List<SitePoint> points) {
+        return List.of(points.isEmpty() ? "Not yet sited." : describe(points.get(0), snapshot.viewer()));
+    }
+
+    /**
+     * A place raised by its foundation stone: whoever may lay it takes the stone here, and the Crown
+     * clears the site here, behind a confirmation.
+     *
+     * @param clearLine how to clear the site; blank when there is nothing to clear
+     */
+    private static RealmHubEntry laidByStone(
+            RealmHubSnapshot snapshot,
+            FoundationStone kind,
+            RealmHubTopic topic,
+            String title,
+            List<String> state,
+            List<String> notes,
+            String clearLine) {
+        return laidByStone(snapshot, kind, topic, title, state, notes, clearLine, !snapshot.sites(topic).isEmpty());
+    }
+
+    /** As above, for a place that is not a point — the granary's region — and says itself whether it is sited. */
+    private static RealmHubEntry laidByStone(
+            RealmHubSnapshot snapshot,
+            FoundationStone kind,
+            RealmHubTopic topic,
+            String title,
+            List<String> state,
+            List<String> notes,
+            String clearLine,
+            boolean sited) {
+        List<String> lines = new ArrayList<>(state);
+        lines.addAll(notes);
+        if (!kind.mayLay(snapshot.rank())) {
+            String who = "Sited by " + kind.layers() + ", by laying its foundation stone.";
+            if (!sited) {
+                return RealmHubEntry.refused(topic, title, who, lines);
+            }
+            return RealmHubEntry.usable(topic, title, lines, RealmHubAction.NONE).withWho(who);
+        }
+        lines.add("Click to take " + kind.site() + "'s foundation stone. Lay it inside your realm's territory.");
+        if (!clearLine.isBlank() && kind.mayClear(snapshot.rank())) {
+            lines.add(clearLine);
+        }
+        return RealmHubEntry.usable(topic, title, lines, RealmHubAction.TAKE_FOUNDATION_STONE)
+                .withWho(capitalise(kind.layers()) + " lays it.");
+    }
+
+    private static String capitalise(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
+    }
+
+    /** The cells: each stone sets the next free cell, and there is no last one. */
     private static RealmHubEntry cells(RealmHubSnapshot snapshot) {
         List<SitePoint> points = snapshot.sites(RealmHubTopic.PLACE_PRISON);
+        List<String> state = new ArrayList<>();
         if (points.isEmpty()) {
-            return RealmHubEntry.refused(
-                    RealmHubTopic.PLACE_PRISON,
-                    "The Prison Cells",
-                    "Not yet sited.",
-                    List.of("Sited by the Crown, with /kingdom police setcell"));
-        }
-        List<String> lines = new ArrayList<>();
-        lines.add(points.size() + " cell" + (points.size() == 1 ? "" : "s") + " sited");
-        int shown = 0;
-        for (SitePoint point : points) {
-            if (shown++ == 5) {
-                lines.add("… and " + (points.size() - 5) + " more");
-                break;
+            state.add("Not yet sited.");
+        } else {
+            state.add(points.size() + " cell" + (points.size() == 1 ? "" : "s") + " sited");
+            int shown = 0;
+            for (SitePoint point : points) {
+                if (shown++ == 5) {
+                    state.add("… and " + (points.size() - 5) + " more");
+                    break;
+                }
+                state.add("Cell " + numberOf(point, shown) + ": " + describe(point, snapshot.viewer()));
             }
-            lines.add("Cell " + shown + ": " + describe(point, snapshot.viewer()));
         }
-        return RealmHubEntry.usable(RealmHubTopic.PLACE_PRISON, "The Prison Cells", lines, RealmHubAction.NONE);
+        return laidByStone(
+                snapshot,
+                FoundationStone.CELL,
+                RealmHubTopic.PLACE_PRISON,
+                "The Prison Cells",
+                state,
+                List.of("Each stone sets the next free cell; a prisoner stands where it was laid."),
+                points.isEmpty() ? "" : "Right-click to clear a cell.");
     }
 
+    /** The granary: a region, linked by laying its hay bale inside it. */
     private static RealmHubEntry granary(RealmHubSnapshot snapshot) {
-        if (snapshot.granaryRegion().isBlank()) {
-            return RealmHubEntry.refused(
-                    RealmHubTopic.PLACE_GRANARY,
-                    "The Granary",
-                    "Not yet sited.",
-                    List.of(
-                            "Sited by the Crown, with /kingdom granary setregion <region>",
-                            "The realm's grain store against winter."));
-        }
-        return RealmHubEntry.usable(
+        boolean sited = !snapshot.granaryRegion().isBlank();
+        return laidByStone(
+                snapshot,
+                FoundationStone.GRANARY,
                 RealmHubTopic.PLACE_GRANARY,
                 "The Granary",
+                List.of(sited ? "Region: " + snapshot.granaryRegion() : "Not yet sited."),
                 List.of(
-                        "Region: " + snapshot.granaryRegion(),
                         "The realm's grain store against winter.",
-                        "Type /kingdom info for what the stores cover."),
-                RealmHubAction.NONE);
+                        "Its stone is a hay bale: the smallest region around it becomes the granary."),
+                sited ? "Right-click to release the granary." : "",
+                sited);
     }
 
     private static RealmHubEntry mints(RealmHubSnapshot snapshot) {
         List<SitePoint> points = snapshot.sites(RealmHubTopic.PLACE_MINTS);
-        if (points.isEmpty()) {
-            return RealmHubEntry.refused(
-                    RealmHubTopic.PLACE_MINTS,
-                    "The Royal Mints",
-                    "Not yet sited.",
-                    List.of(
-                            "Sited by a Lord or the Crown, with /kingdom mint place",
-                            "A Lord of the Treasury takes deposits and pays out."));
-        }
         List<String> lines = new ArrayList<>();
-        lines.add(points.size() + " mint" + (points.size() == 1 ? "" : "s") + " standing");
-        int shown = 0;
-        for (SitePoint point : points) {
-            if (shown++ == 5) {
-                lines.add("… and " + (points.size() - 5) + " more");
-                break;
+        if (points.isEmpty()) {
+            lines.add("Not yet sited.");
+        } else {
+            lines.add(points.size() + " mint" + (points.size() == 1 ? "" : "s") + " standing");
+            int shown = 0;
+            for (SitePoint point : points) {
+                if (shown++ == 5) {
+                    lines.add("… and " + (points.size() - 5) + " more");
+                    break;
+                }
+                lines.add(describe(point, snapshot.viewer()));
             }
-            lines.add(describe(point, snapshot.viewer()));
         }
-        lines.add("Right-click the Lord of the Treasury to deposit or withdraw.");
-        return RealmHubEntry.usable(RealmHubTopic.PLACE_MINTS, "The Royal Mints", lines, RealmHubAction.NONE);
+        return laidByStone(
+                snapshot,
+                FoundationStone.MINT,
+                RealmHubTopic.PLACE_MINTS,
+                "The Royal Mints",
+                lines,
+                List.of("A Lord of the Treasury takes deposits and pays out."),
+                points.isEmpty() ? "" : "Right-click to clear a mint.");
     }
 
     /** {@code world 30, 64, 40 — 50 blocks away}, or a plain reading when the world differs. */

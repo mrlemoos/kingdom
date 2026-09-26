@@ -75,6 +75,28 @@ public record CandidateDeclaration(String manifesto, String partyName, String pa
         return new CandidateDeclaration(manifesto, partyName, partyColour);
     }
 
+    /**
+     * Reads a declaration as a candidate types it: {@code [party] [colour] [manifesto...]}, words
+     * separated by spaces. Nothing typed is a blank declaration.
+     *
+     * @throws IllegalArgumentException with the message the realm should be shown
+     */
+    public static CandidateDeclaration parse(String typed) {
+        String trimmed = typed == null ? "" : typed.trim();
+        if (trimmed.isEmpty()) {
+            return blank();
+        }
+        String[] words = trimmed.split("\\s+", 3);
+        String party = words[0];
+        String colour = words.length >= 2 ? words[1] : "";
+        if (words.length >= 2 && parseColour(colour).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "That is not a party colour the realm recognises. Try: red, blue, green, gold, purple.");
+        }
+        String manifesto = words.length >= 3 ? words[2] : "";
+        return of(manifesto, party, colour);
+    }
+
     /** Why the declaration cannot stand, or empty where it may. */
     public static Optional<String> rejectionReason(String manifesto, String partyName, String partyColour) {
         String trimmedManifesto = manifesto == null ? "" : manifesto.trim();

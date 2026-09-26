@@ -67,7 +67,7 @@ public final class GranaryGazette {
         if (granaryRegionId == null || granaryRegionId.isBlank()) {
             return "The realm has sited no granary, and so stores nothing against the winter. "
                     + "Its villagers will go hungry from the first day of Hallowtide. "
-                    + "Link one with /kingdom granary setregion.";
+                    + "The Crown sites one by laying the granary's hay bale, from the Realm Hub.";
         }
         int shortfall = Math.max(0, shortfallBales);
         if (shortfall <= 0) {

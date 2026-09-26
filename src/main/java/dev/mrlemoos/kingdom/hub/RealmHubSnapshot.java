@@ -39,6 +39,16 @@ public final class RealmHubSnapshot {
     private final String resignationSummary;
     private final String granaryRegion;
     private final String warCapitalRegion;
+    private final int constables;
+    private final int judges;
+    private final boolean priestSworn;
+    private final int patrolGolems;
+    private final int patrolGolemCap;
+    private final int guardGolems;
+    private final int guardGolemCap;
+    private final boolean constableSworn;
+    private final int activeWarrants;
+    private final double warDebtOwed;
     private final Map<RealmHubTopic, List<SitePoint>> sites;
     private final SitePoint viewer;
     private final GazetteLiveState live;
@@ -69,6 +79,16 @@ public final class RealmHubSnapshot {
         this.resignationSummary = builder.resignationSummary;
         this.granaryRegion = builder.granaryRegion;
         this.warCapitalRegion = builder.warCapitalRegion;
+        this.constables = builder.constables;
+        this.judges = builder.judges;
+        this.priestSworn = builder.priestSworn;
+        this.patrolGolems = builder.patrolGolems;
+        this.patrolGolemCap = builder.patrolGolemCap;
+        this.guardGolems = builder.guardGolems;
+        this.guardGolemCap = builder.guardGolemCap;
+        this.constableSworn = builder.constableSworn;
+        this.activeWarrants = builder.activeWarrants;
+        this.warDebtOwed = builder.warDebtOwed;
         Map<RealmHubTopic, List<SitePoint>> copied = new EnumMap<>(RealmHubTopic.class);
         for (Map.Entry<RealmHubTopic, List<SitePoint>> entry : builder.sites.entrySet()) {
             copied.put(entry.getKey(), List.copyOf(entry.getValue()));
@@ -160,6 +180,21 @@ public final class RealmHubSnapshot {
         return wanted;
     }
 
+    /** True when the reader is a sworn constable of their realm. */
+    public boolean constableSworn() {
+        return constableSworn;
+    }
+
+    /** The realm's active warrants. */
+    public int activeWarrants() {
+        return activeWarrants;
+    }
+
+    /** The war debt the realm owes, in Corona. */
+    public double warDebtOwed() {
+        return warDebtOwed;
+    }
+
     public boolean resignationToReview() {
         return resignationToReview;
     }
@@ -180,6 +215,34 @@ public final class RealmHubSnapshot {
     /** WorldGuard subregion used for capital-fall war aims, or blank when none is linked. */
     public String warCapitalRegion() {
         return warCapitalRegion;
+    }
+
+    public int constables() {
+        return constables;
+    }
+
+    public int judges() {
+        return judges;
+    }
+
+    public boolean priestSworn() {
+        return priestSworn;
+    }
+
+    public int patrolGolems() {
+        return patrolGolems;
+    }
+
+    public int patrolGolemCap() {
+        return patrolGolemCap;
+    }
+
+    public int guardGolems() {
+        return guardGolems;
+    }
+
+    public int guardGolemCap() {
+        return guardGolemCap;
     }
 
     /** Every point sited under {@code topic}; empty when nothing has been sited. */
@@ -225,6 +288,16 @@ public final class RealmHubSnapshot {
         private String resignationSummary = "";
         private String granaryRegion = "";
         private String warCapitalRegion = "";
+        private int constables;
+        private int judges;
+        private boolean priestSworn;
+        private int patrolGolems;
+        private int patrolGolemCap;
+        private int guardGolems;
+        private int guardGolemCap;
+        private boolean constableSworn;
+        private int activeWarrants;
+        private double warDebtOwed;
         private final Map<RealmHubTopic, List<SitePoint>> sites = new EnumMap<>(RealmHubTopic.class);
         private SitePoint viewer;
         private GazetteLiveState live = new GazetteLiveState("", "none proclaimed", 0, 0, 0d);
@@ -324,6 +397,21 @@ public final class RealmHubSnapshot {
             return this;
         }
 
+        public Builder constableSworn(boolean constableSworn) {
+            this.constableSworn = constableSworn;
+            return this;
+        }
+
+        public Builder activeWarrants(int activeWarrants) {
+            this.activeWarrants = Math.max(0, activeWarrants);
+            return this;
+        }
+
+        public Builder warDebtOwed(double warDebtOwed) {
+            this.warDebtOwed = Math.max(0, warDebtOwed);
+            return this;
+        }
+
         public Builder resignationToReview(boolean resignationToReview) {
             this.resignationToReview = resignationToReview;
             return this;
@@ -341,6 +429,23 @@ public final class RealmHubSnapshot {
 
         public Builder warCapitalRegion(String warCapitalRegion) {
             this.warCapitalRegion = warCapitalRegion == null ? "" : warCapitalRegion;
+            return this;
+        }
+
+        /** How many hold each sworn role in the realm. */
+        public Builder swornRoles(int constables, int judges, boolean priestSworn) {
+            this.constables = Math.max(0, constables);
+            this.judges = Math.max(0, judges);
+            this.priestSworn = priestSworn;
+            return this;
+        }
+
+        /** The realm's police golems on duty, and how many of each it may have. */
+        public Builder policeGolems(int patrol, int patrolCap, int guard, int guardCap) {
+            this.patrolGolems = Math.max(0, patrol);
+            this.patrolGolemCap = Math.max(0, patrolCap);
+            this.guardGolems = Math.max(0, guard);
+            this.guardGolemCap = Math.max(0, guardCap);
             return this;
         }
 

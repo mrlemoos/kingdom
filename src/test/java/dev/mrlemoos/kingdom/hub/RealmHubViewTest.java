@@ -143,6 +143,36 @@ class RealmHubViewTest {
     }
 
     @Test
+    void theSwornRolesEntryPointsToTheSwordAndCountsTheOfficers() {
+        List<RealmHubEntry> entries = RealmHubView.entries(
+                subject(NobleRank.KING).swornRoles(2, 1, true).build());
+
+        RealmHubEntry sworn = entry(entries, RealmHubTopic.POWER_SWORN_ROLES).orElseThrow();
+        String lore = String.join(" ", sworn.lines());
+        assertTrue(lore.contains("2 constables, 1 judge"), lore);
+        assertTrue(lore.contains("priest sworn"), lore);
+        assertTrue(lore.contains("Strike a subject with a golden sword."), lore);
+        assertFalse(lore.contains("/kingdom"), lore);
+        assertFalse(sworn.whoLine().isBlank());
+    }
+
+    @Test
+    void theOfficersEntryCountsTheWatchAndSaysToBuildAGolem() {
+        RealmHubEntry officers = entry(RealmHubView.entries(
+                        subject(NobleRank.KNIGHT).policeGolems(1, 2, 0, 2).build()),
+                RealmHubTopic.POWER_POLICE_GOLEMS)
+                .orElseThrow();
+
+        String lore = String.join(" | ", officers.lines());
+        assertTrue(officers.usable());
+        assertTrue(lore.contains("1 of 2 patrol"), lore);
+        assertTrue(lore.contains("0 of 2 guard"), lore);
+        assertTrue(lore.contains("Build an iron golem inside your realm's territory."), lore);
+        assertFalse(lore.contains("/kingdom"), lore);
+        assertFalse(officers.whoLine().isBlank());
+    }
+
+    @Test
     void aSeatedMemberDoesParliamentaryBusiness() {
         List<RealmHubEntry> entries = RealmHubView.entries(subject(NobleRank.MP).build());
 
@@ -209,6 +239,33 @@ class RealmHubViewTest {
     }
 
     @Test
+    void theRitesWindowHasAnEntryInTheChurchThatPointsToTheCleric() {
+        RealmHubSnapshot snapshot = subject(NobleRank.KNIGHT)
+                .site(RealmHubTopic.PLACE_CHURCH, new SitePoint("world", 30, 64, 40))
+                .viewer(new SitePoint("world", 30, 64, 40))
+                .build();
+
+        RealmHubEntry rites = entry(RealmHubView.entries(snapshot), RealmHubTopic.RITES).orElseThrow();
+
+        assertTrue(rites.usable());
+        assertEquals(java.util.Optional.of(RealmHubSection.CHURCH), RealmHubSection.of(RealmHubTopic.RITES));
+        assertEquals(RealmHubSection.Row.EXPERIENCES, RealmHubSection.row(RealmHubTopic.RITES));
+        String lore = String.join(" | ", rites.lines());
+        assertTrue(lore.contains("Right-click the cleric at the church."), lore);
+        assertTrue(lore.contains("world 30, 64, 40"), lore);
+    }
+
+    @Test
+    void aSubjectOfNoRealmIsRefusedTheRites() {
+        RealmHubEntry rites = entry(
+                        RealmHubView.entries(RealmHubSnapshot.builder().member(false).build()), RealmHubTopic.RITES)
+                .orElseThrow();
+
+        assertFalse(rites.usable());
+        assertFalse(rites.refusal().isBlank());
+    }
+
+    @Test
     void activeMusterOpensItsResponseFromTheHub() {
         RealmHubEntry muster = entry(RealmHubView.entries(subject(NobleRank.KNIGHT)
                         .musterStatus("Your realm calls you to answer its muster.")
@@ -255,19 +312,59 @@ class RealmHubViewTest {
                 .orElseThrow();
 
         assertFalse(court.usable());
-        assertTrue(court.refusal().contains("Not yet sited"), court.refusal());
-        assertTrue(String.join(" ", court.lines()).contains("/kingdom police court set"), court.lines().toString());
+        assertTrue(String.join(" ", court.lines()).contains("Not yet sited"), court.lines().toString());
+        assertEquals("Sited by the King or Queen, by laying its foundation stone.", court.whoLine());
+        assertFalse(String.join(" ", court.lines()).contains("/kingdom police"), court.lines().toString());
     }
 
     @Test
-    void theCrownCapitalPowerNamesTheCapitalFallRegionCommands() {
+    void theCrownIsHandedTheCourtCellAndGranaryStones() {
+        RealmHubSnapshot snapshot = subject(NobleRank.QUEEN)
+                .site(RealmHubTopic.PLACE_COURT, new SitePoint("world", 30, 64, 40))
+                .site(RealmHubTopic.PLACE_PRISON, new SitePoint("world", 1, 64, 1))
+                .granaryRegion("north_granary")
+                .build();
+        List<RealmHubEntry> entries = RealmHubView.entries(snapshot);
+
+        for (RealmHubTopic topic : List.of(
+                RealmHubTopic.PLACE_COURT, RealmHubTopic.PLACE_PRISON, RealmHubTopic.PLACE_GRANARY)) {
+            RealmHubEntry place = entry(entries, topic).orElseThrow(() -> new AssertionError("no entry for " + topic));
+            String lines = String.join(" | ", place.lines());
+            assertTrue(place.usable(), topic.name());
+            assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, place.action(), topic.name());
+            assertEquals("The King or Queen lays it.", place.whoLine(), topic.name());
+            assertTrue(lines.contains("Right-click to "), lines);
+            assertFalse(lines.contains("/kingdom"), lines);
+        }
+        String court = String.join(" | ", entry(entries, RealmHubTopic.PLACE_COURT).orElseThrow().lines());
+        assertTrue(court.contains("lectern"), court);
+        String cells = String.join(" | ", entry(entries, RealmHubTopic.PLACE_PRISON).orElseThrow().lines());
+        assertTrue(cells.contains("Right-click to clear a cell."), cells);
+        String granary = String.join(" | ", entry(entries, RealmHubTopic.PLACE_GRANARY).orElseThrow().lines());
+        assertTrue(granary.contains("hay bale"), granary);
+    }
+
+    @Test
+    void theCrownIsNotOfferedToClearWhatIsNotSited() {
+        List<RealmHubEntry> entries = RealmHubView.entries(subject(NobleRank.KING).build());
+
+        for (RealmHubTopic topic : List.of(
+                RealmHubTopic.PLACE_COURT, RealmHubTopic.PLACE_PRISON, RealmHubTopic.PLACE_GRANARY)) {
+            RealmHubEntry place = entry(entries, topic).orElseThrow();
+            assertTrue(place.usable(), topic.name());
+            assertFalse(String.join(" ", place.lines()).contains("Right-click to "), topic.name());
+        }
+    }
+
+    @Test
+    void theCrownCapitalPowerPointsToTheStoneNotTheCommands() {
         RealmHubEntry capital = entry(
                         RealmHubView.entries(subject(NobleRank.QUEEN).build()), RealmHubTopic.POWER_CAPITAL)
                 .orElseThrow();
 
         String lines = String.join(" ", capital.lines());
-        assertTrue(lines.contains("/kingdom capital setregion <region>"), lines);
-        assertTrue(lines.contains("/kingdom capital clearregion"), lines);
+        assertFalse(lines.contains("/kingdom capital"), lines);
+        assertTrue(lines.contains("foundation stone"), lines);
         assertTrue(lines.contains("No capital-fall region"), lines);
     }
 
@@ -362,6 +459,23 @@ class RealmHubViewTest {
     }
 
     @Test
+    void livePollsPointAtThePollCard() {
+        RealmHubSnapshot snapshot = subject(NobleRank.MP)
+                .electionOpen(true)
+                .pollingOpen(true)
+                .build();
+
+        List<RealmHubEntry> entries = RealmHubView.entries(snapshot);
+
+        assertTrue(entry(entries, RealmHubTopic.LIVE_ELECTION).orElseThrow().lines()
+                .contains("Right-click your poll card."));
+        assertTrue(entry(entries, RealmHubTopic.LIVE_POLLING).orElseThrow().lines()
+                .contains("Right-click your poll card."));
+        assertFalse(entry(entries, RealmHubTopic.LIVE_ELECTION).orElseThrow().lines().stream()
+                .anyMatch(line -> line.contains("/kingdom election")));
+    }
+
+    @Test
     void aPermitHolderMayBuildAndOneWithoutIsToldWhereToApply() {
         RealmHubSnapshot holder = subject(NobleRank.KNIGHT)
                 .buildEnforcementActive(true)
@@ -441,10 +555,281 @@ class RealmHubViewTest {
 
     @Test
     void thePagesHoldEveryEntryInOrder() {
-        List<RealmHubEntry> entries = RealmHubView.entries(subject(NobleRank.QUEEN).build());
+        RealmHubSnapshot snapshot = subject(NobleRank.QUEEN).build();
 
-        assertEquals(1, RealmHubLayout.pageCount(entries.size()));
-        assertEquals(entries, RealmHubLayout.pageSlice(entries, 0));
-        assertFalse(RealmHubLayout.hasNext(0, entries.size()));
+        for (RealmHubSection section : RealmHubSection.values()) {
+            assertEquals(1, RealmHubLayout.sectionPages(RealmHubView.section(snapshot, section)).size(), section.name());
+        }
+    }
+
+    @Test
+    void theCrownIsHandedTheChurchStoneFromItsPlace() {
+        RealmHubEntry church = entry(RealmHubView.entries(subject(NobleRank.QUEEN).build()), RealmHubTopic.PLACE_CHURCH)
+                .orElseThrow();
+
+        assertTrue(church.usable());
+        assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, church.action());
+        String lines = String.join(" | ", church.lines());
+        assertTrue(lines.contains("Not yet sited."), lines);
+        assertTrue(lines.contains(
+                "Click to take the church's foundation stone. Lay it inside your realm's territory."), lines);
+        assertFalse(lines.contains("Right-click to clear the site."), lines);
+        assertEquals("The King or Queen lays it.", church.whoLine());
+    }
+
+    @Test
+    void aSitedChurchMayBeClearedByTheCrown() {
+        RealmHubEntry church = entry(
+                        RealmHubView.entries(subject(NobleRank.KING)
+                                .site(RealmHubTopic.PLACE_CHURCH, new SitePoint("world", 30, 64, 40))
+                                .build()),
+                        RealmHubTopic.PLACE_CHURCH)
+                .orElseThrow();
+
+        String lines = String.join(" | ", church.lines());
+        assertTrue(lines.contains("world 30, 64, 40"), lines);
+        assertTrue(lines.contains("Right-click to clear the site."), lines);
+    }
+
+    @Test
+    void aSubjectIsNotHandedTheChurchStone() {
+        RealmHubEntry church = entry(RealmHubView.entries(subject(NobleRank.PRINCE).build()), RealmHubTopic.PLACE_CHURCH)
+                .orElseThrow();
+
+        assertFalse(church.usable());
+        assertEquals(RealmHubAction.NONE, church.action());
+        assertEquals("Sited by the King or Queen, by laying its foundation stone.", church.whoLine());
+    }
+
+    @Test
+    void theCrownIsHandedTheCapitalAndCrierStones() {
+        List<RealmHubEntry> entries = RealmHubView.entries(subject(NobleRank.KING)
+                .site(RealmHubTopic.PLACE_CAPITAL, new SitePoint("world", 30, 64, 40))
+                .build());
+
+        RealmHubEntry capital = entry(entries, RealmHubTopic.PLACE_CAPITAL).orElseThrow();
+        assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, capital.action());
+        String lines = String.join(" | ", capital.lines());
+        assertTrue(lines.contains("world 30, 64, 40"), lines);
+        assertTrue(lines.contains("Click to take the capital's foundation stone."), lines);
+        assertTrue(lines.contains("Right-click to clear the site."), lines);
+        assertEquals("The King or Queen lays it.", capital.whoLine());
+
+        RealmHubEntry crier = entry(entries, RealmHubTopic.PLACE_TOWN_CRIER).orElseThrow();
+        assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, crier.action());
+        assertFalse(String.join(" | ", crier.lines()).contains("Right-click to return"), crier.lines().toString());
+    }
+
+    @Test
+    void aLordIsHandedAMintStoneButMayNotClearOne() {
+        RealmHubEntry mints = entry(
+                        RealmHubView.entries(subject(NobleRank.LORD)
+                                .site(RealmHubTopic.PLACE_MINTS, new SitePoint("world", 5, 64, 5))
+                                .build()),
+                        RealmHubTopic.PLACE_MINTS)
+                .orElseThrow();
+
+        assertTrue(mints.usable());
+        assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, mints.action());
+        String lines = String.join(" | ", mints.lines());
+        assertTrue(lines.contains("Click to take a mint's foundation stone."), lines);
+        assertFalse(lines.contains("Right-click"), lines);
+        assertEquals("The King, Queen or a Lord lays it.", mints.whoLine());
+    }
+
+    @Test
+    void theCrownMayClearAMint() {
+        RealmHubEntry mints = entry(
+                        RealmHubView.entries(subject(NobleRank.QUEEN)
+                                .site(RealmHubTopic.PLACE_MINTS, new SitePoint("world", 5, 64, 5))
+                                .build()),
+                        RealmHubTopic.PLACE_MINTS)
+                .orElseThrow();
+
+        assertTrue(String.join(" | ", mints.lines()).contains("Right-click to clear a mint."), mints.lines().toString());
+    }
+
+    @Test
+    void aKnightIsHandedNoStoneAndIsToldWhoLaysThem() {
+        List<RealmHubEntry> entries = RealmHubView.entries(subject(NobleRank.KNIGHT).build());
+
+        RealmHubEntry capital = entry(entries, RealmHubTopic.PLACE_CAPITAL).orElseThrow();
+        assertFalse(capital.usable());
+        assertEquals("Sited by the King or Queen, by laying its foundation stone.", capital.whoLine());
+        RealmHubEntry mints = entry(entries, RealmHubTopic.PLACE_MINTS).orElseThrow();
+        assertFalse(mints.usable());
+        assertEquals("Sited by the King, Queen or a Lord, by laying its foundation stone.", mints.whoLine());
+    }
+
+    @Test
+    void theCrownIsHandedEveryParliamentStone() {
+        List<RealmHubEntry> entries = RealmHubView.section(
+                subject(NobleRank.KING).build(), RealmHubSection.PARLIAMENT);
+
+        for (RealmHubTopic topic : List.of(
+                RealmHubTopic.PLACE_COMMONS,
+                RealmHubTopic.PLACE_LORDS,
+                RealmHubTopic.PLACE_SPEAKER_CHAIR,
+                RealmHubTopic.PLACE_BAR,
+                RealmHubTopic.PLACE_MP_SEATS,
+                RealmHubTopic.PLACE_REGISTRAR)) {
+            RealmHubEntry place = entry(entries, topic).orElseThrow(() -> new AssertionError("no entry for " + topic));
+            assertTrue(place.usable(), topic.name());
+            assertEquals(RealmHubAction.TAKE_FOUNDATION_STONE, place.action(), topic.name());
+            assertEquals("The King or Queen lays it.", place.whoLine(), topic.name());
+        }
+        String lords = String.join(" | ", entry(entries, RealmHubTopic.PLACE_LORDS).orElseThrow().lines());
+        assertTrue(lords.contains("Hold a banner when you take it to fly your own design."), lords);
+    }
+
+    @Test
+    void theSeatsAreCountedAndClearedFromAList() {
+        RealmHubSnapshot.Builder builder = subject(NobleRank.QUEEN);
+        for (int seat = 1; seat <= 5; seat++) {
+            builder.site(RealmHubTopic.PLACE_MP_SEATS, new SitePoint("world", seat, 64, 0));
+        }
+        RealmHubEntry seats = entry(RealmHubView.entries(builder.build()), RealmHubTopic.PLACE_MP_SEATS)
+                .orElseThrow();
+
+        String lines = String.join(" | ", seats.lines());
+        assertTrue(lines.contains("5 of 8 seats set"), lines);
+        assertTrue(lines.contains("Click to take an MP seat's foundation stone."), lines);
+        assertTrue(lines.contains("Right-click to clear a seat."), lines);
+    }
+
+    @Test
+    void cellsAndSeatsKeepTheirRealNumbersAfterOneIsCleared() {
+        RealmHubSnapshot snapshot = subject(NobleRank.QUEEN)
+                .site(RealmHubTopic.PLACE_PRISON, new SitePoint("world", 1, 64, 1, 1))
+                .site(RealmHubTopic.PLACE_PRISON, new SitePoint("world", 3, 64, 1, 3))
+                .site(RealmHubTopic.PLACE_MP_SEATS, new SitePoint("world", 1, 64, 0, 1))
+                .site(RealmHubTopic.PLACE_MP_SEATS, new SitePoint("world", 4, 64, 0, 4))
+                .build();
+
+        List<RealmHubEntry> entries = RealmHubView.entries(snapshot);
+        String cells = String.join(" | ", entry(entries, RealmHubTopic.PLACE_PRISON).orElseThrow().lines());
+        String seats = String.join(" | ", entry(entries, RealmHubTopic.PLACE_MP_SEATS).orElseThrow().lines());
+
+        assertTrue(cells.contains("Cell 3:"), cells);
+        assertFalse(cells.contains("Cell 2:"), cells);
+        assertTrue(seats.contains("Seat 4:"), seats);
+        assertFalse(seats.contains("Seat 2:"), seats);
+    }
+
+    @Test
+    void noSeatStoneIsOfferedOnceAllEightAreSet() {
+        RealmHubSnapshot.Builder builder = subject(NobleRank.QUEEN);
+        for (int seat = 1; seat <= 8; seat++) {
+            builder.site(RealmHubTopic.PLACE_MP_SEATS, new SitePoint("world", seat, 64, 0));
+        }
+        RealmHubEntry seats = entry(RealmHubView.entries(builder.build()), RealmHubTopic.PLACE_MP_SEATS)
+                .orElseThrow();
+
+        String lines = String.join(" | ", seats.lines());
+        assertTrue(lines.contains("All 8 seats set"), lines);
+        assertFalse(lines.contains("Click to take"), lines);
+        assertTrue(lines.contains("Right-click to clear a seat."), lines);
+    }
+
+    @Test
+    void aSubjectIsToldTheCrownLaysTheChambers() {
+        RealmHubEntry commons = entry(RealmHubView.entries(subject(NobleRank.PREMIER).build()), RealmHubTopic.PLACE_COMMONS)
+                .orElseThrow();
+
+        assertFalse(commons.usable());
+        assertEquals("Sited by the King or Queen, by laying its foundation stone.", commons.whoLine());
+    }
+
+    @Test
+    void theParliamentPlacesSitOnTheirSectionsPlacesRow() {
+        for (RealmHubTopic topic : List.of(
+                RealmHubTopic.PLACE_BAR, RealmHubTopic.PLACE_MP_SEATS, RealmHubTopic.PLACE_REGISTRAR)) {
+            assertEquals(Optional.of(RealmHubSection.PARLIAMENT), RealmHubSection.of(topic), topic.name());
+            assertEquals(RealmHubSection.Row.PLACES, RealmHubSection.row(topic), topic.name());
+        }
+    }
+
+    @Test
+    void aSwornConstableIsToldToStrikeTheWantedWithAnIronSword() {
+        RealmHubEntry arrest = entry(RealmHubView.entries(subject(null).constableSworn(true).build()),
+                        RealmHubTopic.POWER_ARREST)
+                .orElseThrow();
+
+        assertTrue(arrest.usable());
+        String lore = String.join(" | ", arrest.lines());
+        assertTrue(lore.contains("iron sword"), lore);
+        assertFalse(lore.contains("/kingdom"), lore);
+        assertFalse(arrest.whoLine().isBlank());
+    }
+
+    @Test
+    void oneWhoIsNotAConstableIsRefusedTheArrestAndToldWhoMay() {
+        RealmHubEntry arrest = entry(RealmHubView.entries(subject(NobleRank.KING).build()), RealmHubTopic.POWER_ARREST)
+                .orElseThrow();
+
+        assertFalse(arrest.usable());
+        assertTrue(arrest.refusal().contains("constable"), arrest.refusal());
+    }
+
+    @Test
+    void theCrownOpensTheWarrantRegisterAndSeesHowManyAreOut() {
+        RealmHubEntry register = entry(
+                        RealmHubView.entries(subject(NobleRank.QUEEN).activeWarrants(3).build()),
+                        RealmHubTopic.POWER_WARRANTS)
+                .orElseThrow();
+
+        assertTrue(register.usable());
+        assertEquals(RealmHubAction.OPEN_WARRANT_REGISTER, register.action());
+        assertTrue(String.join(" | ", register.lines()).contains("3 warrants"), register.lines().toString());
+    }
+
+    @Test
+    void aDukeIsRefusedTheWarrantRegister() {
+        assertFalse(usable(RealmHubView.entries(subject(NobleRank.DUKE).build()), RealmHubTopic.POWER_WARRANTS));
+    }
+
+    @Test
+    void anySubjectMayPostAnArrestRewardAtTheCourt() {
+        RealmHubEntry reward = entry(RealmHubView.entries(subject(null).activeWarrants(1).build()),
+                        RealmHubTopic.ARREST_REWARD)
+                .orElseThrow();
+
+        assertTrue(reward.usable());
+        String lore = String.join(" | ", reward.lines());
+        assertTrue(lore.contains("lectern"), lore);
+        assertFalse(lore.contains("/kingdom"), lore);
+    }
+
+    @Test
+    void theCrownPaysWarDebtFromTheHub() {
+        RealmHubEntry debt = entry(
+                        RealmHubView.entries(subject(NobleRank.KING).warDebtOwed(60).build()),
+                        RealmHubTopic.POWER_WAR_DEBT)
+                .orElseThrow();
+
+        assertEquals(RealmHubAction.OPEN_WAR_DEBT, debt.action());
+        String lore = String.join(" | ", debt.lines());
+        assertTrue(lore.contains("60 Corona"), lore);
+        assertFalse(lore.contains("/kingdom"), lore);
+    }
+
+    @Test
+    void theMintWalletEntryPointsToTheLordOfTheTreasury() {
+        RealmHubEntry wallet = entry(RealmHubView.entries(subject(null).build()), RealmHubTopic.WALLET).orElseThrow();
+
+        assertTrue(wallet.usable());
+        String lore = String.join(" | ", wallet.lines());
+        assertTrue(lore.contains("Lord of the Treasury"), lore);
+        assertTrue(lore.contains("Deposit"), lore);
+    }
+
+    @Test
+    void theWarrantPowersSitInThePoliceAndTheWalletInTheTreasury() {
+        assertEquals(Optional.of(RealmHubSection.POLICE), RealmHubSection.of(RealmHubTopic.POWER_ARREST));
+        assertEquals(Optional.of(RealmHubSection.POLICE), RealmHubSection.of(RealmHubTopic.POWER_WARRANTS));
+        assertEquals(Optional.of(RealmHubSection.POLICE), RealmHubSection.of(RealmHubTopic.ARREST_REWARD));
+        assertEquals(Optional.of(RealmHubSection.TREASURY), RealmHubSection.of(RealmHubTopic.WALLET));
+        assertEquals(RealmHubSection.Row.EXPERIENCES, RealmHubSection.row(RealmHubTopic.ARREST_REWARD));
+        assertEquals(RealmHubSection.Row.POWERS, RealmHubSection.row(RealmHubTopic.POWER_WARRANTS));
     }
 }

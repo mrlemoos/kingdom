@@ -5,14 +5,15 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
-import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.war.tribute.DebtPaymentResult;
+import dev.mrlemoos.kingdom.war.tribute.TributeDesk;
 import dev.mrlemoos.kingdom.war.tribute.WarDebt;
 import dev.mrlemoos.kingdom.war.tribute.WarTributeService;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -23,6 +24,7 @@ public final class KingdomTributeHandler {
     private final EconomyService economy;
     private final WarTributeService tribute;
     private final YamlEconomyStore economyStore;
+    private final TributeDesk desk;
 
     public KingdomTributeHandler(
             KingdomService kingdoms,
@@ -33,6 +35,7 @@ public final class KingdomTributeHandler {
         this.economy = economy;
         this.tribute = tribute;
         this.economyStore = economyStore;
+        this.desk = new TributeDesk(tribute);
     }
 
     public String infoLine(String kingdomId) {
@@ -79,6 +82,10 @@ public final class KingdomTributeHandler {
     }
 
     private boolean handlePay(CommandSender sender, String[] args) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error(PAY_FROM_HUB));
+            return true;
+        }
         if (args.length < 2) {
             sender.sendMessage(error("Usage: /kingdom tribute pay <creditor> [amount]"));
             return true;
@@ -92,35 +99,31 @@ public final class KingdomTributeHandler {
             sender.sendMessage(error("You must join a kingdom first."));
             return true;
         }
-        if (!RankAuthority.canPayWarDebt(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King or Queen may pay war debt."));
-            return true;
-        }
         String creditorId = Kingdom.normaliseId(args[1]);
         if (kingdoms.getKingdom(creditorId).isEmpty()) {
             sender.sendMessage(error("Unknown kingdom."));
             return true;
         }
-        String debtorId = membership.get().getKingdomId();
-        double owed = tribute.debtOwed(debtorId, creditorId);
-        if (owed <= 0) {
-            sender.sendMessage(error("Your realm owes that kingdom no war debt."));
-            return true;
+        OptionalDouble amount = OptionalDouble.empty();
+        if (args.length > 2) {
+            Double parsed = parseAmount(sender, args, 2, 0);
+            if (parsed == null) {
+                return true;
+            }
+            amount = OptionalDouble.of(parsed);
         }
-        Double amount = parseAmount(sender, args, 2, owed);
-        if (amount == null) {
-            return true;
+        TributeDesk.Outcome outcome =
+                desk.pay(membership.get().getKingdomId(), membership.get().getRank(), creditorId, amount);
+        if (outcome.success()) {
+            economyStore.saveFrom(economy);
         }
-        DebtPaymentResult result = tribute.payDebt(debtorId, creditorId, amount);
-        economyStore.saveFrom(economy);
-        if (result.paid() <= 0) {
-            sender.sendMessage(error("The treasury cannot cover that payment."));
-            return true;
-        }
-        sender.sendMessage(success("Paid " + formatCorona(result.paid()) + " Corona of war debt to "
-                + display(creditorId) + ". Remaining: " + formatCorona(result.remainingDebt()) + "."));
+        sender.sendMessage(outcome.success() ? success(outcome.message()) : error(outcome.message()));
         return true;
     }
+
+    /** Where the Crown pays war debt now; the command is the operators' escape hatch. */
+    static final String PAY_FROM_HUB = "War debt is paid from the Realm Hub. "
+            + "Type /kingdom, open The Treasury and click Pay War Debt.";
 
     private boolean handleCredit(CommandSender sender, String[] args) {
         if (!sender.isOp()) {
@@ -180,7 +183,7 @@ public final class KingdomTributeHandler {
         return info("Tribute commands:")
                 + "\n" + c("&e/kingdom tribute status") + c("&7 — war debt owed and owing")
                 + "\n" + c("&e/kingdom tribute pay <creditor> [amount]")
-                + c("&7 — Crown pays from the treasury");
+                + c("&7 — operators; the Crown pays from The Treasury in /kingdom");
     }
 
     private static String formatCorona(double amount) {

@@ -46,6 +46,11 @@ public final class KingdomElectionState {
         seatLocations.put(index, location);
     }
 
+    /** Forgets where a seat stands; true when it had been set. */
+    public boolean clearSeatLocation(int index) {
+        return seatLocations.remove(index) != null;
+    }
+
     public ElectionState election() {
         return election;
     }

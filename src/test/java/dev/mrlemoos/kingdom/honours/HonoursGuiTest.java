@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.model.police.SwornRole;
 import org.junit.jupiter.api.Test;
 
 class HonoursGuiTest {
@@ -28,5 +29,18 @@ class HonoursGuiTest {
         assertNull(HonoursGui.rankForSlot(HonoursGui.FIRST_SLOT + HonoursGui.GRANTABLE.size()));
         assertNull(HonoursGui.rankForSlot(HonoursGui.SLOT_STRIP));
         assertTrue(HonoursGui.isStripSlot(HonoursGui.SLOT_STRIP));
+    }
+
+    @Test
+    void theSwornRolesHaveARowOfTheirOwn() {
+        assertEquals(SwornRole.CONSTABLE, HonoursGui.swornRoleForSlot(HonoursGui.FIRST_SWORN_SLOT));
+        assertEquals(SwornRole.JUDGE, HonoursGui.swornRoleForSlot(HonoursGui.FIRST_SWORN_SLOT + 1));
+        assertEquals(SwornRole.PRIEST, HonoursGui.swornRoleForSlot(HonoursGui.FIRST_SWORN_SLOT + 2));
+        assertNull(HonoursGui.swornRoleForSlot(HonoursGui.FIRST_SWORN_SLOT + 3));
+        assertNull(HonoursGui.swornRoleForSlot(HonoursGui.SLOT_STRIP));
+        for (int slot = HonoursGui.FIRST_SWORN_SLOT; slot < HonoursGui.FIRST_SWORN_SLOT + 3; slot++) {
+            assertNull(HonoursGui.rankForSlot(slot));
+            assertFalse(HonoursGui.isStripSlot(slot));
+        }
     }
 }

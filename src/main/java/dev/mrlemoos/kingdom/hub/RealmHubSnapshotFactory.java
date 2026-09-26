@@ -14,9 +14,12 @@ import dev.mrlemoos.kingdom.model.election.PendingResignation;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.ChamberSite;
+import dev.mrlemoos.kingdom.model.parliament.RegistrarSite;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
+import dev.mrlemoos.kingdom.police.WarrantRegister;
+import dev.mrlemoos.kingdom.war.tribute.WarTributeService;
 import dev.mrlemoos.kingdom.resignation.ResignationAuthority;
 import dev.mrlemoos.kingdom.resignation.ResignationSummaries;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -52,6 +55,7 @@ public final class RealmHubSnapshotFactory {
     private CityService cityService;
     private EconomyService economyService;
     private MechanicalJusticeService justiceService;
+    private WarTributeService tributeService;
     private ParliamentService parliamentService;
     private StandingRosterService standingRosterService;
     private OathService oathService;
@@ -63,10 +67,19 @@ public final class RealmHubSnapshotFactory {
     private ChunkCaptureService chunkCaptureService;
     private CapitalService capitalService;
     private boolean warEnabled;
+    private dev.mrlemoos.kingdom.police.PoliceConfig policeConfig =
+            dev.mrlemoos.kingdom.police.PoliceConfig.defaults();
 
     public RealmHubSnapshotFactory(KingdomService kingdomService, GazetteLiveStateReader liveStateReader) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
         this.liveStateReader = liveStateReader;
+    }
+
+    public RealmHubSnapshotFactory withPoliceConfig(dev.mrlemoos.kingdom.police.PoliceConfig policeConfig) {
+        if (policeConfig != null) {
+            this.policeConfig = policeConfig;
+        }
+        return this;
     }
 
     public RealmHubSnapshotFactory withCityService(CityService cityService) {
@@ -76,6 +89,11 @@ public final class RealmHubSnapshotFactory {
 
     public RealmHubSnapshotFactory withEconomyService(EconomyService economyService) {
         this.economyService = economyService;
+        return this;
+    }
+
+    public RealmHubSnapshotFactory withTributeService(WarTributeService tributeService) {
+        this.tributeService = tributeService;
         return this;
     }
 
@@ -270,6 +288,15 @@ public final class RealmHubSnapshotFactory {
                             (int) Math.floor(site.y()),
                             (int) Math.floor(site.z())));
         }
+        builder.swornRoles(
+                kingdom.getPoliceState().constablesView().size(),
+                kingdom.getPoliceState().judgesView().size(),
+                kingdom.getChurchState().priestId().isPresent());
+        builder.policeGolems(
+                kingdom.getPoliceState().patrolGolemCount(),
+                policeConfig.maxPatrolGolems(),
+                kingdom.getPoliceState().guardGolemCount(),
+                policeConfig.maxGuardGolems());
         Optional<CourtLocation> court = kingdom.getPoliceState().court();
         if (court.isPresent()) {
             CourtLocation site = court.get();
@@ -278,7 +305,9 @@ public final class RealmHubSnapshotFactory {
         for (Map.Entry<Integer, PrisonCellLocation> cell :
                 new java.util.TreeMap<>(kingdom.getPoliceState().cellsView()).entrySet()) {
             PrisonCellLocation site = cell.getValue();
-            builder.site(RealmHubTopic.PLACE_PRISON, new SitePoint(site.worldName(), site.x(), site.y(), site.z()));
+            builder.site(
+                    RealmHubTopic.PLACE_PRISON,
+                    new SitePoint(site.worldName(), site.x(), site.y(), site.z(), cell.getKey()));
         }
     }
 
@@ -294,6 +323,28 @@ public final class RealmHubSnapshotFactory {
         Optional<ChamberSite> chair = kingdom.getParliamentSites().speakerChair();
         if (chair.isPresent()) {
             builder.site(RealmHubTopic.PLACE_SPEAKER_CHAIR, pointOf(chair.get()));
+        }
+        Optional<ChamberSite> bar = kingdom.getParliamentSites().bar();
+        if (bar.isPresent()) {
+            builder.site(RealmHubTopic.PLACE_BAR, pointOf(bar.get()));
+        }
+        for (var entry : new java.util.TreeMap<>(kingdom.getElectionState().seatLocationsView()).entrySet()) {
+            var seat = entry.getValue();
+            builder.site(
+                    RealmHubTopic.PLACE_MP_SEATS,
+                    new SitePoint(
+                            seat.worldName(),
+                            (int) Math.floor(seat.x()),
+                            (int) Math.floor(seat.y()),
+                            (int) Math.floor(seat.z()),
+                            entry.getKey()));
+        }
+        Optional<RegistrarSite> registrar = kingdom.getParliamentSites().registrar();
+        if (registrar.isPresent()) {
+            RegistrarSite site = registrar.get();
+            builder.site(
+                    RealmHubTopic.PLACE_REGISTRAR,
+                    new SitePoint(site.worldName(), site.blockX(), site.blockY(), site.blockZ()));
         }
     }
 
@@ -333,8 +384,13 @@ public final class RealmHubSnapshotFactory {
         builder.divisionAwaitingVote(
                 divisionOpen && seated && !bill.get().votesView().containsKey(playerId));
 
+        builder.constableSworn(kingdom.getPoliceState().isConstable(playerId));
         if (justiceService != null) {
             builder.wanted(justiceService.hasActiveWarrant(kingdom.getId(), playerId));
+            builder.activeWarrants(WarrantRegister.active(justiceService.warrantsView(), kingdom.getId()).size());
+        }
+        if (tributeService != null) {
+            builder.warDebtOwed(tributeService.totalDebtOwed(kingdom.getId()));
         }
 
         Optional<PendingResignation> resignation = kingdom.getElectionState().pendingResignation();

@@ -1,17 +1,26 @@
 package dev.mrlemoos.kingdom.command;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.strip;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
+import dev.mrlemoos.kingdom.hub.RealmHubLayout;
+import dev.mrlemoos.kingdom.hub.RealmHubSection;
 import dev.mrlemoos.kingdom.hub.RealmHubSnapshotFactory;
 import dev.mrlemoos.kingdom.hub.gui.RealmHubGui;
 import dev.mrlemoos.kingdom.listener.RealmHubListener;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import java.util.Optional;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.InventoryView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +34,7 @@ class RealmHubCommandTest {
     private ServerMock server;
     private KingdomService kingdomService;
     private KingdomCommand command;
+    private RealmHubListener hub;
 
     @BeforeEach
     void setUp() {
@@ -33,8 +43,7 @@ class RealmHubCommandTest {
         kingdomService.createKingdom("northmarch", "Northmarch");
         YamlKingdomStore store = new YamlKingdomStore(MockBukkit.createMockPlugin());
         command = new KingdomCommand(kingdomService, store, new NoblePrefixDisplay(kingdomService));
-        RealmHubListener hub =
-                new RealmHubListener(kingdomService, new RealmHubSnapshotFactory(kingdomService, null));
+        hub = new RealmHubListener(kingdomService, new RealmHubSnapshotFactory(kingdomService, null));
         command.setRealmHubOpener(hub::openHub);
     }
 
@@ -53,6 +62,27 @@ class RealmHubCommandTest {
         InventoryHolder holder = subject.getOpenInventory().getTopInventory().getHolder();
         assertInstanceOf(RealmHubGui.class, holder);
         assertTrue(drainedMessages(subject).isBlank(), "the hub speaks through the screen, not the chat");
+    }
+
+    @Test
+    void aSubjectWalksIntoASectionAndBackToTheFrontPage() {
+        PlayerMock subject = server.addPlayer("Subject");
+        kingdomService.joinKingdom(subject.getUniqueId(), "northmarch");
+        command.execute(subject, new String[0]);
+
+        click(subject, RealmHubLayout.doorSlot(RealmHubSection.POLICE));
+        RealmHubGui section = (RealmHubGui) subject.getOpenInventory().getTopInventory().getHolder();
+        assertEquals(Optional.of(RealmHubSection.POLICE), section.section());
+
+        click(subject, RealmHubLayout.SLOT_BACK);
+        RealmHubGui front = (RealmHubGui) subject.getOpenInventory().getTopInventory().getHolder();
+        assertTrue(front.section().isEmpty());
+    }
+
+    private void click(PlayerMock player, int slot) {
+        InventoryView view = player.getOpenInventory();
+        hub.onHubClick(new InventoryClickEvent(
+                view, InventoryType.SlotType.CONTAINER, slot, ClickType.LEFT, InventoryAction.PICKUP_ALL));
     }
 
     @Test

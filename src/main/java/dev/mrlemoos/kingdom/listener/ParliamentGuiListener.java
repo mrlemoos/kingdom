@@ -6,8 +6,10 @@ import dev.mrlemoos.kingdom.command.ParliamentHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
+import dev.mrlemoos.kingdom.model.election.CandidateDeclaration;
 import dev.mrlemoos.kingdom.model.parliament.Bill;
 import dev.mrlemoos.kingdom.model.parliament.BillState;
 import dev.mrlemoos.kingdom.model.parliament.TreatyKind;
@@ -54,6 +56,18 @@ public final class ParliamentGuiListener implements Listener {
     private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private final ParliamentChatSessions chatSessions = new ParliamentChatSessions();
     private final Map<UUID, MintLocation> pendingMintLocations = new java.util.concurrent.ConcurrentHashMap<>();
+    private dev.mrlemoos.kingdom.command.ElectionHandler electionHandler;
+    private dev.mrlemoos.kingdom.poll.PollCardDelivery pollCardDelivery;
+
+    /** Wires the Crown's general election button. */
+    public void setElectionHandler(dev.mrlemoos.kingdom.command.ElectionHandler electionHandler) {
+        this.electionHandler = electionHandler;
+    }
+
+    /** Wires poll cards: handed out when polls open here, and spent once a ballot is cast. */
+    public void setPollCardDelivery(dev.mrlemoos.kingdom.poll.PollCardDelivery pollCardDelivery) {
+        this.pollCardDelivery = pollCardDelivery;
+    }
 
     /** Wires the coronation gate; without it an uncrowned monarch may still grant assent. */
     public void setChurchService(dev.mrlemoos.kingdom.church.ChurchService churchService) {
@@ -171,7 +185,8 @@ public final class ParliamentGuiListener implements Listener {
                 parliamentService.canSecondNoConfidence(kingdomId, membership.getRank(), membership.getPlayerId()),
                 parliamentService.canTableWar(kingdomId, membership.getRank()),
                 parliamentService.canTablePeace(kingdomId, membership.getRank()),
-                parliamentService.canTableTreaty(kingdomId, membership.getRank()));
+                parliamentService.canTableTreaty(kingdomId, membership.getRank()))
+                .withPolls(parliamentService.isPollingOpen(kingdomId));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -253,8 +268,104 @@ public final class ParliamentGuiListener implements Listener {
             case TABLE_NO_CONFIDENCE -> tableNoConfidence(player, membership.get());
             case SECOND_NO_CONFIDENCE -> secondNoConfidence(player, membership.get());
             case REVIEW_RESIGNATION -> openResignationReview(player, hub.kingdomId());
+            case START_ELECTION -> startGeneralElection(player);
+            case CALL_REFERENDUM -> startReferendumPrompt(player, kingdomId);
+            case CLOSE_REFERENDUM -> closeReferendum(player, membership.get());
             default -> {
             }
+        }
+    }
+
+    private void startGeneralElection(Player player) {
+        player.closeInventory();
+        if (electionHandler == null) {
+            RealmFeedback.refuse(player, "Elections are not available.");
+            return;
+        }
+        dev.mrlemoos.kingdom.election.ElectionResult result = electionHandler.callGeneralElection(player);
+        if (result instanceof dev.mrlemoos.kingdom.election.ElectionResult.Success) {
+            player.sendMessage(handler.success(result.message()));
+            RealmFeedback.success(player.getLocation());
+            handPollCards();
+            return;
+        }
+        player.sendMessage(handler.error(result.message()));
+        RealmFeedback.refuse(player, result.message());
+    }
+
+    private void startReferendumPrompt(Player player, String kingdomId) {
+        player.closeInventory();
+        chatSessions.start(new ParliamentChatSessions.Session(
+                ParliamentChatSessions.SessionType.REFERENDUM_QUESTION, kingdomId, player.getUniqueId()));
+        player.sendMessage(c("&bType the question to put to the realm in chat (or 'cancel'):"));
+        RealmFeedback.instruct(player, "Type the referendum question in chat.");
+    }
+
+    /** From the poll card: the candidate types their party, colour and manifesto, then stands. */
+    public void startCandidateDeclarationPrompt(Player player) {
+        Optional<PlayerMembership> membership = handler.requireMembership(player);
+        if (membership.isEmpty()) {
+            return;
+        }
+        chatSessions.start(new ParliamentChatSessions.Session(
+                ParliamentChatSessions.SessionType.CANDIDATE_DECLARATION,
+                membership.get().getKingdomId(),
+                player.getUniqueId()));
+        player.sendMessage(c("&bType your declaration in chat: &f<party> <colour> [manifesto...]"));
+        player.sendMessage(c("&7e.g. &fReform red Cheaper bread for all&7 — or 'cancel'."));
+        RealmFeedback.instruct(player, "Type your party, colour and manifesto in chat.");
+    }
+
+    private void handleCandidateDeclarationChat(Player player, String message, PlayerMembership membership) {
+        CandidateDeclaration declaration;
+        try {
+            declaration = CandidateDeclaration.parse(message);
+        } catch (IllegalArgumentException rejected) {
+            // Keep the session open so the candidate may try again.
+            player.sendMessage(handler.error(rejected.getMessage() + " Try again, or type 'cancel'."));
+            RealmFeedback.refuse(player, rejected.getMessage());
+            return;
+        }
+        chatSessions.cancel(player.getUniqueId());
+        if (electionHandler == null) {
+            return;
+        }
+        dev.mrlemoos.kingdom.election.ElectionResult result = electionHandler.standForElection(player, declaration);
+        if (result instanceof dev.mrlemoos.kingdom.election.ElectionResult.Success) {
+            player.sendMessage(c("&a" + result.message()));
+            RealmFeedback.pollAnswered(player, "Your name is on the ballot");
+            return;
+        }
+        player.sendMessage(handler.error(result.message()));
+        RealmFeedback.refuse(player, result.message());
+    }
+
+    private void closeReferendum(Player player, PlayerMembership membership) {
+        player.closeInventory();
+        answerPoll(player, handler.closeReferendum(membership));
+    }
+
+    private void handleReferendumQuestionChat(Player player, String message, PlayerMembership membership) {
+        chatSessions.cancel(player.getUniqueId());
+        if (answerPoll(player, handler.callReferendum(membership, message))) {
+            handPollCards();
+        }
+    }
+
+    /** Records a referendum called or closed from the hub: chat keeps the record, the spot is marked. */
+    private boolean answerPoll(Player player, ParliamentResult result) {
+        handler.finish(player, result);
+        if (result instanceof ParliamentResult.Failure failure) {
+            RealmFeedback.refuse(player, failure.message());
+            return false;
+        }
+        RealmFeedback.success(player.getLocation());
+        return true;
+    }
+
+    private void handPollCards() {
+        if (pollCardDelivery != null) {
+            pollCardDelivery.sweep();
         }
     }
 
@@ -406,7 +517,16 @@ public final class ParliamentGuiListener implements Listener {
         if (choice == null) {
             return;
         }
-        handler.finish(player, parliamentService.castBallot(ballotGui.kingdomId(), player.getUniqueId(), choice));
+        ParliamentResult result = parliamentService.castBallot(ballotGui.kingdomId(), player.getUniqueId(), choice);
+        if (result instanceof ParliamentResult.Success && pollCardDelivery != null) {
+            pollCardDelivery.spend(player, ballotGui.kingdomId(), dev.mrlemoos.kingdom.poll.PollCardRules.PollKind.REFERENDUM);
+        }
+        handler.finish(player, result);
+        if (result instanceof ParliamentResult.Failure failure) {
+            RealmFeedback.refuse(player, failure.message());
+        } else {
+            RealmFeedback.pollAnswered(player, "Your ballot is cast");
+        }
         player.closeInventory();
     }
 
@@ -722,6 +842,8 @@ public final class ParliamentGuiListener implements Listener {
             case WAR_TARGET -> handleWarTargetChat(player, session, message);
             case TREATY_COUNTERPART -> handleTreatyCounterpartChat(player, session, message);
             case TREATY_KIND -> handleTreatyKindChat(player, session, message, membership.get());
+            case REFERENDUM_QUESTION -> handleReferendumQuestionChat(player, message, membership.get());
+            case CANDIDATE_DECLARATION -> handleCandidateDeclarationChat(player, message, membership.get());
         }
     }
 

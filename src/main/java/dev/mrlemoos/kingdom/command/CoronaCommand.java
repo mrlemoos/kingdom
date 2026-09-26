@@ -2,7 +2,7 @@ package dev.mrlemoos.kingdom.command;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
-import dev.mrlemoos.kingdom.economy.CoronaItem;
+import dev.mrlemoos.kingdom.economy.NuggetDeposit;
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.economy.income.ActivityCategory;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
@@ -137,14 +137,11 @@ public final class CoronaCommand {
             return;
         }
 
-        int nuggetCount = CoronaItem.count(player.getInventory());
+        int nuggetCount = NuggetDeposit.depositAll(player.getInventory(), economyService, player.getUniqueId());
         if (nuggetCount <= 0) {
             player.sendMessage(error("You have no Coronas to deposit."));
             return;
         }
-
-        CoronaItem.removeAll(player.getInventory());
-        economyService.depositFromNuggets(player.getUniqueId(), nuggetCount);
         economyStore.saveFrom(economyService);
         player.sendMessage(success("Deposited " + nuggetCount + " Corona" + pluralSuffix(nuggetCount) + "."));
     }

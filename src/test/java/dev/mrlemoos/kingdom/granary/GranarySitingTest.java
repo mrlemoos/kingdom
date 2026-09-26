@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import dev.mrlemoos.kingdom.granary.GranarySiting.Verdict;
 import dev.mrlemoos.kingdom.model.NobleRank;
+import dev.mrlemoos.kingdom.war.capital.CapitalRegionBox;
+import dev.mrlemoos.kingdom.worldguard.SubregionChooser.Candidate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -131,5 +134,66 @@ class GranarySitingTest {
             }
             assertFalse(GranarySiting.refusalMessage(verdict).isBlank(), verdict.name());
         }
+    }
+
+    // --- the hay-bale stone ----------------------------------------------
+
+    private static final Candidate HOLD = new Candidate("north_hold", new CapitalRegionBox(-100, 0, -100, 100, 128, 100));
+    private static final Candidate BARN = new Candidate("barn", new CapitalRegionBox(0, 64, 0, 8, 72, 8));
+    private static final Candidate FARMSTEAD = new Candidate("farmstead", new CapitalRegionBox(-20, 60, -20, 20, 80, 20));
+
+    private static GranarySiting.Stone stone(NobleRank rank, int x, int y, int z, List<Candidate> around) {
+        return GranarySiting.evaluateStone(rank, true, x, y, z, around, List.of(HOLD));
+    }
+
+    @Test
+    void theHayBaleLinksTheSmallestRegionAroundItInsideTerritory() {
+        GranarySiting.Stone laid = stone(NobleRank.KING, 4, 66, 4, List.of(HOLD, FARMSTEAD, BARN));
+
+        assertEquals(Verdict.ALLOWED, laid.verdict());
+        assertEquals(Optional.of("barn"), laid.regionId());
+    }
+
+    @Test
+    void aHayBaleOutsideEverySubregionIsRefused() {
+        GranarySiting.Stone laid = stone(NobleRank.QUEEN, 50, 66, 50, List.of(HOLD, FARMSTEAD, BARN));
+
+        assertEquals(Verdict.NO_REGION_AROUND, laid.verdict());
+        assertEquals(Optional.empty(), laid.regionId());
+        assertFalse(GranarySiting.refusalMessage(Verdict.NO_REGION_AROUND).isBlank());
+    }
+
+    @Test
+    void theTerritoryItselfIsNeverTheGranary() {
+        assertEquals(Verdict.NO_REGION_AROUND, stone(NobleRank.KING, 4, 66, 4, List.of(HOLD)).verdict());
+    }
+
+    @Test
+    void aRegionTooGreatToWalkIsRefusedAtTheHayBale() {
+        Candidate vast = new Candidate("vast_field", new CapitalRegionBox(-90, 0, -90, 90, 120, 90));
+
+        GranarySiting.Stone laid = stone(NobleRank.KING, 50, 66, 50, List.of(HOLD, vast));
+
+        assertEquals(Verdict.TOO_LARGE, laid.verdict());
+        assertEquals(Optional.empty(), laid.regionId());
+    }
+
+    @Test
+    void onlyTheCrownLaysTheHayBale() {
+        assertEquals(Verdict.NOT_THE_CROWN, stone(NobleRank.PRINCE, 4, 66, 4, List.of(HOLD, BARN)).verdict());
+    }
+
+    @Test
+    void withoutWorldGuardTheHayBaleLinksNothing() {
+        assertEquals(
+                Verdict.WORLDGUARD_ABSENT,
+                GranarySiting.evaluateStone(NobleRank.KING, false, 4, 66, 4, List.of(BARN), List.of(HOLD)).verdict());
+    }
+
+    @Test
+    void aKingdomWithNoTerritoryHasNowhereForTheHayBale() {
+        assertEquals(
+                Verdict.NO_TERRITORY,
+                GranarySiting.evaluateStone(NobleRank.KING, true, 4, 66, 4, List.of(BARN), List.of()).verdict());
     }
 }

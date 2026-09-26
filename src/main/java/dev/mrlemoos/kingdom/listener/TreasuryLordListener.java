@@ -3,6 +3,8 @@ package dev.mrlemoos.kingdom.listener;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.economy.CoronaItem;
+import dev.mrlemoos.kingdom.economy.NuggetDeposit;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
@@ -157,7 +159,7 @@ public final class TreasuryLordListener implements Listener {
         player.sendMessage(c("&6Kingdom Mint"));
         player.sendMessage(c("&eYour wallet: ") + c("&f" + formatCorona(walletBalance)));
         player.sendMessage(c("&eTreasury: ") + c("&f" + formatCorona(treasuryBalance)));
-        player.sendMessage(c("&7Use ") + c("&e/corona deposit") + c("&7 to convert gold ingots."));
+        player.sendMessage(c("&7Click Deposit to pay in the Corona nuggets you carry."));
         player.sendMessage("              ");
     }
 
@@ -182,6 +184,11 @@ public final class TreasuryLordListener implements Listener {
         }
 
         double balance = economyService.getWalletBalance(player.getUniqueId());
+        if (gui.isDepositSlot(event.getRawSlot())) {
+            player.closeInventory();
+            deposit(player, gui.kingdomId());
+            return;
+        }
         if (gui.isCustomSlot(event.getRawSlot())) {
             player.closeInventory();
             pendingCustomWithdrawals.put(player.getUniqueId(), gui.kingdomId());
@@ -232,8 +239,27 @@ public final class TreasuryLordListener implements Listener {
 
     private void openWithdrawGui(Player player, String kingdomId) {
         double balance = economyService.getWalletBalance(player.getUniqueId());
-        TreasuryWithdrawGui gui = TreasuryWithdrawGui.create(kingdomId, balance);
+        TreasuryWithdrawGui gui =
+                TreasuryWithdrawGui.create(kingdomId, balance, CoronaItem.count(player.getInventory()));
         player.openInventory(gui.getInventory());
+    }
+
+    /** Deposit sits beside withdrawal: every Corona nugget carried goes into the wallet. */
+    private void deposit(Player player, String kingdomId) {
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (membership.isEmpty() || !membership.get().getKingdomId().equals(kingdomId)) {
+            RealmFeedback.refuse(player, "You may only deposit at your own kingdom's mint.");
+            return;
+        }
+        int deposited = NuggetDeposit.depositAll(player.getInventory(), economyService, player.getUniqueId());
+        if (deposited <= 0) {
+            RealmFeedback.refuse(player, "You carry no Corona nuggets to deposit.");
+            return;
+        }
+        economyStore.saveFrom(economyService);
+        player.sendMessage(success("Deposited " + deposited + " Corona. Your wallet: "
+                + formatCorona(economyService.getWalletBalance(player.getUniqueId())) + "."));
+        RealmFeedback.success(player.getLocation());
     }
 
     private void attemptWithdraw(Player player, String kingdomId, int amount) {

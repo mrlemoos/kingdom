@@ -1,5 +1,6 @@
 package dev.mrlemoos.kingdom.model.police;
 
+import dev.mrlemoos.kingdom.foundation.NextFreeNumber;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -77,11 +78,7 @@ public final class KingdomPoliceState {
     }
 
     public OptionalInt lowestFreeCellSlot() {
-        int slot = 1;
-        while (cells.containsKey(slot)) {
-            slot++;
-        }
-        return OptionalInt.of(slot);
+        return NextFreeNumber.unbounded(cells.keySet());
     }
 
     public int configuredCellCount() {

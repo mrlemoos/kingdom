@@ -7,8 +7,12 @@ import dev.mrlemoos.kingdom.helpers.ItemBuilder;
 import dev.mrlemoos.kingdom.hub.RealmHubAction;
 import dev.mrlemoos.kingdom.hub.RealmHubEntry;
 import dev.mrlemoos.kingdom.hub.RealmHubLayout;
+import dev.mrlemoos.kingdom.hub.RealmHubSection;
 import dev.mrlemoos.kingdom.hub.RealmHubTopic;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -17,76 +21,143 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * The Realm Hub: one screen holding everything a subject may do and everywhere the realm's offices
- * stand. Powers not theirs are shown greyed and refused rather than hidden, so the realm's workings
- * are discoverable. Rendering only — {@code hub/RealmHubView} decides what is on it.
+ * The Realm Hub: a front page holding the reader's standing, whatever business is live and a door to
+ * each {@link RealmHubSection}; behind each door, that section's places, powers and experiences.
+ * Powers not theirs are shown greyed and refused rather than hidden, so the realm's workings are
+ * discoverable. Rendering only — {@code hub/RealmHubView} decides what is on it.
  */
 public final class RealmHubGui implements InventoryHolder {
 
     public static final Component TITLE = component("&6The Realm");
 
+    private final RealmHubSection section;
     private final int page;
-    private final List<RealmHubEntry> pageEntries;
+    private final boolean hasNext;
+    private final Map<Integer, RealmHubEntry> entries;
+    private final Map<Integer, RealmHubSection> doors;
     private Inventory inventory;
 
-    private RealmHubGui(int page, List<RealmHubEntry> pageEntries) {
+    private RealmHubGui(
+            RealmHubSection section,
+            int page,
+            boolean hasNext,
+            Map<Integer, RealmHubEntry> entries,
+            Map<Integer, RealmHubSection> doors) {
+        this.section = section;
         this.page = page;
-        this.pageEntries = List.copyOf(pageEntries);
+        this.hasNext = hasNext;
+        this.entries = Map.copyOf(entries);
+        this.doors = Map.copyOf(doors);
+    }
+
+    /** The section shown; empty on the front page. */
+    public Optional<RealmHubSection> section() {
+        return Optional.ofNullable(section);
     }
 
     public int page() {
         return page;
     }
 
-    public static RealmHubGui create(List<RealmHubEntry> entries, int requestedPage) {
-        int total = entries.size();
-        int page = RealmHubLayout.clampPage(requestedPage, total);
-        List<RealmHubEntry> slice = RealmHubLayout.pageSlice(entries, page);
-        RealmHubGui gui = new RealmHubGui(page, slice);
+    public boolean hasPrevious() {
+        return page > 0;
+    }
+
+    public boolean hasNext() {
+        return hasNext;
+    }
+
+    /** The front page: standing, live business, and a door per section. */
+    public static RealmHubGui frontPage(
+            List<RealmHubEntry> front, Map<RealmHubSection, List<RealmHubEntry>> sections) {
+        Map<Integer, RealmHubEntry> placed = new HashMap<>();
+        int live = 0;
+        for (RealmHubEntry entry : front) {
+            if (entry.topic() == RealmHubTopic.STANDING) {
+                placed.put(RealmHubLayout.SLOT_STANDING, entry);
+            } else if (live < RealmHubLayout.LIVE_CAPACITY) {
+                placed.put(RealmHubLayout.liveSlot(live++), entry);
+            }
+        }
+        Map<Integer, RealmHubSection> doors = new HashMap<>();
+        for (RealmHubSection door : RealmHubSection.values()) {
+            doors.put(RealmHubLayout.doorSlot(door), door);
+        }
+        RealmHubGui gui = new RealmHubGui(null, 0, false, placed, doors);
         Inventory inventory = Bukkit.createInventory(gui, 54, TITLE);
         gui.inventory = inventory;
-        populate(inventory, slice, page, total);
+        placed.forEach((slot, entry) -> inventory.setItem(slot, item(entry)));
+        for (RealmHubSection door : RealmHubSection.values()) {
+            inventory.setItem(RealmHubLayout.doorSlot(door), door(door, sections.getOrDefault(door, List.of())));
+        }
+        fill(inventory, 0, inventory.getSize());
         return gui;
     }
 
-    private static void populate(Inventory inventory, List<RealmHubEntry> slice, int page, int total) {
-        inventory.clear();
-        int slot = 0;
-        for (RealmHubEntry entry : slice) {
-            inventory.setItem(slot++, item(entry));
-        }
-        if (RealmHubLayout.hasPrevious(page)) {
+    /** One page of a section: places, powers, experiences; Back, and arrows only on overflow. */
+    public static RealmHubGui section(RealmHubSection section, List<RealmHubEntry> entries, int requestedPage) {
+        List<Map<Integer, RealmHubEntry>> pages = RealmHubLayout.sectionPages(entries);
+        int page = RealmHubLayout.clampPage(requestedPage, pages.size());
+        Map<Integer, RealmHubEntry> placed = pages.get(page);
+        RealmHubGui gui = new RealmHubGui(section, page, page < pages.size() - 1, placed, Map.of());
+        Inventory inventory = Bukkit.createInventory(gui, 54, component("&6The Realm &7— &6" + section.title()));
+        gui.inventory = inventory;
+        placed.forEach((slot, entry) -> inventory.setItem(slot, item(entry)));
+        if (gui.hasPrevious()) {
             inventory.setItem(
                     RealmHubLayout.SLOT_PREVIOUS,
                     ItemBuilder.labelled(Material.ARROW, c("&ePrevious page"), "Page " + page));
         }
-        if (RealmHubLayout.hasNext(page, total)) {
+        if (gui.hasNext()) {
             inventory.setItem(
                     RealmHubLayout.SLOT_NEXT,
                     ItemBuilder.labelled(Material.ARROW, c("&eNext page"), "Page " + (page + 2)));
         }
         inventory.setItem(
-                RealmHubLayout.SLOT_PAGE,
-                ItemBuilder.labelled(
-                        Material.BOOK,
-                        c("&6Page " + (page + 1) + " of " + RealmHubLayout.pageCount(total)),
-                        total + " entr" + (total == 1 ? "y" : "ies")));
-        fillBackground(inventory);
+                RealmHubLayout.SLOT_BACK,
+                ItemBuilder.labelled(Material.OAK_DOOR, c("&eBack"), c("&7To the front page")));
+        fill(inventory, RealmHubLayout.PAGE_SIZE, inventory.getSize());
+        return gui;
     }
 
+    /** Lore reads: where things stand and how (the lines), then who may. */
     static ItemStack item(RealmHubEntry entry) {
         ItemBuilder builder = new ItemBuilder(entry.usable() ? material(entry.topic()) : Material.GRAY_DYE)
                 .displayAs(c((entry.usable() ? "&6" : "&8") + entry.title()));
-        if (!entry.refusal().isBlank()) {
-            builder.lore(c("&c" + entry.refusal()));
-        }
         for (String line : entry.lines()) {
             builder.lore(c((entry.usable() ? "&7" : "&8") + line));
         }
-        if (entry.usable() && entry.action() != RealmHubAction.NONE) {
+        if (!entry.whoLine().isBlank()) {
+            builder.lore(c((entry.usable() ? "&7" : "&c") + entry.whoLine()));
+        }
+        if (entry.usable()
+                && entry.action() != RealmHubAction.NONE
+                && entry.action() != RealmHubAction.TAKE_FOUNDATION_STONE) {
             builder.lore(c("&eClick to open"));
         }
         return builder.build();
+    }
+
+    static ItemStack door(RealmHubSection section, List<RealmHubEntry> entries) {
+        long yours = entries.stream().filter(RealmHubEntry::usable).count();
+        return new ItemBuilder(doorMaterial(section))
+                .displayAs(c("&6" + section.title()))
+                .lore(c("&7" + section.blurb()))
+                .lore(c("&7" + yours + " of " + entries.size() + " entr" + (entries.size() == 1 ? "y" : "ies")
+                        + " open to you"))
+                .lore(c("&eClick to open"))
+                .build();
+    }
+
+    static Material doorMaterial(RealmHubSection section) {
+        return switch (section) {
+            case CITY -> Material.BEACON;
+            case CHURCH -> Material.CANDLE;
+            case PARLIAMENT -> Material.BELL;
+            case POLICE -> Material.IRON_BARS;
+            case WAR -> Material.IRON_SWORD;
+            case TREASURY -> Material.GOLD_INGOT;
+        };
     }
 
     /** The item that stands for each topic, so the screen reads at a glance. */
@@ -95,8 +166,11 @@ public final class RealmHubGui implements InventoryHolder {
             case STANDING -> Material.PLAYER_HEAD;
             case LOYALTY_LEDGER -> Material.WRITTEN_BOOK;
             case OATH_OF_SERVICE -> Material.IRON_SWORD;
+            case RITES -> Material.CANDLE;
             case GAZETTE -> Material.PAPER;
             case BUILD_PERMIT -> Material.BRICKS;
+            case ARREST_REWARD -> Material.GOLD_NUGGET;
+            case WALLET -> Material.GOLD_NUGGET;
             case LIVE_ELECTION -> Material.LECTERN;
             case LIVE_POLLING -> Material.PAPER;
             case LIVE_DIVISION -> Material.LIME_BANNER;
@@ -119,6 +193,8 @@ public final class RealmHubGui implements InventoryHolder {
             case POWER_CAPITAL -> Material.GOLDEN_HELMET;
             case POWER_SWORN_ROLES -> Material.IRON_SWORD;
             case POWER_SITES -> Material.COMPASS;
+            case POWER_ARREST -> Material.IRON_SWORD;
+            case POWER_WARRANTS -> Material.WRITABLE_BOOK;
             case PLACE_CAPITAL -> Material.BEACON;
             case PLACE_TOWN_CRIER -> Material.NOTE_BLOCK;
             case PLACE_CHURCH -> Material.CANDLE;
@@ -129,15 +205,20 @@ public final class RealmHubGui implements InventoryHolder {
             case PLACE_COMMONS -> Material.OAK_STAIRS;
             case PLACE_LORDS -> Material.RED_CARPET;
             case PLACE_SPEAKER_CHAIR -> Material.OAK_TRAPDOOR;
+            case PLACE_BAR -> Material.OAK_FENCE;
+            case PLACE_MP_SEATS -> Material.SPRUCE_STAIRS;
+            case PLACE_REGISTRAR -> Material.CHISELED_BOOKSHELF;
         };
     }
 
     /** The entry occupying this slot on the page shown, or null. */
     public RealmHubEntry entryForSlot(int slot) {
-        if (!RealmHubLayout.isEntrySlot(slot) || slot >= pageEntries.size()) {
-            return null;
-        }
-        return pageEntries.get(slot);
+        return entries.get(slot);
+    }
+
+    /** The section whose door occupies this slot of the front page, or null. */
+    public RealmHubSection doorForSlot(int slot) {
+        return doors.get(slot);
     }
 
     @Override
@@ -145,12 +226,13 @@ public final class RealmHubGui implements InventoryHolder {
         return inventory;
     }
 
-    private static void fillBackground(Inventory inventory) {
+    private static void fill(Inventory inventory, int from, int to) {
         ItemStack filler = ItemBuilder.fillerPane(Material.GRAY_STAINED_GLASS_PANE);
-        for (int slot = RealmHubLayout.PAGE_SIZE; slot < inventory.getSize(); slot++) {
+        for (int slot = from; slot < to; slot++) {
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, filler);
             }
         }
     }
+
 }

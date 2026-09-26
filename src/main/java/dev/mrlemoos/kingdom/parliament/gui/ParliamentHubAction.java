@@ -27,5 +27,8 @@ public enum ParliamentHubAction {
     CUSTOM_AMOUNT,
     BUDGET_PRESET,
     SUMMON_REALM,
-    DECLARE_OPEN
+    DECLARE_OPEN,
+    START_ELECTION,
+    CALL_REFERENDUM,
+    CLOSE_REFERENDUM
 }

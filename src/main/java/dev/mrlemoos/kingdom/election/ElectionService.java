@@ -513,7 +513,8 @@ public final class ElectionService {
         }
     }
 
-    private static boolean isSeatedPlayerMp(KingdomElectionState electionState, UUID playerId) {
+    /** Whether the player holds a player seat in the Commons. */
+    public static boolean isSeatedPlayerMp(KingdomElectionState electionState, UUID playerId) {
         return electionState.seatsView().values().stream()
                 .anyMatch(seat -> seat.kind() == MpSeatKind.PLAYER
                         && seat.playerId().filter(playerId::equals).isPresent());

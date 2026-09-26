@@ -69,14 +69,14 @@ public class KingdomService {
 
     public KingdomResult assignTitle(UUID playerId, NobleRank rank, TitleStyle style) {
         if (rank == NobleRank.MP) {
-            return KingdomResult.fail("MP seats are filled by election. Use /kingdom election.");
+            return KingdomResult.fail("MP seats are filled by election, stood and voted on the poll card.");
         }
         PlayerMembership membership = memberships.get(playerId);
         if (membership == null) {
             return KingdomResult.fail("That player is not in a kingdom.");
         }
         if (rank == NobleRank.PREMIER && hasSeatedPlayerMps(membership.getKingdomId())) {
-            return KingdomResult.fail("Premier is elected by MPs. Use /kingdom election nominate and vote.");
+            return KingdomResult.fail("Premier is elected by seated MPs, who stand and vote on their poll cards.");
         }
         if (isSlotTakenByAnother(membership, rank, playerId)) {
             return KingdomResult.fail("All " + rank.name().toLowerCase() + " slots are filled in that kingdom.");

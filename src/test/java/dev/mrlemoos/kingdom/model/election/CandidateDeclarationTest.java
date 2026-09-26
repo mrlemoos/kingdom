@@ -58,4 +58,32 @@ class CandidateDeclarationTest {
     void unknownColourIsRejected() {
         assertTrue(CandidateDeclaration.rejectionReason("", "Reform", "chartreuse").isPresent());
     }
+
+    @Test
+    void aTypedDeclarationReadsPartyColourThenManifesto() {
+        CandidateDeclaration declared = CandidateDeclaration.parse("Reform red Cheaper bread for all");
+
+        assertEquals("Reform", declared.partyName());
+        assertEquals("&c", declared.partyColour());
+        assertEquals("Cheaper bread for all", declared.manifesto());
+    }
+
+    @Test
+    void aPartyAloneIsADeclaration() {
+        CandidateDeclaration declared = CandidateDeclaration.parse("  Reform ");
+
+        assertEquals("Reform", declared.partyName());
+        assertEquals(CandidateDeclaration.DEFAULT_PARTY_COLOUR, declared.partyColour());
+        assertFalse(declared.hasManifesto());
+    }
+
+    @Test
+    void nothingTypedIsABlankDeclaration() {
+        assertTrue(CandidateDeclaration.parse("   ").isBlank());
+    }
+
+    @Test
+    void anUnknownTypedColourIsRefused() {
+        assertThrows(IllegalArgumentException.class, () -> CandidateDeclaration.parse("Reform chartreuse bread"));
+    }
 }

@@ -471,4 +471,38 @@ class ChurchServiceTest {
         churchService.villagerFuneral("northmarch", Celebrant.PRIEST, villager);
         assertEquals(100.0d, churchService.escheatLapsedVillagerFunerals("northmarch"), 1.0e-9);
     }
+
+    // --- what the rites window asks --------------------------------------
+
+    @Test
+    void heldExperienceIsAwaitingRitesOnlyWithinTheWindow() {
+        siteAndConsecrate();
+        assertFalse(churchService.hasHeldExperience("northmarch", CITIZEN));
+        churchService.holdFuneralRecord("northmarch", CITIZEN, 60);
+        assertTrue(churchService.hasHeldExperience("northmarch", CITIZEN));
+        today += 3;
+        assertFalse(churchService.hasHeldExperience("northmarch", CITIZEN));
+    }
+
+    @Test
+    void theRealmsMarriagesAreListedForTheCrown() {
+        siteAndConsecrate();
+        assertTrue(churchService.marriages("northmarch").isEmpty());
+        churchService.wed("northmarch", Celebrant.CLERIC, CITIZEN, PRIEST);
+        assertEquals(1, churchService.marriages("northmarch").size());
+        assertTrue(churchService.marriages("southmarch").isEmpty());
+        assertTrue(churchService.marriages("nowhere").isEmpty());
+    }
+
+    @Test
+    void onlyVillagersWithinTheWindowAreCountedAsAwaitingRites() {
+        siteAndConsecrate();
+        churchService.holdVillagerFuneralRecord("northmarch", UUID.randomUUID(), 100.0d);
+        today += 3;
+        assertEquals(0, churchService.villagersAwaitingRites("northmarch"));
+        churchService.holdVillagerFuneralRecord("northmarch", UUID.randomUUID(), 40.0d);
+        churchService.holdVillagerFuneralRecord("northmarch", UUID.randomUUID(), 40.0d);
+        assertEquals(2, churchService.villagersAwaitingRites("northmarch"));
+        assertEquals(0, churchService.villagersAwaitingRites("nowhere"));
+    }
 }

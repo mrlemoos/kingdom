@@ -6,17 +6,19 @@ import dev.mrlemoos.kingdom.church.Celebrant;
 import dev.mrlemoos.kingdom.church.ChurchConsentBook;
 import dev.mrlemoos.kingdom.church.ChurchPresence;
 import dev.mrlemoos.kingdom.church.ChurchResult;
+import dev.mrlemoos.kingdom.church.ChurchRites;
 import dev.mrlemoos.kingdom.church.ChurchService;
+import dev.mrlemoos.kingdom.church.ChurchSiting;
 import dev.mrlemoos.kingdom.church.ClericService;
 import dev.mrlemoos.kingdom.church.FuneralOutcome;
 import dev.mrlemoos.kingdom.church.VillagerFuneralOutcome;
-import dev.mrlemoos.kingdom.city.CapitalSitingPolicy;
-import dev.mrlemoos.kingdom.city.CapitalSitingPolicy.Verdict;
-import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.honours.SwornRoleAppointments;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.church.ChurchSite;
+import dev.mrlemoos.kingdom.model.police.SwornRole;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
 import java.util.Locale;
@@ -35,27 +37,30 @@ public final class KingdomChurchHandler {
     private final ChurchService churchService;
     private final ClericService clericService;
     private final KingdomTerritoryResolver territoryResolver;
-    private final EconomyService economyService;
+    private final ChurchRites rites;
     private final YamlKingdomStore store;
-    private final ChurchConsentBook consentBook = new ChurchConsentBook();
+    private final ChurchSiting churchSiting;
+    private SwornRoleAppointments swornRoles;
 
     public KingdomChurchHandler(
             KingdomService kingdomService,
             ChurchService churchService,
             ClericService clericService,
             KingdomTerritoryResolver territoryResolver,
-            EconomyService economyService,
+            ChurchRites rites,
             YamlKingdomStore store) {
         this.kingdomService = kingdomService;
         this.churchService = churchService;
         this.clericService = clericService;
         this.territoryResolver = territoryResolver;
-        this.economyService = economyService;
+        this.rites = rites;
         this.store = store;
+        this.churchSiting = new ChurchSiting(kingdomService, churchService, clericService, store);
     }
 
-    public ChurchConsentBook consentBook() {
-        return consentBook;
+    /** The one road for sworn roles, shared with the golden sword. */
+    public void setSwornRoles(SwornRoleAppointments swornRoles) {
+        this.swornRoles = swornRoles;
     }
 
     public boolean handle(CommandSender sender, String[] args) {
@@ -67,12 +72,12 @@ public final class KingdomChurchHandler {
             case "set" -> handleSet(sender);
             case "clear" -> handleClear(sender);
             case "swear" -> handleSwear(sender, args);
-            case "unswear" -> handleUnswear(sender);
-            case "consecrate" -> handleConsecrate(sender);
-            case "marry" -> handleMarry(sender, args);
-            case "divorce" -> handleDivorce(sender, args);
-            case "annul" -> handleAnnul(sender, args);
-            case "funeral" -> handleFuneral(sender, args);
+            case "unswear" -> handleUnswear(sender, args);
+            case "consecrate" -> atTheCleric(sender) || handleConsecrate(sender);
+            case "marry" -> atTheCleric(sender) || handleMarry(sender, args);
+            case "divorce" -> atTheCleric(sender) || handleDivorce(sender, args);
+            case "annul" -> atTheCleric(sender) || handleAnnul(sender, args);
+            case "funeral" -> atTheCleric(sender) || handleFuneral(sender, args);
             case "info" -> handleInfo(sender);
             default -> {
                 sender.sendMessage(help());
@@ -84,33 +89,26 @@ public final class KingdomChurchHandler {
     // --- siting -----------------------------------------------------------
 
     private boolean handleSet(CommandSender sender) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error("The church is raised by laying its foundation stone. "
+                    + "Type /kingdom and take it from The Church."));
+            return true;
+        }
         Optional<Player> player = asPlayer(sender, "Only players can site a church.");
         if (player.isEmpty()) {
             return true;
         }
-        Optional<PlayerMembership> membership = membershipOf(sender, player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        String kingdomId = membership.get().getKingdomId();
+        // The operators' escape hatch: raise the church of whichever realm owns this ground.
         Location location = player.get().getLocation();
         Optional<String> owner = territoryResolver.owningKingdomId(
                 worldName(location),
                 location.getBlockX(),
                 location.getBlockY(),
                 location.getBlockZ());
-        Verdict verdict = CapitalSitingPolicy.evaluate(membership.get().getRank(), kingdomId, owner);
-        if (verdict != Verdict.ALLOWED) {
-            sender.sendMessage(error(switch (verdict) {
-                case NOT_THE_CROWN -> "Only the King or Queen may site a church.";
-                case NO_KINGDOM -> "You must join a kingdom first.";
-                case UNCLAIMED_LAND -> "A church must stand inside your kingdom's territory.";
-                case FOREIGN_TERRITORY -> "You may not site a church in another realm's territory.";
-                case ALLOWED -> "";
-            }));
+        if (owner.isEmpty()) {
+            sender.sendMessage(error("Stand inside a kingdom's territory to site its church."));
             return true;
         }
-
         ChurchSite site = ChurchSite.of(
                 worldName(location),
                 location.getX(),
@@ -118,102 +116,132 @@ public final class KingdomChurchHandler {
                 location.getZ(),
                 location.getYaw(),
                 location.getPitch());
-        ChurchResult result = churchService.setChurch(kingdomId, membership.get().getRank(), site);
-        if (result instanceof ChurchResult.Failure failure) {
-            sender.sendMessage(error(failure.message()));
-            return true;
-        }
-        // Moving the church moves the cleric with it; reconcile alone would leave it at the old altar.
-        if (churchService.clericWanted(kingdomId)) {
-            kingdomService.getKingdom(kingdomId).ifPresent(kingdom -> clericService.spawn(kingdom, site));
-        }
-        store.saveFrom(kingdomService);
-        sender.sendMessage(success(result.message()));
+        report(sender, churchSiting.site(owner.get(), NobleRank.KING, site));
         return true;
     }
 
     private boolean handleClear(CommandSender sender) {
-        Optional<PlayerMembership> membership = crownMembership(sender);
-        if (membership.isEmpty()) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error("The church's site is cleared from the Realm Hub. "
+                    + "Type /kingdom, open The Church and right-click it."));
             return true;
         }
-        String kingdomId = membership.get().getKingdomId();
-        // Despawn first: clearing the church forgets the cleric's id, and a forgotten cleric
-        // stands at the old altar forever. Same order as dismissing the Town Crier.
-        kingdomService.getKingdom(kingdomId).ifPresent(clericService::despawn);
-        ChurchResult result = churchService.clearChurch(kingdomId, membership.get().getRank());
-        if (result instanceof ChurchResult.Failure failure) {
-            sender.sendMessage(error(failure.message()));
+        Optional<Player> player = asPlayer(sender, "Only players can clear a church.");
+        if (player.isEmpty()) {
             return true;
         }
-        store.saveFrom(kingdomService);
-        sender.sendMessage(success(result.message()));
+        Location location = player.get().getLocation();
+        Optional<String> kingdomId = territoryResolver.owningKingdomId(
+                worldName(location),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ());
+        if (kingdomId.isEmpty()) {
+            Optional<PlayerMembership> membership = kingdomService.getMembership(player.get().getUniqueId());
+            if (membership.isPresent()) {
+                kingdomId = Optional.of(membership.get().getKingdomId());
+            }
+        }
+        if (kingdomId.isEmpty()) {
+            sender.sendMessage(error("Stand inside a kingdom's territory to clear its church."));
+            return true;
+        }
+        report(sender, churchSiting.clear(kingdomId.get(), NobleRank.KING));
         return true;
     }
 
     // --- the priesthood ---------------------------------------------------
 
     private boolean handleSwear(CommandSender sender, String[] args) {
-        Optional<PlayerMembership> membership = crownMembership(sender);
-        if (membership.isEmpty()) {
+        if (refusedUnlessOperator(sender)) {
             return true;
         }
-        if (args.length < 2) {
+        if (args.length < 2 || swornRoles == null) {
             sender.sendMessage(error("Usage: /kingdom church swear <player>"));
-            return true;
-        }
-        Optional<String> uncrowned = ceremonialRefusal(sender, membership.get());
-        if (uncrowned.isPresent()) {
-            sender.sendMessage(error(uncrowned.get()));
             return true;
         }
         Optional<UUID> subject = resolvePlayer(sender, args[1]);
         if (subject.isEmpty()) {
             return true;
         }
-        ChurchResult result = churchService.swearPriest(
-                membership.get().getKingdomId(), membership.get().getRank(), subject.get());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            reconcileCleric(membership.get().getKingdomId());
-            store.saveFrom(kingdomService);
-        }
-        return true;
-    }
-
-    private boolean handleUnswear(CommandSender sender) {
-        Optional<PlayerMembership> membership = crownMembership(sender);
+        Optional<PlayerMembership> membership = kingdomService.getMembership(subject.get());
         if (membership.isEmpty()) {
+            sender.sendMessage(error("That player is not a member of any kingdom."));
             return true;
         }
-        String kingdomId = membership.get().getKingdomId();
-        Optional<UUID> priest = churchService.priest(kingdomId);
+        return reportSworn(sender, membership.get().getKingdomId(), swornRoles.swear(
+                membership.get().getKingdomId(), null, NobleRank.KING, subject.get(), SwornRole.PRIEST));
+    }
+
+    private boolean handleUnswear(CommandSender sender, String[] args) {
+        if (refusedUnlessOperator(sender)) {
+            return true;
+        }
+        Optional<String> kingdomId = Optional.empty();
+        if (args.length >= 2) {
+            Optional<UUID> subject = resolvePlayer(sender, args[1]);
+            if (subject.isEmpty()) {
+                return true;
+            }
+            Optional<PlayerMembership> membership = kingdomService.getMembership(subject.get());
+            if (membership.isPresent()) {
+                kingdomId = Optional.of(membership.get().getKingdomId());
+            }
+        } else if (sender instanceof Player player) {
+            Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+            if (membership.isPresent()) {
+                kingdomId = Optional.of(membership.get().getKingdomId());
+            }
+        }
+        if (kingdomId.isEmpty() || swornRoles == null) {
+            sender.sendMessage(error("Usage: /kingdom church unswear <player>"));
+            return true;
+        }
+        Optional<UUID> priest = churchService.priest(kingdomId.get());
         if (priest.isEmpty()) {
             sender.sendMessage(error("This kingdom has no priest."));
             return true;
         }
-        ChurchResult result =
-                churchService.unswearPriest(kingdomId, membership.get().getRank(), priest.get());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
+        return reportSworn(sender, kingdomId.get(), swornRoles.unswear(
+                kingdomId.get(), null, NobleRank.KING, priest.get(), SwornRole.PRIEST));
+    }
+
+    private boolean reportSworn(CommandSender sender, String kingdomId, SwornRoleAppointments.Outcome outcome) {
+        sender.sendMessage(outcome.success() ? success(outcome.message()) : error(outcome.message()));
+        if (outcome.success()) {
             reconcileCleric(kingdomId);
             store.saveFrom(kingdomService);
         }
         return true;
     }
 
+    /** The priesthood is sworn with the golden sword; the commands are the operators' escape hatch. */
+    private static boolean refusedUnlessOperator(CommandSender sender) {
+        if (sender.isOp()) {
+            return false;
+        }
+        sender.sendMessage(error("The priest is sworn with the golden sword. "
+                + "Strike a subject with one to open the honours window."));
+        return true;
+    }
+
     // --- rites ------------------------------------------------------------
+
+    /** Rites are asked for at the cleric; the commands are the operators' escape hatch. */
+    private static boolean atTheCleric(CommandSender sender) {
+        if (sender.isOp()) {
+            return false;
+        }
+        sender.sendMessage(error("Rites are asked for at the cleric. Right-click the cleric at the church."));
+        return true;
+    }
 
     private boolean handleConsecrate(CommandSender sender) {
         Optional<RiteContext> rite = riteContext(sender, false);
         if (rite.isEmpty()) {
             return true;
         }
-        ChurchResult result = churchService.consecrate(rite.get().kingdomId(), rite.get().celebrant());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            store.saveFrom(kingdomService);
-        }
+        report(sender, rites.consecrate(rite.get().kingdomId(), rite.get().celebrant()));
         return true;
     }
 
@@ -236,19 +264,11 @@ public final class KingdomChurchHandler {
             sender.sendMessage(error("Both parties must stand at the church."));
             return true;
         }
-        UUID me = rite.get().player().getUniqueId();
-        if (!consentBook.offerWedding(me, other.getUniqueId())) {
-            sender.sendMessage(success("Your offer of marriage stands. It waits on their answer."));
-            other.sendMessage(info(rite.get().player().getName()
-                    + " offers you marriage. Answer with /kingdom church marry "
-                    + rite.get().player().getName()));
-            return true;
-        }
-        ChurchResult result = churchService.wed(kingdomId, rite.get().celebrant(), me, other.getUniqueId());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            other.sendMessage(success(result.message()));
-            store.saveFrom(kingdomService);
+        // Consent is given in the other party's window, as it is for everybody else.
+        Optional<String> refusal =
+                rites.propose(ChurchConsentBook.Kind.MARRIAGE, kingdomId, rite.get().player(), other);
+        if (refusal.isPresent()) {
+            sender.sendMessage(error(refusal.get()));
         }
         return true;
     }
@@ -270,26 +290,15 @@ public final class KingdomChurchHandler {
             sender.sendMessage(error("Your spouse must be here to consent. The Crown may annul instead."));
             return true;
         }
-        if (!consentBook.offerDivorce(me, spouse.get())) {
-            sender.sendMessage(success("Your offer of divorce stands. It waits on their answer."));
-            other.sendMessage(info(rite.get().player().getName()
-                    + " asks the church to dissolve your marriage. Answer with /kingdom church divorce"));
-            return true;
-        }
-        ChurchResult result = churchService.divorce(kingdomId, rite.get().celebrant(), me);
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            other.sendMessage(info(result.message()));
-            store.saveFrom(kingdomService);
+        Optional<String> refusal =
+                rites.propose(ChurchConsentBook.Kind.DIVORCE, kingdomId, rite.get().player(), other);
+        if (refusal.isPresent()) {
+            sender.sendMessage(error(refusal.get()));
         }
         return true;
     }
 
     private boolean handleAnnul(CommandSender sender, String[] args) {
-        Optional<PlayerMembership> membership = crownMembership(sender);
-        if (membership.isEmpty()) {
-            return true;
-        }
         if (args.length < 2) {
             sender.sendMessage(error("Usage: /kingdom church annul <player>"));
             return true;
@@ -298,12 +307,13 @@ public final class KingdomChurchHandler {
         if (subject.isEmpty()) {
             return true;
         }
-        ChurchResult result = churchService.annul(
-                membership.get().getKingdomId(), membership.get().getRank(), subject.get());
-        report(sender, result);
-        if (result instanceof ChurchResult.Success) {
-            store.saveFrom(kingdomService);
+        Optional<PlayerMembership> membership = kingdomService.getMembership(subject.get());
+        if (membership.isEmpty()) {
+            sender.sendMessage(error("That player is sworn to no realm."));
+            return true;
         }
+        // The operators' escape hatch: annul in the subject's own realm with the Crown's authority.
+        report(sender, rites.annul(membership.get().getKingdomId(), NobleRank.KING, subject.get()));
         return true;
     }
 
@@ -330,39 +340,20 @@ public final class KingdomChurchHandler {
             sender.sendMessage(error("The deceased must stand at the church."));
             return true;
         }
-        FuneralOutcome outcome =
-                churchService.funeral(kingdomId, rite.get().celebrant(), deceased.getUniqueId());
+        FuneralOutcome outcome = rites.funeral(kingdomId, rite.get().celebrant(), deceased);
         report(sender, outcome.result());
-        if (outcome.result() instanceof ChurchResult.Success) {
-            deceased.giveExp(outcome.experience());
-            deceased.sendMessage(success("The rites return " + outcome.experience() + " experience to you."));
-            store.saveFrom(kingdomService);
-        }
         return true;
     }
 
     private boolean handleVillagerFuneral(CommandSender sender, RiteContext rite) {
-        Optional<UUID> longestWaiting = churchService.nextVillagerAwaitingRites(rite.kingdomId());
-        if (longestWaiting.isEmpty()) {
+        Optional<VillagerFuneralOutcome> outcome = rites.villagerFuneral(rite.kingdomId(), rite.celebrant());
+        if (outcome.isEmpty()) {
             sender.sendMessage(error("No villager of this realm awaits its rites."));
             return true;
         }
-        VillagerFuneralOutcome outcome =
-                churchService.villagerFuneral(rite.kingdomId(), rite.celebrant(), longestWaiting.get());
-        report(sender, outcome.result());
-        if (outcome.result() instanceof ChurchResult.Success) {
-            economyService.creditTreasury(rite.kingdomId(), outcome.treasuryShare());
-            Optional<UUID> priest = churchService.priest(rite.kingdomId());
-            if (outcome.titheToTreasury() || priest.isEmpty()) {
-                economyService.creditTreasury(rite.kingdomId(), outcome.tithe());
-            } else {
-                // The tithe is the priest's living, not a fee for whoever asked for the rite.
-                economyService.creditWalletDirect(priest.get(), outcome.tithe());
-            }
-            sender.sendMessage(info(String.format(
-                    "%.2f Corona passes to the treasury; %.2f is tithed.",
-                    outcome.treasuryShare(), outcome.tithe())));
-            store.saveFrom(kingdomService);
+        report(sender, outcome.get().result());
+        if (outcome.get().result() instanceof ChurchResult.Success) {
+            sender.sendMessage(info(tithedLine(outcome.get())));
         }
         return true;
     }
@@ -462,23 +453,6 @@ public final class KingdomChurchHandler {
         return membership;
     }
 
-    private Optional<PlayerMembership> crownMembership(CommandSender sender) {
-        Optional<Player> player = asPlayer(sender, "Only the Crown may command the church.");
-        if (player.isEmpty()) {
-            return Optional.empty();
-        }
-        return membershipOf(sender, player.get());
-    }
-
-    /** The coronation gate: swearing the priesthood is a ceremonial power like any other. */
-    private Optional<String> ceremonialRefusal(CommandSender sender, PlayerMembership membership) {
-        if (!(sender instanceof Player player)) {
-            return Optional.empty();
-        }
-        return churchService.ceremonialRefusal(
-                membership.getKingdomId(), player.getUniqueId(), membership.getRank());
-    }
-
     private Optional<UUID> resolvePlayer(CommandSender sender, String name) {
         OfflinePlayer target = Bukkit.getOfflinePlayer(name);
         if (target.getName() == null && !target.hasPlayedBefore()) {
@@ -494,19 +468,22 @@ public final class KingdomChurchHandler {
                 : success(result.message()));
     }
 
+    /** Where a villager's estate went, told to whoever asked for its rites. */
+    public static String tithedLine(VillagerFuneralOutcome outcome) {
+        return String.format(
+                "%.2f Corona passes to the treasury; %.2f is tithed.", outcome.treasuryShare(), outcome.tithe());
+    }
+
     private static String worldName(Location location) {
         return location.getWorld() == null ? "" : location.getWorld().getName();
     }
 
     private static String help() {
         return c("&6Church")
-                + "\n" + c("&e/kingdom church set|clear") + c("&7 — King or Queen, inside your territory")
-                + "\n" + c("&e/kingdom church swear|unswear <player>") + c("&7 — the priesthood")
-                + "\n" + c("&e/kingdom church consecrate") + c("&7 — bring a new church into use")
-                + "\n" + c("&e/kingdom church marry <player>") + c("&7 — both parties must ask")
-                + "\n" + c("&e/kingdom church divorce") + c("&7 — both parties must ask")
-                + "\n" + c("&e/kingdom church annul <player>") + c("&7 — the Crown's remedy")
-                + "\n" + c("&e/kingdom church funeral [player|villager]") + c("&7 — the rites of the dead")
+                + "\n" + c("&e/kingdom church set|clear") + c("&7 — operators; the Crown lays the stone from /kingdom")
+                + "\n" + c("&e/kingdom church swear|unswear <player>") + c("&7 — operators; the Crown strikes a subject with a golden sword")
+                + "\n" + c("&e/kingdom church consecrate|marry|divorce|annul|funeral")
+                + c("&7 — operators; subjects right-click the cleric at the church")
                 + "\n" + c("&e/kingdom church info") + c("&7 — how the church stands");
     }
 

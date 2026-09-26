@@ -1,7 +1,9 @@
 package dev.mrlemoos.kingdom.mint;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.mint.TreasuryWithdrawGui;
 import org.junit.jupiter.api.Test;
@@ -27,5 +29,14 @@ class TreasuryWithdrawGuiTest {
 
         assertNull(gui.amountForSlot(TreasuryWithdrawGui.SLOT_TEN, 5.0));
         assertNull(gui.amountForSlot(TreasuryWithdrawGui.SLOT_ALL, 0.0));
+    }
+
+    @Test
+    void theDepositButtonSitsBesideTheWithdrawals() {
+        TreasuryWithdrawGui gui = new TreasuryWithdrawGui("northmarch");
+
+        assertTrue(gui.isDepositSlot(TreasuryWithdrawGui.SLOT_DEPOSIT));
+        assertFalse(gui.isDepositSlot(TreasuryWithdrawGui.SLOT_CUSTOM));
+        assertNull(gui.amountForSlot(TreasuryWithdrawGui.SLOT_DEPOSIT, 100.0));
     }
 }

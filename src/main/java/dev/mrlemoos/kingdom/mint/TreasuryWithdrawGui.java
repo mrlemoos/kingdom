@@ -23,6 +23,7 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
     static final int SLOT_MAX = 15;
     static final int SLOT_ALL = 16;
     static final int SLOT_CUSTOM = 22;
+    static final int SLOT_DEPOSIT = 18;
 
     private final String kingdomId;
     private Inventory inventory;
@@ -36,10 +37,16 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
     }
 
     public static TreasuryWithdrawGui create(String kingdomId, double walletBalance) {
+        return create(kingdomId, walletBalance, 0);
+    }
+
+    /** As above, with a Deposit button for the {@code nuggetsHeld} Corona nuggets in the player's inventory. */
+    public static TreasuryWithdrawGui create(String kingdomId, double walletBalance, int nuggetsHeld) {
         TreasuryWithdrawGui gui = new TreasuryWithdrawGui(kingdomId);
         Inventory inventory = Bukkit.createInventory(gui, 27, TITLE);
         gui.inventory = inventory;
         populate(inventory, walletBalance);
+        inventory.setItem(SLOT_DEPOSIT, depositButton(nuggetsHeld));
         return gui;
     }
 
@@ -71,6 +78,10 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
             case SLOT_ALL -> wholeBalance >= 1 ? wholeBalance : null;
             default -> null;
         };
+    }
+
+    public boolean isDepositSlot(int slot) {
+        return slot == SLOT_DEPOSIT;
     }
 
     public boolean isCustomSlot(int slot) {
@@ -107,6 +118,16 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
             builder.type(Material.GRAY_DYE);
         }
         return builder.build();
+    }
+
+    private static ItemStack depositButton(int nuggetsHeld) {
+        boolean enabled = nuggetsHeld > 0;
+        return new ItemBuilder(enabled ? Material.GOLD_INGOT : Material.GRAY_DYE)
+                .displayAs((enabled ? c("&a") : c("&8")) + "Deposit")
+                .lore(enabled
+                        ? c("&7Click to deposit the ") + nuggetsHeld + c("&7 Corona nuggets you carry")
+                        : c("&cYou carry no Corona nuggets"))
+                .build();
     }
 
     private static ItemStack customAmountButton() {

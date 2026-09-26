@@ -36,7 +36,7 @@ import org.bukkit.inventory.EquipmentSlot;
  *
  * <p>{@code MoraleService#pardon} says the Crown or an appointed Knight restores military morale "at
  * a muster point or court". The realm sites no muster point, but it does site a court — a lectern
- * and a villager judge, set by {@code /kingdom police court set} — and the judge's bench was the one
+ * and a villager judge, sited by laying the court's lectern — and the judge's bench was the one
  * placed office in the realm that answered no right-click at all. So the bench is where the pardon
  * is heard: right-click the judge, read the roll of subjects whose morale has fallen, and click one
  * to restore them to Steadfast.

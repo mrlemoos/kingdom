@@ -110,14 +110,15 @@ class KingdomInfoCommandTest {
     }
 
     @Test
-    void aSubjectBelowTheCrownIsRefusedTheGranary() {
+    void aSubjectIsPointedToTheGranarysHayBale() {
         PlayerMock subject = server.addPlayer("Subject");
         kingdomService.joinKingdom(subject.getUniqueId(), "northmarch");
 
         command.execute(subject, new String[] {"granary", "setregion", "north_granary"});
 
-        assertTrue(
-                drainedMessages(subject).contains("Only the King, Queen, or an operator may site the granary."));
+        assertTrue(drainedMessages(subject).contains("The granary is sited by laying its hay bale"));
+        assertTrue(kingdomService.getKingdom("northmarch").orElseThrow().getGranaryRegion() == null
+                || kingdomService.getKingdom("northmarch").orElseThrow().getGranaryRegion().isBlank());
     }
 
     @Test

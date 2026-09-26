@@ -994,12 +994,12 @@ public final class KingdomCommand {
         builder.append("\n").append(c("&e")).append("/kingdom loyalty");
         builder.append(c("&7")).append(" — your loyalty ledger and how to mend it");
         if (fiscalHandler != null) {
-            builder.append("\n").append(c("&e")).append("/kingdom election ...");
-            builder.append(c("&7")).append(" — MP elections and nominations");
+            builder.append("\n").append(c("&e")).append("/kingdom election status");
+            builder.append(c("&7")).append(" — follow an election; stand and vote on your poll card");
             builder.append("\n").append(c("&e")).append("/kingdom parliament ...");
             builder.append(c("&7")).append(" — table bills, divisions, royal assent");
             builder.append("\n").append(c("&e")).append("/kingdom referendum");
-            builder.append(c("&7")).append(" — cast your ballot while polling is open");
+            builder.append(c("&7")).append(" — the referendum ballot, as on your poll card");
             builder.append("\n").append(c("&e")).append("/kingdom fiscal show");
             builder.append(c("&7")).append(" — view active fiscal rates");
             builder.append("\n").append(c("&e")).append("/kingdom budget status");
@@ -1012,24 +1012,19 @@ public final class KingdomCommand {
             builder.append(c("&7")).append(" — server whitelist");
         }
         if (cityHandler != null) {
-            builder.append("\n").append(c("&e")).append("/kingdom capital set|clear|setregion|clearregion");
-            builder.append(c("&7")).append(" — city hall, Lord Mayor, and capital-fall region");
-            builder.append("\n").append(c("&e")).append("/kingdom crier set|clear");
-            builder.append(c("&7")).append(" — site the Town Crier apart from city hall");
             builder.append("\n").append(c("&e")).append("/kingdom permit grant|revoke <player>");
             builder.append(c("&7")).append(" — build permits");
         }
         if (churchHandler != null) {
-            builder.append("\n").append(c("&e")).append("/kingdom church set|clear|swear|unswear");
+            builder.append("\n").append(c("&e")).append("/kingdom church info");
             builder.append(c("&7")).append(" — the church, its priest and its rites");
         }
-        builder.append("\n").append(c("&e")).append("/kingdom granary setregion <region>|clear");
-        builder.append(c("&7")).append(" — the realm's grain store");
         if (tributeHandler != null) {
-            builder.append("\n").append(c("&e")).append("/kingdom tribute status|pay");
-            builder.append(c("&7")).append(" — war debt");
+            builder.append("\n").append(c("&e")).append("/kingdom tribute status");
+            builder.append(c("&7")).append(" — war debt; the Crown pays it from The Treasury in the Hub");
         }
         if (sender.isOp()) {
+            builder.append("\n").append(c("&6")).append("/kingdom granary setregion <region>|clear");
             builder.append("\n").append(c("&6")).append("/kingdom create <id> [display]");
             builder.append("\n").append(c("&6")).append("/kingdom move <player> <kingdom>");
             builder.append("\n").append(c("&6")).append("/kingdom title <player> <rank|none> [style]");

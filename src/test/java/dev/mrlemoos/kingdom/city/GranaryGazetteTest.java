@@ -66,7 +66,7 @@ class GranaryGazetteTest {
         GazettePost post = GranaryGazette.shortfallPost(null, 120, 7L);
 
         assertTrue(post.title().contains("no granary"), post.title());
-        assertTrue(post.body().contains("/kingdom granary setregion"), post.body());
+        assertTrue(post.body().contains("hay bale"), post.body());
         assertEquals(post.body(), GranaryGazette.shortfallPost("   ", 120, 7L).body());
     }
 }

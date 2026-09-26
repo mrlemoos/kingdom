@@ -16,5 +16,11 @@ public enum RealmHubAction {
     /** Opens the active muster response. */
     OPEN_MUSTER,
     /** Opens the realm's treaty register. */
-    OPEN_TREATY_REGISTER
+    OPEN_TREATY_REGISTER,
+    /** Opens the Crown's warrant register. */
+    OPEN_WARRANT_REGISTER,
+    /** Opens the war debts the realm owes, to pay one. */
+    OPEN_WAR_DEBT,
+    /** Hands the Crown the place's foundation stone; a right-click offers to clear the site. */
+    TAKE_FOUNDATION_STONE
 }

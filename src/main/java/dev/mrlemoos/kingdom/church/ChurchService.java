@@ -14,6 +14,7 @@ import dev.mrlemoos.kingdom.police.PoliceService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -136,6 +137,11 @@ public final class ChurchService {
     public boolean isPriest(String kingdomId, UUID playerId) {
         Optional<KingdomChurchState> state = churchState(kingdomId);
         return state.isPresent() && state.get().isPriest(playerId);
+    }
+
+    /** True while this player serves a prison sentence; their sworn offices stand suspended. */
+    public boolean isUnderPrisonSentence(UUID playerId) {
+        return playerId != null && prisonStatusPort.isUnderPrisonSentence(playerId);
     }
 
     public ChurchResult swearPriest(String kingdomId, NobleRank actorRank, UUID playerId) {
@@ -287,6 +293,15 @@ public final class ChurchService {
         return state.isPresent() && state.get().isMarried(playerId);
     }
 
+    /** Every marriage standing in this realm, for the Crown's annulment. */
+    public List<Marriage> marriages(String kingdomId) {
+        Optional<KingdomChurchState> state = churchState(kingdomId);
+        if (state.isEmpty()) {
+            return List.of();
+        }
+        return state.get().marriagesView();
+    }
+
     public ChurchResult wed(String kingdomId, Celebrant celebrant, UUID first, UUID second) {
         Optional<ChurchResult.Failure> refusal = riteRefusal(kingdomId, celebrant);
         if (refusal.isPresent()) {
@@ -355,6 +370,12 @@ public final class ChurchService {
         return churchState(kingdomId).flatMap(church -> church.funeralRecord(playerId));
     }
 
+    /** True while this member's held experience still waits on their funeral. */
+    public boolean hasHeldExperience(String kingdomId, UUID playerId) {
+        Optional<FuneralRecord> record = funeralRecord(kingdomId, playerId);
+        return record.isPresent() && !record.get().isExpired(realmDay.getAsLong(), config.funeralWindowDays());
+    }
+
     public FuneralOutcome funeral(String kingdomId, Celebrant celebrant, UUID deceasedId) {
         Optional<ChurchResult.Failure> refusal = riteRefusal(kingdomId, celebrant);
         if (refusal.isPresent()) {
@@ -392,6 +413,22 @@ public final class ChurchService {
                 .filter(entry -> !entry.getValue().isExpired(today, config.funeralWindowDays()))
                 .min(java.util.Comparator.comparingLong(entry -> entry.getValue().diedOnDay()))
                 .map(Map.Entry::getKey);
+    }
+
+    /** How many dead villagers of the realm still await their rites, lapsed estates aside. */
+    public int villagersAwaitingRites(String kingdomId) {
+        Optional<KingdomChurchState> state = churchState(kingdomId);
+        if (state.isEmpty()) {
+            return 0;
+        }
+        long today = realmDay.getAsLong();
+        int awaiting = 0;
+        for (VillagerFuneralRecord record : state.get().villagerFuneralRecordsView().values()) {
+            if (!record.isExpired(today, config.funeralWindowDays())) {
+                awaiting++;
+            }
+        }
+        return awaiting;
     }
 
     public VillagerFuneralOutcome villagerFuneral(String kingdomId, Celebrant celebrant, UUID villagerId) {

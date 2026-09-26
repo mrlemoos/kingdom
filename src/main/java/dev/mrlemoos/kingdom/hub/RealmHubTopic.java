@@ -13,10 +13,16 @@ public enum RealmHubTopic {
     LOYALTY_LEDGER,
     /** The church ceremony that opens military morale. */
     OATH_OF_SERVICE,
+    /** The rites asked for at the cleric: consecration, marriage, divorce, annulment, funeral. */
+    RITES,
     /** The realm's news board, read at the Town Crier. */
     GAZETTE,
     /** Your licence to place and break blocks inside the realm's territory. */
     BUILD_PERMIT,
+    /** Posting an arrest reward on an active warrant, at the court. */
+    ARREST_REWARD,
+    /** Depositing and withdrawing Corona at the Lord of the Treasury. */
+    WALLET,
 
     /** An election is under way. */
     LIVE_ELECTION,
@@ -63,6 +69,10 @@ public enum RealmHubTopic {
     POWER_SWORN_ROLES,
     /** Siting the court, the cells, the chambers, the church and the granary. */
     POWER_SITES,
+    /** A constable's arrest, by striking the wanted with an iron sword. */
+    POWER_ARREST,
+    /** The Crown's register of active warrants, to cancel one. */
+    POWER_WARRANTS,
 
     /** The capital, which is also the city hall and the Lord Mayor's stand. */
     PLACE_CAPITAL,
@@ -83,5 +93,11 @@ public enum RealmHubTopic {
     /** The House of Lords. */
     PLACE_LORDS,
     /** The Speaker's Chair. */
-    PLACE_SPEAKER_CHAIR
+    PLACE_SPEAKER_CHAIR,
+    /** The Bar of the House. */
+    PLACE_BAR,
+    /** The eight MP seats of the Commons. */
+    PLACE_MP_SEATS,
+    /** The registrar's anchor bookshelf. */
+    PLACE_REGISTRAR
 }

@@ -24,6 +24,7 @@ import dev.mrlemoos.kingdom.parliament.AssentedEnactmentResult;
 import dev.mrlemoos.kingdom.parliament.DivisionBloc;
 import dev.mrlemoos.kingdom.parliament.DivisionTally;
 import dev.mrlemoos.kingdom.parliament.ParliamentEnactment;
+import dev.mrlemoos.kingdom.parliament.ParliamentSiting;
 import dev.mrlemoos.kingdom.parliament.RegistrarShelfWriter;
 import dev.mrlemoos.kingdom.service.ChamberPresence;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -62,7 +63,7 @@ public final class ParliamentHandler {
     private final WarService warService;
     private final DemobilisationService demobilisationService;
     private TreatyService treatyService;
-    private dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer;
+    private ParliamentSiting parliamentSiting;
     private Consumer<Player> hubGuiOpener;
     private java.util.function.BiConsumer<Player, String> referendumBallotOpener;
 
@@ -113,11 +114,12 @@ public final class ParliamentHandler {
         this.villagerPremierInauguralService = villagerPremierInauguralService;
         this.warService = warService;
         this.demobilisationService = demobilisationService;
+        this.parliamentSiting = new ParliamentSiting(parliamentService, kingdomService, kingdomStore, null);
     }
 
     /** Who raises the Royal Standard when the Lords point moves. */
     public void setRoyalStandardPlacer(dev.mrlemoos.kingdom.parliament.RoyalStandardPlacer royalStandardPlacer) {
-        this.royalStandardPlacer = royalStandardPlacer;
+        this.parliamentSiting = new ParliamentSiting(parliamentService, kingdomService, kingdomStore, royalStandardPlacer);
     }
 
     public void setTreatyService(TreatyService treatyService) {
@@ -148,27 +150,25 @@ public final class ParliamentHandler {
         }
         String kingdomId = membership.get().getKingdomId();
 
-        if (args.length >= 2 && args[1].equalsIgnoreCase("call")) {
+        boolean call = args.length >= 2 && args[1].equalsIgnoreCase("call");
+        boolean close = args.length >= 2 && args[1].equalsIgnoreCase("close");
+        if ((call || close) && !sender.isOp()) {
+            sender.sendMessage(error("Referendums are called and closed from the Parliament hub. "
+                    + "Stand in either House and type /kingdom parliament."));
+            return true;
+        }
+
+        if (call) {
             if (args.length < 3) {
                 sender.sendMessage(error("Usage: /kingdom referendum call <question>"));
                 return true;
             }
             String question = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
-            ParliamentResult result = parliamentService.callReferendum(
-                    kingdomId, membership.get().getRank(), player.get().getUniqueId(), question);
-            if (result instanceof ParliamentResult.Success success) {
-                broadcastParliament(kingdomId, c("&e" + success.message()));
-                promptRealmToVote(kingdomId);
-            }
-            return finish(sender, result);
+            return finish(sender, callReferendum(membership.get(), question));
         }
 
-        if (args.length >= 2 && args[1].equalsIgnoreCase("close")) {
-            ParliamentResult result = parliamentService.closePolling(kingdomId, membership.get().getRank());
-            if (result instanceof ParliamentResult.Success success) {
-                broadcastParliament(kingdomId, c("&e" + success.message()));
-            }
-            return finish(sender, result);
+        if (close) {
+            return finish(sender, closeReferendum(membership.get()));
         }
 
         if (!parliamentService.isPollingOpen(kingdomId)) {
@@ -179,6 +179,28 @@ public final class ParliamentHandler {
             referendumBallotOpener.accept(player.get(), kingdomId);
         }
         return true;
+    }
+
+    /** The Premier or the Crown puts a question to the realm, and the realm is told. */
+    public ParliamentResult callReferendum(PlayerMembership membership, String question) {
+        String kingdomId = membership.getKingdomId();
+        ParliamentResult result = parliamentService.callReferendum(
+                kingdomId, membership.getRank(), membership.getPlayerId(), question);
+        if (result instanceof ParliamentResult.Success success) {
+            broadcastParliament(kingdomId, c("&e" + success.message()));
+            promptRealmToVote(kingdomId);
+        }
+        return result;
+    }
+
+    /** The Premier ends polling early, and the realm hears its answer. */
+    public ParliamentResult closeReferendum(PlayerMembership membership) {
+        String kingdomId = membership.getKingdomId();
+        ParliamentResult result = parliamentService.closePolling(kingdomId, membership.getRank());
+        if (result instanceof ParliamentResult.Success success) {
+            broadcastParliament(kingdomId, c("&e" + success.message()));
+        }
+        return result;
     }
 
     /** Tells everyone online in the realm that a question awaits their ballot. */
@@ -199,7 +221,7 @@ public final class ParliamentHandler {
             return;
         }
         online.sendMessage(c("&3[Parliament] ")+ c("&eA referendum is open: ")+ c("&f" + question));
-        online.sendMessage(c("&7Use ")+ c("&e/kingdom referendum")+ c("&7 to cast your ballot."));
+        online.sendMessage(c("&7Right-click your poll card to cast your ballot."));
     }
 
     public ParliamentService parliamentService() {
@@ -271,16 +293,13 @@ public final class ParliamentHandler {
     }
 
     private boolean handleSet(CommandSender sender, String[] args) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error("Parliament's chambers, seats and registrar are sited by laying their foundation "
+                    + "stones. Type /kingdom and take them from Parliament."));
+            return true;
+        }
         Optional<Player> player = requirePlayer(sender);
         if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!isRoyal(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King or Queen may set parliamentary sites."));
             return true;
         }
         if (args.length < 2) {
@@ -288,8 +307,16 @@ public final class ParliamentHandler {
             return true;
         }
 
-        String kingdomId = membership.get().getKingdomId();
+        // The operators' escape hatch: set the point for whichever realm owns this ground.
         Location location = player.get().getLocation();
+        Optional<String> owner = realmAt(player.get(), location.getWorld().getName(),
+                location.getBlockX(), location.getBlockY(), location.getBlockZ());
+        if (owner.isEmpty()) {
+            sender.sendMessage(error("Stand inside a kingdom's territory to set its parliamentary sites."));
+            return true;
+        }
+        String kingdomId = owner.get();
+        ChamberSite here = ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(), location.getZ());
         return switch (args[1].toLowerCase(Locale.ROOT)) {
             case "mp-seat" -> {
                 if (args.length < 3) {
@@ -310,49 +337,20 @@ public final class ParliamentHandler {
                         location.getZ(),
                         location.getYaw(),
                         location.getPitch());
-                ParliamentResult result = parliamentService.setMpSeat(kingdomId, seatIndex, seatLocation);
-                yield finish(sender, result);
+                yield finish(sender, parliamentSiting.setMpSeat(kingdomId, seatIndex, seatLocation));
             }
-            case "commons" -> {
-                ParliamentResult result = parliamentService.setCommons(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
-                                location.getZ()));
-                yield finish(sender, result);
-            }
-            case "speaker-chair" -> {
-                ParliamentResult result = parliamentService.setSpeakerChair(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
-                                location.getZ()));
-                yield finish(sender, result);
-            }
-            case "bar" -> {
-                ParliamentResult result = parliamentService.setBar(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
-                                location.getZ()));
-                yield finish(sender, result);
-            }
+            case "commons" -> finish(sender, parliamentSiting.setCommons(kingdomId, here));
+            case "speaker-chair" -> finish(sender, parliamentSiting.setSpeakerChair(kingdomId, here));
+            case "bar" -> finish(sender, parliamentSiting.setBar(kingdomId, here));
             case "lords" -> {
-                Optional<Kingdom> kingdomOpt = kingdomService.getKingdom(kingdomId);
-                Optional<ChamberSite> previousLords = kingdomOpt.flatMap(k -> k.getParliamentSites().lords());
                 Optional<dev.mrlemoos.kingdom.model.parliament.KingdomFlag> held =
                         kingdomFlagFromHand(player.get());
-                ParliamentResult result = parliamentService.setLords(
-                        kingdomId, ChamberSite.of(location.getWorld().getName(), location.getX(), location.getY(),
-                                location.getZ()));
-                if (result instanceof ParliamentResult.Success) {
-                    Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
-                    if (kingdom.isPresent()) {
-                        var resolved = dev.mrlemoos.kingdom.parliament.KingdomFlagResolver.resolve(
-                                kingdom.get().getFlag(), held);
-                        kingdom.get().setFlag(resolved);
-                        if (held.isPresent()) {
-                            consumeOneFromMainHand(player.get());
-                        }
-                    }
+                ParliamentSiting.Lords lords = parliamentSiting.setLords(kingdomId, here, held);
+                if (lords.result() instanceof ParliamentResult.Success && held.isPresent()) {
+                    consumeOneFromMainHand(player.get());
                 }
-                boolean done = finish(sender, result);
-                if (result instanceof ParliamentResult.Success && royalStandardPlacer != null
-                        && royalStandardPlacer.moveAndRaise(kingdomId, previousLords)) {
+                boolean done = finish(sender, lords.result());
+                if (lords.flagFlies()) {
                     sender.sendMessage(success("The kingdom flag flies over the Lords."));
                 }
                 yield done;
@@ -363,20 +361,34 @@ public final class ParliamentHandler {
                     sender.sendMessage(error("Look at a chiseled bookshelf to set the registrar."));
                     yield true;
                 }
-                ParliamentResult result = parliamentService.setRegistrar(
+                yield finish(sender, parliamentSiting.setRegistrar(
                         kingdomId,
                         RegistrarSite.of(
                                 target.getWorld().getName(),
                                 target.getX(),
                                 target.getY(),
-                                target.getZ()));
-                yield finish(sender, result);
+                                target.getZ())));
             }
             default -> {
                 sender.sendMessage(error("Usage: /kingdom parliament set commons|lords|speaker-chair|bar|registrar|mp-seat <1-8>"));
                 yield true;
             }
         };
+    }
+
+    /** The realm owning the ground, else the operator's own realm. */
+    private Optional<String> realmAt(Player player, String worldName, int x, int y, int z) {
+        Optional<String> owner = territoryResolver.owningKingdomId(worldName, x, y, z);
+        if (owner.isPresent()) {
+            return owner;
+        }
+        Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        return membership.isPresent() ? Optional.of(membership.get().getKingdomId()) : Optional.empty();
+    }
+
+    /** Who sets and clears Parliament's points, for the stones and the operators alike. */
+    public ParliamentSiting parliamentSiting() {
+        return parliamentSiting;
     }
 
     public boolean finish(CommandSender sender, ParliamentResult result) {
@@ -744,15 +756,11 @@ public final class ParliamentHandler {
         return membership;
     }
 
-    private static boolean isRoyal(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN;
-    }
-
     public String help() {
         return info("Parliament:")
                 + "\n" + c("&e/kingdom parliament") + c("&7 — open the parliamentary hub (in Commons or Lords)")
-                + "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar")
-                + c("&7 — set chamber sites (monarch; hold a banner when setting lords to define the kingdom flag)")
+                + "\n" + c("&e/kingdom parliament set commons|lords|speaker-chair|bar|registrar|mp-seat <1-8>")
+                + c("&7 — operators; the Crown lays the stones from /kingdom")
                 + "\n" + c("&e/kingdom parliament status") + c("&7 — view parliamentary state")
                 + "\n" + c("&e/kingdom parliament treaty <kingdom> <non-aggression|trade-pact> [repeal]")
                 + c("&7 — table a treaty bill (Crown)");

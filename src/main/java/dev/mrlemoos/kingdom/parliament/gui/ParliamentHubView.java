@@ -26,6 +26,8 @@ public final class ParliamentHubView {
     private final boolean canTableTreaty;
     private final Optional<String> billTitle;
     private final Optional<String> resignationSummary;
+    private boolean pollsWired;
+    private boolean pollingOpen;
 
     public ParliamentHubView(
             NobleRank rank,
@@ -204,6 +206,24 @@ public final class ParliamentHubView {
         this.canTableTreaty = canTableTreaty;
     }
 
+    /**
+     * This view with the poll powers laid out: starting a general election, and calling or closing
+     * a referendum, gated by rank exactly as the operators' commands are.
+     */
+    public ParliamentHubView withPolls(boolean pollingOpen) {
+        ParliamentHubView copy = new ParliamentHubView(rank, billState, inCommons, inLords, divisionTied,
+                castingVoteSet, hasPreparedMint, hasPreparedPublicWork, electionActive, pendingResignation,
+                canResolveResignation, billTitle, resignationSummary, canTableMotion, canSecondMotion, canTableWar,
+                canTablePeace, canTableTreaty);
+        copy.pollsWired = true;
+        copy.pollingOpen = pollingOpen;
+        return copy;
+    }
+
+    public boolean pollingOpen() {
+        return pollingOpen;
+    }
+
     /** Whether this Member may put the confidence question to the House. */
     public boolean canTableMotion() {
         return canTableMotion;
@@ -327,12 +347,28 @@ public final class ParliamentHubView {
             actions.add(ParliamentHubAction.REVIEW_RESIGNATION);
         }
 
+        if (pollsWired) {
+            if (isMonarch(rank)) {
+                actions.add(ParliamentHubAction.START_ELECTION);
+            }
+            if (!pollingOpen && (rank == NobleRank.PREMIER || canResolveResignation)) {
+                actions.add(ParliamentHubAction.CALL_REFERENDUM);
+            }
+            if (pollingOpen && rank == NobleRank.PREMIER) {
+                actions.add(ParliamentHubAction.CLOSE_REFERENDUM);
+            }
+        }
+
         return Set.copyOf(actions);
     }
 
     /** Explains an empty hub so the GUI is never a silent wall of panes. */
     public Optional<String> statusHint() {
-        if (!visibleActions().isEmpty()) {
+        Set<ParliamentHubAction> business = EnumSet.noneOf(ParliamentHubAction.class);
+        business.addAll(visibleActions());
+        business.removeAll(EnumSet.of(ParliamentHubAction.START_ELECTION, ParliamentHubAction.CALL_REFERENDUM,
+                ParliamentHubAction.CLOSE_REFERENDUM));
+        if (!business.isEmpty()) {
             return Optional.empty();
         }
         if (isMonarch(rank) && billState == BillState.AWAITING_ASSENT && !inLords) {

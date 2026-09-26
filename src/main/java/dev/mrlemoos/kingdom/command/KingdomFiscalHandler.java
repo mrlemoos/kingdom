@@ -10,7 +10,7 @@ import dev.mrlemoos.kingdom.economy.service.EconomyResult;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
-import dev.mrlemoos.kingdom.mint.RoyalMintPlacementPolicy;
+import dev.mrlemoos.kingdom.mint.MintSiting;
 import dev.mrlemoos.kingdom.mint.TreasuryLordManagementPolicy;
 import dev.mrlemoos.kingdom.mint.TreasuryLordMintSelector;
 import dev.mrlemoos.kingdom.mint.TreasuryLordService;
@@ -23,10 +23,8 @@ import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -48,6 +46,7 @@ public final class KingdomFiscalHandler {
     private final TerritoryResolver territoryResolver;
     private final TreasuryLordService treasuryLordService;
     private final JavaPlugin plugin;
+    private final MintSiting mintSiting;
     private MintPrepareGuiOpener mintPrepareGuiOpener;
 
     /** Opens the mint prepare board; supplied by the parliament GUI listener after construction. */
@@ -73,6 +72,7 @@ public final class KingdomFiscalHandler {
         this.territoryResolver = territoryResolver;
         this.treasuryLordService = treasuryLordService;
         this.plugin = plugin;
+        this.mintSiting = new MintSiting(economyService, economyStore, treasuryLordService);
     }
 
     public boolean handleFiscal(CommandSender sender, String[] args) {
@@ -283,38 +283,51 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleMintPlace(CommandSender sender) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error("A mint is raised by laying its foundation stone. "
+                    + "Type /kingdom and take it from The Royal Mints."));
+            return true;
+        }
         Optional<Player> player = requirePlayer(sender);
         if (player.isEmpty()) {
             return true;
         }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
+        // The operators' escape hatch: raise a mint for whichever realm owns this ground.
+        Location standing = player.get().getLocation();
+        Optional<String> owner = owningKingdomId(standing);
+        if (owner.isEmpty()) {
+            sender.sendMessage(error("Stand inside a kingdom's territory to site its mint."));
             return true;
         }
-        if (!RoyalMintPlacementPolicy.canPlace(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King, Queen or a Lord may place a mint."));
-            return true;
-        }
-
-        Optional<MintLocation> sited = siteMintWhereStanding(player.get(), membership.get().getKingdomId());
-        if (sited.isEmpty()) {
-            return true;
-        }
-
-        String kingdomId = membership.get().getKingdomId();
-        MintLocation location = sited.get();
+        MintLocation location = new MintLocation(
+                standing.getWorld().getName(),
+                standing.getBlockX(),
+                standing.getBlockY(),
+                standing.getBlockZ(),
+                standing.getYaw(),
+                null);
         int maxMints = plugin.getConfig().getInt("economy.max-mints-per-kingdom", 3);
-        EconomyResult result = economyService.placeRoyalMint(kingdomId, location, maxMints);
-        sender.sendMessage(formatEconomy(result));
-        if (!(result instanceof EconomyResult.Success)) {
-            return true;
+        MintSiting.Placed placed = mintSiting.place(owner.get(), location, maxMints);
+        sender.sendMessage(formatEconomy(placed.result()));
+        if (placed.mint().isPresent()) {
+            MintLocation withLord = placed.mint().get();
+            sender.sendMessage(success("Lord of the Treasury stationed at "
+                    + withLord.x() + ", " + withLord.y() + ", " + withLord.z() + "."));
         }
-
-        MintLocation withLord = treasuryLordService.ensureLord(kingdomId, location);
-        economyStore.saveFrom(economyService);
-        sender.sendMessage(success("Lord of the Treasury stationed at "
-                + withLord.x() + ", " + withLord.y() + ", " + withLord.z() + "."));
         return true;
+    }
+
+    private Optional<String> owningKingdomId(Location location) {
+        if (location.getWorld() == null) {
+            return Optional.empty();
+        }
+        return territoryResolver.resolve(
+                        location.getWorld().getName(),
+                        location.getBlockX(),
+                        location.getBlockY(),
+                        location.getBlockZ(),
+                        "")
+                .kingdomId();
     }
 
     private boolean isInOwnTerritory(Location location, String kingdomId) {
@@ -358,28 +371,34 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleMintRemove(CommandSender sender) {
+        if (!sender.isOp()) {
+            sender.sendMessage(error("A mint is cleared from the Realm Hub. "
+                    + "Type /kingdom, open The Royal Mints and right-click it."));
+            return true;
+        }
         Optional<Player> player = requirePlayer(sender);
         if (player.isEmpty()) {
             return true;
         }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        if (!isRoyal(membership.get().getRank())) {
-            sender.sendMessage(error("Only the King or Queen may remove a mint."));
-            return true;
-        }
-
-        String kingdomId = membership.get().getKingdomId();
-        KingdomEconomy economy = kingdomEconomy(kingdomId);
-        List<MintLocation> mints = new ArrayList<>(economy.mintLocations());
-        if (mints.isEmpty()) {
-            sender.sendMessage(error("Your kingdom has no mints to remove."));
-            return true;
-        }
-
         Location playerLoc = player.get().getLocation();
+        Optional<String> owner = owningKingdomId(playerLoc);
+        if (owner.isEmpty()) {
+            Optional<PlayerMembership> membership = kingdomService.getMembership(player.get().getUniqueId());
+            if (membership.isPresent()) {
+                owner = Optional.of(membership.get().getKingdomId());
+            }
+        }
+        if (owner.isEmpty()) {
+            sender.sendMessage(error("Stand inside a kingdom's territory to remove its mint."));
+            return true;
+        }
+        String kingdomId = owner.get();
+        List<MintLocation> mints = mintSiting.mints(kingdomId);
+        if (mints.isEmpty()) {
+            sender.sendMessage(error("That kingdom has no mints to remove."));
+            return true;
+        }
+
         MintLocation nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         for (MintLocation mint : mints) {
@@ -397,24 +416,7 @@ public final class KingdomFiscalHandler {
             sender.sendMessage(error("No mints found in this world."));
             return true;
         }
-
-        treasuryLordService.despawnLord(kingdomId, nearest);
-
-        mints.remove(nearest);
-        KingdomEconomy updated = new KingdomEconomy(
-                economy.treasuryBalance(),
-                economy.totalTaxRevenue(),
-                economy.totalGdpRevenue(),
-                economy.lastDailyGdp(),
-                economy.activeRates(),
-                economy.pendingProposal().orElse(null),
-                economy.budget(),
-                mints);
-        Map<String, KingdomEconomy> kingdomEconomies = new HashMap<>(economyService.kingdomEconomies());
-        kingdomEconomies.put(kingdomId, updated);
-        economyService.replaceState(economyService.wallets(), economyService.villagerWallets(), kingdomEconomies);
-        economyStore.saveFrom(economyService);
-
+        mintSiting.remove(kingdomId, nearest);
         sender.sendMessage(success("Removed mint at " + nearest.x() + ", " + nearest.y() + ", " + nearest.z() + "."));
         return true;
     }
@@ -586,10 +588,6 @@ public final class KingdomFiscalHandler {
         return membership.getRank() == required;
     }
 
-    private static boolean isRoyal(NobleRank rank) {
-        return rank == NobleRank.KING || rank == NobleRank.QUEEN;
-    }
-
     private String fiscalHelp() {
         return info("Fiscal commands:")
                 + "\n" + c("&e/kingdom fiscal show")+ "\n" + c("&7 — view active and pending rates (pending via Parliament)");
@@ -602,7 +600,7 @@ public final class KingdomFiscalHandler {
 
     private String mintHelp() {
         return info("Mint commands:")
-                + "\n" + c("&e/kingdom mint place")+ c("&7 — place a mint where you stand in your territory (King, Queen or Lord)")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — remove the nearest mint (King or Queen)")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint (King, Queen or Lord)")+ "\n" + c("&7 — /kingdom mint prepare — site a mint for a bill (Premier, King, or Queen)");
+                + "\n" + c("&e/kingdom mint place")+ c("&7 — operators; the Crown or a Lord lays a mint's stone from /kingdom")+ "\n" + c("&e/kingdom mint list")+ "\n" + c("&e/kingdom mint remove")+ c("&7 — operators; the Crown clears a mint from /kingdom")+ "\n" + c("&e/kingdom mint despawn")+ c("&7 — remove the Lord of the Treasury you are looking at, or at the nearest mint (King, Queen or Lord)")+ "\n" + c("&7 — /kingdom mint prepare — site a mint for a bill (Premier, King, or Queen)");
     }
 
     private String rateLine(String label, double rate) {

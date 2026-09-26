@@ -220,4 +220,48 @@ class ParliamentHubViewTest {
         assertTrue(visible.contains(ParliamentHubAction.VOTE_ABSTAIN));
         assertTrue(view.isEnabled(ParliamentHubAction.VOTE_AYE));
     }
+    private static ParliamentHubView pollsView(NobleRank rank, boolean crown, boolean pollingOpen) {
+        return new ParliamentHubView(
+                        rank, null, true, false, false, false, false, false, false, false, crown,
+                        Optional.empty(), Optional.empty(), false, false, false, false, false)
+                .withPolls(pollingOpen);
+    }
+
+    @Test
+    void theCrownMayStartAnElectionAndCallAReferendum() {
+        Set<ParliamentHubAction> visible = pollsView(NobleRank.KING, true, false).visibleActions();
+
+        assertTrue(visible.contains(ParliamentHubAction.START_ELECTION));
+        assertTrue(visible.contains(ParliamentHubAction.CALL_REFERENDUM));
+        assertFalse(visible.contains(ParliamentHubAction.CLOSE_REFERENDUM));
+    }
+
+    @Test
+    void aRegentPrinceMayCallAReferendumButNotAnElection() {
+        Set<ParliamentHubAction> visible = pollsView(NobleRank.PRINCE, true, false).visibleActions();
+
+        assertFalse(visible.contains(ParliamentHubAction.START_ELECTION));
+        assertTrue(visible.contains(ParliamentHubAction.CALL_REFERENDUM));
+    }
+
+    @Test
+    void thePremierCallsAReferendumAndClosesItOnceOpen() {
+        Set<ParliamentHubAction> quiet = pollsView(NobleRank.PREMIER, false, false).visibleActions();
+        Set<ParliamentHubAction> polling = pollsView(NobleRank.PREMIER, false, true).visibleActions();
+
+        assertFalse(quiet.contains(ParliamentHubAction.START_ELECTION));
+        assertTrue(quiet.contains(ParliamentHubAction.CALL_REFERENDUM));
+        assertFalse(quiet.contains(ParliamentHubAction.CLOSE_REFERENDUM));
+        assertFalse(polling.contains(ParliamentHubAction.CALL_REFERENDUM));
+        assertTrue(polling.contains(ParliamentHubAction.CLOSE_REFERENDUM));
+    }
+
+    @Test
+    void aBackbenchMpHasNoPollPowers() {
+        Set<ParliamentHubAction> visible = pollsView(NobleRank.MP, false, true).visibleActions();
+
+        assertFalse(visible.contains(ParliamentHubAction.START_ELECTION));
+        assertFalse(visible.contains(ParliamentHubAction.CALL_REFERENDUM));
+        assertFalse(visible.contains(ParliamentHubAction.CLOSE_REFERENDUM));
+    }
 }

@@ -5,6 +5,7 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.police.CourtLocation;
+import dev.mrlemoos.kingdom.model.police.GolemOfficerKind;
 import dev.mrlemoos.kingdom.model.police.KingdomPoliceState;
 import dev.mrlemoos.kingdom.model.police.PrisonCellLocation;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -249,6 +250,36 @@ public final class PoliceService {
         }
         police.registerGuardGolem(entityUuid);
         return PoliceResult.ok("Guard golem registered.");
+    }
+
+    /**
+     * Turns a sworn golem from patrol to guard or back, within the cap of the kind it becomes. A golem
+     * that is not on the watch, or is already of that kind, is refused.
+     */
+    public PoliceResult reassignGolem(String kingdomId, UUID entityUuid, GolemOfficerKind target) {
+        Optional<Kingdom> kingdom = kingdomService.getKingdom(kingdomId);
+        if (kingdom.isEmpty()) {
+            return PoliceResult.fail("Unknown kingdom.");
+        }
+        KingdomPoliceState police = kingdom.get().getPoliceState();
+        if (!police.isRegisteredGolem(entityUuid)) {
+            return PoliceResult.fail("That golem is not on the watch.");
+        }
+        boolean toGuard = target == GolemOfficerKind.GUARD;
+        if (toGuard ? police.isGuardGolem(entityUuid) : police.isPatrolGolem(entityUuid)) {
+            return PoliceResult.fail(toGuard ? "That golem already stands guard." : "That golem already patrols.");
+        }
+        int count = toGuard ? police.guardGolemCount() : police.patrolGolemCount();
+        int cap = toGuard ? config.maxGuardGolems() : config.maxPatrolGolems();
+        if (count >= cap) {
+            return PoliceResult.fail("The " + (toGuard ? "guard" : "patrol") + " is full (" + cap + " of " + cap + ").");
+        }
+        if (toGuard) {
+            police.registerGuardGolem(entityUuid);
+            return PoliceResult.ok("The golem is posted as a guard.");
+        }
+        police.registerPatrolGolem(entityUuid);
+        return PoliceResult.ok("The golem is sent on patrol.");
     }
 
     public PoliceResult deregisterGolem(String kingdomId, UUID entityUuid) {
