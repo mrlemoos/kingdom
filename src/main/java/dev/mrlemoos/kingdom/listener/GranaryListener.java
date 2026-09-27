@@ -2,12 +2,16 @@ package dev.mrlemoos.kingdom.listener;
 
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
+import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.granary.BukkitGranaryScan;
+import dev.mrlemoos.kingdom.granary.BukkitGranaryYard;
 import dev.mrlemoos.kingdom.granary.BukkitTerritoryHeads;
 import dev.mrlemoos.kingdom.granary.GrainTheft;
 import dev.mrlemoos.kingdom.granary.GranaryBounds;
 import dev.mrlemoos.kingdom.granary.GranaryConfig;
+import dev.mrlemoos.kingdom.granary.GranaryContribution;
 import dev.mrlemoos.kingdom.granary.GranaryStock;
 import dev.mrlemoos.kingdom.granary.GranaryTheftLog;
 import dev.mrlemoos.kingdom.granary.HungerLedgerStore;
@@ -21,7 +25,6 @@ import dev.mrlemoos.kingdom.model.parliament.ConductKind;
 import dev.mrlemoos.kingdom.police.ActBreach;
 import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.police.PoliceResult;
-import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import java.util.Map;
 import java.util.Objects;
@@ -38,6 +41,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * The granary as the world touches it: a bale broken by any hand but the Crown's is <b>grain
@@ -103,7 +108,7 @@ public final class GranaryListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+        if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
         Block block = event.getClickedBlock();
@@ -117,6 +122,11 @@ public final class GranaryListener implements Listener {
         event.setCancelled(true);
         Player player = event.getPlayer();
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (player.isSneaking() && held.getType() == Material.HAY_BLOCK) {
+            contribute(player, kingdom.get(), block.getWorld(), membership, held, block.getLocation());
+            return;
+        }
         NobleRank rank = membership.isPresent() ? membership.get().getRank() : null;
         boolean crown = membership.isPresent()
                 && kingdom.get().getId().equals(membership.get().getKingdomId())
@@ -127,6 +137,57 @@ public final class GranaryListener implements Listener {
                         crown ? theftLog.entries(kingdom.get().getId()) : java.util.List.of(),
                         crown)
                 .getInventory());
+    }
+
+    private void contribute(
+            Player player,
+            Kingdom kingdom,
+            World world,
+            Optional<PlayerMembership> membership,
+            ItemStack held,
+            Location at) {
+        String memberKingdomId = membership.isPresent() ? membership.get().getKingdomId() : null;
+        if (!kingdom.getId().equals(memberKingdomId)) {
+            RealmFeedback.refuse(player, "Only this realm's members may fill its granary.");
+            return;
+        }
+        Optional<GranaryBounds> bounds = BukkitGranaryScan.walkableBounds(world, kingdom.getGranaryRegion());
+        if (bounds.isEmpty()) {
+            RealmFeedback.refuse(player, "The granary cannot be read.");
+            return;
+        }
+        GranaryStock stock = BukkitGranaryScan.stockIn(world, bounds.get());
+        int heads = kingdom.getWorldGuardRegions().stream()
+                .mapToInt(region -> BukkitTerritoryHeads.countIn(world, region))
+                .sum();
+        int ration = WinterRation.balesFor(heads, granaryConfig.headsPerHay());
+        long realmDay = calendarService == null ? 0L : calendarService.currentRealmDay();
+        Optional<GranaryContribution> contribution = GranaryContribution.plan(
+                memberKingdomId,
+                kingdom.getId(),
+                stock,
+                ration,
+                WinterRation.winterDaysRemaining(realmDay));
+        if (contribution.isEmpty() || BukkitGranaryYard.layBales(world, bounds.get(), 1) != 1) {
+            RealmFeedback.refuse(player, "The granary is full. Build more room for grain.");
+            return;
+        }
+        if (held.getAmount() == 1) {
+            player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+        } else {
+            held.setAmount(held.getAmount() - 1);
+        }
+        RealmFeedback.success(at);
+        int shortfall = contribution.get().shortfallAfter();
+        RealmFeedback.instruct(player, shortfall == 0
+                ? "The realm is provisioned for winter."
+                : shortfall + (shortfall == 1 ? " bale" : " bales") + " still needed for winter.");
+        if (contribution.get().shortfallBefore() > 0 && shortfall == 0) {
+            RealmFeedback.kingdomMessage(
+                    kingdomService,
+                    kingdom.getId(),
+                    "&6" + player.getName() + " filled the final bale. The realm is provisioned for winter.");
+        }
     }
 
     /** The kingdom whose granary the block stands in, where one is sited and WorldGuard places it. */

@@ -64,7 +64,8 @@ public final class GranaryStoresGui implements InventoryHolder {
                         Material.HAY_BLOCK,
                         "&eThe store",
                         view.stock() + " of " + view.capacity() + " bales",
-                        view.capacity() - view.stock() + " bales of room left"));
+                        view.capacity() - view.stock() + " bales of room left",
+                        "Sneak-right-click a bale with hay to contribute"));
         inventory.setItem(
                 12,
                 item(
