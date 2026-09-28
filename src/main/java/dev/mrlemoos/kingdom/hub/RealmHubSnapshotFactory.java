@@ -188,6 +188,7 @@ public final class RealmHubSnapshotFactory {
                 .titleLabel(styleOf(member))
                 .granaryRegion(kingdom.getGranaryRegion())
                 .realmNeedsLines(realmNeeds(kingdom))
+                .banditRaidNotice(kingdom.getCityState().banditRaidNotice().orElse(""))
                 .warCapitalRegion(warCapitalRegionOf(kingdom.getId()))
                 .live(liveStateOf(kingdom));
 

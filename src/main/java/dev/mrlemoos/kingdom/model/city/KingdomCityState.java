@@ -24,6 +24,19 @@ public final class KingdomCityState {
     private final List<GazettePost> gazettePosts = new ArrayList<>();
     /** Empty → plugin fallback; present and disabled → lifted; present and enabled → decree window. */
     private CurfewEnforcementConfig decreeCurfew;
+    private String lastBanditRaidSeason;
+    private String banditRaidNotice;
+
+    public Optional<String> lastBanditRaidSeason() {
+        return Optional.ofNullable(lastBanditRaidSeason);
+    }
+
+    public void setLastBanditRaidSeason(String season) {
+        lastBanditRaidSeason = season == null || season.isBlank() ? null : season;
+    }
+
+    public Optional<String> banditRaidNotice() { return Optional.ofNullable(banditRaidNotice); }
+    public void setBanditRaidNotice(String notice) { banditRaidNotice = notice == null || notice.isBlank() ? null : notice; }
 
     public Optional<CapitalLocation> capital() {
         return Optional.ofNullable(capital);

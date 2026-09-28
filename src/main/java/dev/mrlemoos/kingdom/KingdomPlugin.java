@@ -170,6 +170,7 @@ public final class KingdomPlugin extends JavaPlugin {
         private dev.mrlemoos.kingdom.feedback.ConsentBossBarService consentBossBarService;
         private YamlKingdomStore store;
         private dev.mrlemoos.kingdom.calendar.RealmCalendarService realmCalendarService;
+        private dev.mrlemoos.kingdom.raid.BanditRaidTask banditRaidTask;
         private LoyaltyService loyaltyService;
         private MoraleService moraleService;
         private LoyaltyGateService loyaltyGateService;
@@ -1076,6 +1077,13 @@ public final class KingdomPlugin extends JavaPlugin {
                 realmCalendarTask.setTreatyService(treatyService);
                 realmCalendarTask.setSeasonConfig(getConfig());
                 getServer().getScheduler().runTaskTimer(this, realmCalendarTask, 100L, 20L * 20);
+                banditRaidTask = new dev.mrlemoos.kingdom.raid.BanditRaidTask(
+                                this, kingdomService, realmCalendarService, economyService, () -> {
+                                        store.saveFrom(kingdomService);
+                                        economyStore.saveFrom(economyService);
+                                });
+                getServer().getPluginManager().registerEvents(banditRaidTask, this);
+                getServer().getScheduler().runTaskTimer(this, banditRaidTask, 20L, 20L);
                 getServer().getScheduler().runTaskTimer(this, policeGolemService::tickFollowers, 40L, 20L);
                 getServer().getScheduler().runTaskTimer(this, siegePresenceListener, 20L, 20L);
                 getServer().getScheduler().runTaskTimer(
@@ -1203,6 +1211,9 @@ public final class KingdomPlugin extends JavaPlugin {
 
         @Override
         public void onDisable() {
+                if (banditRaidTask != null) {
+                        banditRaidTask.stop();
+                }
                 if (trialBossBarService != null) {
                         trialBossBarService.stop();
                 }

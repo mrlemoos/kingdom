@@ -42,6 +42,8 @@ public enum RealmHubTopic {
     LIVE_SIEGE,
     /** A treaty is active or awaits a Crown. */
     LIVE_TREATY,
+    /** City hall is under threat or a raid has just ended. */
+    LIVE_BANDIT_RAID,
 
     /** Granting and revoking build permits. */
     POWER_PERMITS,

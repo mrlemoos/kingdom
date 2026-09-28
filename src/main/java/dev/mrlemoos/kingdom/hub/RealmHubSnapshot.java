@@ -36,6 +36,7 @@ public final class RealmHubSnapshot {
     private final boolean resignationToReview;
     private final String musterStatus;
     private final String siegeStatus;
+    private final String banditRaidNotice;
     private final String resignationSummary;
     private final String granaryRegion;
     private final List<String> realmNeedsLines;
@@ -77,6 +78,7 @@ public final class RealmHubSnapshot {
         this.resignationToReview = builder.resignationToReview;
         this.musterStatus = builder.musterStatus;
         this.siegeStatus = builder.siegeStatus;
+        this.banditRaidNotice = builder.banditRaidNotice;
         this.resignationSummary = builder.resignationSummary;
         this.granaryRegion = builder.granaryRegion;
         this.realmNeedsLines = List.copyOf(builder.realmNeedsLines);
@@ -204,6 +206,7 @@ public final class RealmHubSnapshot {
     public String musterStatus() { return musterStatus; }
 
     public String siegeStatus() { return siegeStatus; }
+    public String banditRaidNotice() { return banditRaidNotice; }
 
     public String resignationSummary() {
         return resignationSummary;
@@ -289,6 +292,7 @@ public final class RealmHubSnapshot {
         private boolean resignationToReview;
         private String musterStatus = "";
         private String siegeStatus = "";
+        private String banditRaidNotice = "";
         private String resignationSummary = "";
         private String granaryRegion = "";
         private List<String> realmNeedsLines = List.of();
@@ -376,6 +380,8 @@ public final class RealmHubSnapshot {
             this.siegeStatus = siegeStatus == null ? "" : siegeStatus;
             return this;
         }
+
+        public Builder banditRaidNotice(String notice) { this.banditRaidNotice = notice == null ? "" : notice; return this; }
 
         public Builder electionLabel(String electionLabel) {
             this.electionLabel = electionLabel == null ? "" : electionLabel;

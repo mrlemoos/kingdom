@@ -51,6 +51,7 @@ public enum RealmHubSection {
                     LIVE_RESIGNATION,
                     LIVE_MUSTER,
                     LIVE_SIEGE,
+                    LIVE_BANDIT_RAID,
                     LIVE_TREATY -> Optional.empty();
             case GAZETTE,
                     BUILD_PERMIT,

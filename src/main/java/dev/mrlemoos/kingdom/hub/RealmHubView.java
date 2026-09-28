@@ -304,6 +304,13 @@ public final class RealmHubView {
                     List.of(snapshot.live().treatyLine(), "Click to open the treaty register."),
                     RealmHubAction.OPEN_TREATY_REGISTER));
         }
+        if (!snapshot.banditRaidNotice().isBlank()) {
+            entries.add(RealmHubEntry.usable(
+                    RealmHubTopic.LIVE_BANDIT_RAID,
+                    "Bandits at City Hall",
+                    List.of(snapshot.banditRaidNotice()),
+                    RealmHubAction.NONE));
+        }
         if (snapshot.resignationToReview()) {
             entries.add(RealmHubEntry.usable(
                     RealmHubTopic.LIVE_RESIGNATION,

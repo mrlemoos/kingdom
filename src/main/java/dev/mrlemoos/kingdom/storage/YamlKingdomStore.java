@@ -1674,6 +1674,8 @@ public final class YamlKingdomStore {
 
     static void writeCity(FileConfiguration config, String path, Kingdom kingdom) {
         var city = kingdom.getCityState();
+        city.lastBanditRaidSeason().ifPresent(value -> config.set(path + ".last-bandit-raid-season", value));
+        city.banditRaidNotice().ifPresent(value -> config.set(path + ".bandit-raid-notice", value));
         Optional<CapitalLocation> capital = city.capital();
         if (capital.isPresent()) {
             CapitalLocation seat = capital.get();
@@ -1737,6 +1739,8 @@ public final class YamlKingdomStore {
             return;
         }
         var city = kingdom.getCityState();
+        city.setLastBanditRaidSeason(section.getString("last-bandit-raid-season"));
+        city.setBanditRaidNotice(section.getString("bandit-raid-notice"));
         ConfigurationSection capitalSection = section.getConfigurationSection("capital");
         if (capitalSection != null) {
             String world = capitalSection.getString("world");
