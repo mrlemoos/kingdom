@@ -46,7 +46,9 @@ class RealmHubSectionTest {
     void everyTopicMapsToOneSectionOrTheFrontPage() {
         for (RealmHubTopic topic : RealmHubTopic.values()) {
             Optional<RealmHubSection> section = RealmHubSection.of(topic);
-            boolean front = topic == RealmHubTopic.STANDING || topic.name().startsWith("LIVE_");
+            boolean front = topic == RealmHubTopic.STANDING
+                    || topic == RealmHubTopic.REALM_NEEDS
+                    || topic.name().startsWith("LIVE_");
             assertEquals(front, RealmHubSection.onFrontPage(topic), topic.name());
             assertEquals(front, section.isEmpty(), topic + " must be on the front page or in one section");
         }
@@ -73,7 +75,7 @@ class RealmHubSectionTest {
         assertEquals(RealmHubTopic.STANDING, front.get(0).topic());
         long live = front.stream().filter(e -> e.topic().name().startsWith("LIVE_")).count();
         assertEquals(8, live);
-        assertEquals(front.size(), live + 1);
+        assertEquals(front.size(), live + 2);
         for (RealmHubSection section : RealmHubSection.values()) {
             for (RealmHubEntry entry : RealmHubView.section(snapshot, section)) {
                 assertFalse(entry.topic().name().startsWith("LIVE_"), section + " holds " + entry.topic());

@@ -4,6 +4,7 @@ import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.calendar.Season;
 import dev.mrlemoos.kingdom.calendar.SeasonProfile;
 import dev.mrlemoos.kingdom.city.GranaryGazette;
+import dev.mrlemoos.kingdom.city.HearthGazette;
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.feedback.DailyRealmReport;
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
@@ -57,8 +58,8 @@ import dev.mrlemoos.kingdom.worldguard.WorldGuardBridge;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -254,6 +255,7 @@ public final class VillagerGdpTask implements Runnable {
             List<VillagerEconomicParticipant> participants =
                     VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
 
+            granaryDirty |= warnOfLowHearthFuel(world, kingdom, regionIds);
             Map<UUID, Double> coldYieldFactors = settleHearths(world, kingdom, regionIds, season);
             long epochDay = world.getFullTime() / 24000L;
             // The granary is settled before the day's yield is reckoned: what the store could not
@@ -297,6 +299,26 @@ public final class VillagerGdpTask implements Runnable {
         if (granaryDirty && store != null) {
             store.saveFrom(kingdomService);
         }
+    }
+
+    private boolean warnOfLowHearthFuel(World world, Kingdom kingdom, List<String> regions) {
+        HearthConfig config = this.hearthConfig != null ? this.hearthConfig : HearthConfig.defaults();
+        var supply = BukkitHearthScan.supplyIn(world, regions, config);
+        String previous = kingdom.getCityState().gazettePostsView().stream()
+                .map(HearthGazette::stateOf)
+                .filter(state -> !state.isBlank())
+                .findFirst()
+                .orElse(null);
+        var change = dev.mrlemoos.kingdom.hearth.HearthWarningPolicy.observe(
+                previous, supply.complete(), supply.hearths(), supply.lowHearths());
+        if (!change.changed()) return false;
+        long mcDay = world.getFullTime() / 24000L;
+        var post = "ready".equals(change.state())
+                ? HearthGazette.readyPost(mcDay)
+                : HearthGazette.lowFuelPost(supply.hearths(), supply.lowLocations(), mcDay);
+        kingdom.getCityState().addGazettePost(post);
+        RealmFeedback.kingdomMessage(kingdomService, kingdom.getId(), post.body());
+        return true;
     }
 
     /**

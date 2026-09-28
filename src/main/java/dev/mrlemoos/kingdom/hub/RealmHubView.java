@@ -29,6 +29,10 @@ public final class RealmHubView {
     public static List<RealmHubEntry> entries(RealmHubSnapshot snapshot) {
         List<RealmHubEntry> entries = new ArrayList<>();
         entries.add(standing(snapshot));
+        if (snapshot.member()) {
+            entries.add(RealmHubEntry.usable(
+                    RealmHubTopic.REALM_NEEDS, "Realm Needs", snapshot.realmNeedsLines(), RealmHubAction.NONE));
+        }
         entries.add(loyalty());
         entries.add(oathOfService(snapshot));
         entries.add(rites(snapshot));

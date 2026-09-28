@@ -21,6 +21,8 @@ import org.bukkit.inventory.ItemStack;
  */
 public final class BukkitHearthScan {
 
+    public record Supply(int fuel, int hearths, int lowHearths, List<String> lowLocations, boolean complete) {}
+
     private BukkitHearthScan() {}
 
     /** Every hearth standing in {@code regionId}'s loaded chunks, with the fuel its container holds. */
@@ -53,6 +55,43 @@ public final class BukkitHearthScan {
         return hearths;
     }
 
+    /** Current fuel in linked territory; complete only when every territory chunk is loaded. */
+    public static Supply supplyIn(World world, List<String> regionIds, HearthConfig config) {
+        if (world == null || regionIds == null || regionIds.isEmpty()) {
+            return new Supply(0, 0, 0, List.of(), false);
+        }
+        List<WorldGuardBridge.RegionBounds> bounds = new ArrayList<>();
+        for (String regionId : regionIds) {
+            var found = WorldGuardBridge.regionBounds(world.getName(), regionId);
+            if (found.isEmpty()) return new Supply(0, 0, 0, List.of(), false);
+            bounds.add(found.get());
+        }
+        var chunkCount = WorldGuardBridge.territoryChunkCount(world.getName(), regionIds);
+        if (chunkCount.isEmpty()) return new Supply(0, 0, 0, List.of(), false);
+        int loadedTerritoryChunks = 0;
+        for (Chunk chunk : world.getLoadedChunks()) {
+            int x = chunk.getX();
+            int z = chunk.getZ();
+            if (bounds.stream().anyMatch(box -> Math.floorDiv(box.minX(), 16) <= x
+                    && Math.floorDiv(box.maxX(), 16) >= x
+                    && Math.floorDiv(box.minZ(), 16) <= z
+                    && Math.floorDiv(box.maxZ(), 16) >= z)) {
+                loadedTerritoryChunks++;
+            }
+        }
+        boolean complete = loadedTerritoryChunks == chunkCount.getAsLong();
+        List<HearthSite> hearths = regionIds.stream()
+                .flatMap(region -> hearthsIn(world, region, config).stream())
+                .toList();
+        int fuel = hearths.stream().mapToInt(site -> site.fuel().fuelCount()).sum();
+        int lowHearths = (int) hearths.stream().filter(site -> site.fuel().fuelCount() < config.fuelPerDay()).count();
+        List<String> lowLocations = hearths.stream()
+                .filter(site -> site.fuel().fuelCount() < config.fuelPerDay())
+                .map(site -> site.x() + ", " + site.y() + ", " + site.z())
+                .toList();
+        return new Supply(fuel, hearths.size(), lowHearths, lowLocations, complete);
+    }
+
     /** Whether the block at these coordinates is a burning campfire of either kind. */
     private static boolean isLitCampfire(Block block) {
         BlockData data = block.getBlockData();
@@ -67,7 +106,7 @@ public final class BukkitHearthScan {
     }
 
     /** The container set face to face against the campfire, if there is one; never a diagonal. */
-    private static Container adjacentContainer(Block campfire) {
+    public static Container adjacentContainer(Block campfire) {
         for (org.bukkit.block.BlockFace face : new org.bukkit.block.BlockFace[] {
             org.bukkit.block.BlockFace.NORTH,
             org.bukkit.block.BlockFace.SOUTH,

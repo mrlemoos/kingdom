@@ -43,6 +43,7 @@ public enum RealmHubSection {
     public static Optional<RealmHubSection> of(RealmHubTopic topic) {
         return switch (topic) {
             case STANDING,
+                    REALM_NEEDS,
                     LIVE_ELECTION,
                     LIVE_POLLING,
                     LIVE_DIVISION,

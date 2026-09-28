@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.hub;
 
 import dev.mrlemoos.kingdom.city.CityService;
+import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.city.gui.GazetteLiveState;
 import dev.mrlemoos.kingdom.city.gui.GazetteLiveStateReader;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
@@ -42,6 +43,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Location;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 /**
@@ -69,6 +72,11 @@ public final class RealmHubSnapshotFactory {
     private boolean warEnabled;
     private dev.mrlemoos.kingdom.police.PoliceConfig policeConfig =
             dev.mrlemoos.kingdom.police.PoliceConfig.defaults();
+    private dev.mrlemoos.kingdom.granary.GranaryConfig granaryConfig =
+            dev.mrlemoos.kingdom.granary.GranaryConfig.defaults();
+    private dev.mrlemoos.kingdom.hearth.HearthConfig hearthConfig =
+            dev.mrlemoos.kingdom.hearth.HearthConfig.defaults();
+    private RealmCalendarService realmCalendarService;
 
     public RealmHubSnapshotFactory(KingdomService kingdomService, GazetteLiveStateReader liveStateReader) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
@@ -145,6 +153,16 @@ public final class RealmHubSnapshotFactory {
         return this;
     }
 
+    public RealmHubSnapshotFactory withRealmNeeds(
+            dev.mrlemoos.kingdom.granary.GranaryConfig granaryConfig,
+            dev.mrlemoos.kingdom.hearth.HearthConfig hearthConfig,
+            RealmCalendarService realmCalendarService) {
+        this.granaryConfig = granaryConfig;
+        this.hearthConfig = hearthConfig;
+        this.realmCalendarService = realmCalendarService;
+        return this;
+    }
+
     /** The realm as this subject sees it, right now. */
     public RealmHubSnapshot of(Player player) {
         RealmHubSnapshot.Builder builder = RealmHubSnapshot.builder().viewer(pointOf(player.getLocation()));
@@ -169,6 +187,7 @@ public final class RealmHubSnapshotFactory {
                 .rank(member.getRank())
                 .titleLabel(styleOf(member))
                 .granaryRegion(kingdom.getGranaryRegion())
+                .realmNeedsLines(realmNeeds(kingdom))
                 .warCapitalRegion(warCapitalRegionOf(kingdom.getId()))
                 .live(liveStateOf(kingdom));
 
@@ -183,6 +202,39 @@ public final class RealmHubSnapshotFactory {
         addSiege(builder, kingdom);
         addLiveBusiness(builder, kingdom, member, player.getUniqueId());
         return builder.build();
+    }
+
+    private java.util.List<String> realmNeeds(Kingdom kingdom) {
+        World world = Bukkit.getWorld(kingdomService.resolveWorldName(kingdom));
+        if (world == null) {
+            return dev.mrlemoos.kingdom.hub.RealmNeeds.lines(
+                    kingdom.getGranaryRegion(), -1, 0, 0, 0, java.util.List.of(), false);
+        }
+        int shortfall = -1;
+        String granary = kingdom.getGranaryRegion();
+        if (granary != null && !granary.isBlank()) {
+            var bounds = dev.mrlemoos.kingdom.granary.BukkitGranaryScan.walkableBounds(world, granary);
+            if (bounds.isPresent()) {
+                int stock = dev.mrlemoos.kingdom.granary.BukkitGranaryScan.stockIn(world, bounds.get()).stock();
+                int heads = kingdom.getWorldGuardRegions().stream()
+                        .mapToInt(region -> dev.mrlemoos.kingdom.granary.BukkitTerritoryHeads.countIn(world, region))
+                        .sum();
+                int ration = dev.mrlemoos.kingdom.granary.WinterRation.balesFor(heads, granaryConfig.headsPerHay());
+                long day = realmCalendarService == null ? 0L : realmCalendarService.currentRealmDay();
+                shortfall = dev.mrlemoos.kingdom.granary.WinterRation.shortfall(
+                        stock, ration, dev.mrlemoos.kingdom.granary.WinterRation.winterDaysRemaining(day));
+            }
+        }
+        var supply = dev.mrlemoos.kingdom.hearth.BukkitHearthScan.supplyIn(
+                world, kingdom.getWorldGuardRegions(), hearthConfig);
+        return RealmNeeds.lines(
+                granary,
+                shortfall,
+                supply.fuel(),
+                supply.hearths(),
+                supply.lowHearths(),
+                supply.lowLocations(),
+                supply.complete());
     }
 
     private String warCapitalRegionOf(String kingdomId) {

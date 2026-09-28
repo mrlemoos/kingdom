@@ -38,6 +38,7 @@ public final class RealmHubSnapshot {
     private final String siegeStatus;
     private final String resignationSummary;
     private final String granaryRegion;
+    private final List<String> realmNeedsLines;
     private final String warCapitalRegion;
     private final int constables;
     private final int judges;
@@ -78,6 +79,7 @@ public final class RealmHubSnapshot {
         this.siegeStatus = builder.siegeStatus;
         this.resignationSummary = builder.resignationSummary;
         this.granaryRegion = builder.granaryRegion;
+        this.realmNeedsLines = List.copyOf(builder.realmNeedsLines);
         this.warCapitalRegion = builder.warCapitalRegion;
         this.constables = builder.constables;
         this.judges = builder.judges;
@@ -212,6 +214,8 @@ public final class RealmHubSnapshot {
         return granaryRegion;
     }
 
+    public List<String> realmNeedsLines() { return realmNeedsLines; }
+
     /** WorldGuard subregion used for capital-fall war aims, or blank when none is linked. */
     public String warCapitalRegion() {
         return warCapitalRegion;
@@ -287,6 +291,7 @@ public final class RealmHubSnapshot {
         private String siegeStatus = "";
         private String resignationSummary = "";
         private String granaryRegion = "";
+        private List<String> realmNeedsLines = List.of();
         private String warCapitalRegion = "";
         private int constables;
         private int judges;
@@ -424,6 +429,11 @@ public final class RealmHubSnapshot {
 
         public Builder granaryRegion(String granaryRegion) {
             this.granaryRegion = granaryRegion == null ? "" : granaryRegion;
+            return this;
+        }
+
+        public Builder realmNeedsLines(List<String> lines) {
+            this.realmNeedsLines = lines == null ? List.of() : List.copyOf(lines);
             return this;
         }
 

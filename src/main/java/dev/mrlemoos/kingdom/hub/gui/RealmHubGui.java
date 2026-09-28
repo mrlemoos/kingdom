@@ -164,6 +164,7 @@ public final class RealmHubGui implements InventoryHolder {
     static Material material(RealmHubTopic topic) {
         return switch (topic) {
             case STANDING -> Material.PLAYER_HEAD;
+            case REALM_NEEDS -> Material.HAY_BLOCK;
             case LOYALTY_LEDGER -> Material.WRITTEN_BOOK;
             case OATH_OF_SERVICE -> Material.IRON_SWORD;
             case RITES -> Material.CANDLE;

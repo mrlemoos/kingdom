@@ -9,6 +9,8 @@ public enum RealmHubTopic {
 
     /** Who you are: your realm, your rank and your style of address. */
     STANDING,
+    /** Shared food and warmth supplies. */
+    REALM_NEEDS,
     /** Your loyalty ledger, political and military. */
     LOYALTY_LEDGER,
     /** The church ceremony that opens military morale. */

@@ -179,9 +179,9 @@ public final class GranaryListener implements Listener {
         }
         RealmFeedback.success(at);
         int shortfall = contribution.get().shortfallAfter();
-        RealmFeedback.instruct(player, shortfall == 0
+        RealmFeedback.instruct(player, "Added 1 bale. " + (shortfall == 0
                 ? "The realm is provisioned for winter."
-                : shortfall + (shortfall == 1 ? " bale" : " bales") + " still needed for winter.");
+                : shortfall + (shortfall == 1 ? " bale" : " bales") + " still needed for winter."));
         if (contribution.get().shortfallBefore() > 0 && shortfall == 0) {
             RealmFeedback.kingdomMessage(
                     kingdomService,

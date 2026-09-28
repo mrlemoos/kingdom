@@ -872,6 +872,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 .withTreatyService(treatyService)
                                                 .withKingdomService(kingdomService))
                                                 .withCityService(cityService)
+                                                .withRealmNeeds(granaryConfig, hearthConfig, realmCalendarService)
                                                 .withEconomyService(economyService)
                                                 .withJusticeService(mechanicalJusticeService)
                                                 .withPoliceConfig(policeService.config())
@@ -1049,6 +1050,10 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 granaryTheftLog,
                                                 hungerLedgerStore,
                                                 realmCalendarService),
+                                this);
+                getServer().getPluginManager().registerEvents(
+                                new dev.mrlemoos.kingdom.listener.HearthContributionListener(
+                                        kingdomService, territoryResolver, hearthConfig),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new dev.mrlemoos.kingdom.listener.SeasonalCropGrowthListener(
