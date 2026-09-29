@@ -204,13 +204,29 @@ class EconomyServiceTest {
     }
 
     @Test
-    void mintPlacementFailsWhenTreasuryEmptyDespiteApprovedBudget() {
+    void authorisedSpendCanCreateOverdraftButCashDebitCannotDeepenIt() {
         service.enactBudget("northmarch", 200.0);
 
         EconomyResult result = service.placeMint("northmarch", new MintLocation("world", 10, 64, 10), 50.0, 3);
 
-        assertInstanceOf(EconomyResult.Failure.class, result);
-        assertTrue(((EconomyResult.Failure) result).message().contains("treasury"));
+        assertInstanceOf(EconomyResult.Success.class, result);
+        assertEquals(-50.0, service.getTreasuryBalance("northmarch"), 1e-9);
+        assertEquals(50.0, service.getNationalDebt("northmarch"), 1e-9);
+        assertEquals(0.0, service.debitTreasury("northmarch", 20.0), 1e-9);
+        assertEquals(-50.0, service.getTreasuryBalance("northmarch"), 1e-9);
+    }
+
+    @Test
+    void closingOverdraftAccruesFractionalInterestOnlyWhileNegative() {
+        service.enactBudget("northmarch", 100.0);
+        service.spendFromBudget("northmarch", 100.0);
+
+        service.closeDebtDay("northmarch");
+        assertEquals(-100.1, service.getTreasuryBalance("northmarch"), 1e-9);
+
+        service.creditTreasury("northmarch", 101.0);
+        service.closeDebtDay("northmarch");
+        assertEquals(0.9, service.getTreasuryBalance("northmarch"), 1e-9);
     }
 
     @Test

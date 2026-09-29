@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.model.parliament;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.model.war.WarAim;
@@ -14,7 +15,9 @@ public sealed interface BillPayload
 
     record Fiscal(FiscalRates rates) implements BillPayload {}
 
-    record Budget(double amount) implements BillPayload {}
+    record Budget(double amount, GiltTerms giltTerms) implements BillPayload {
+        public Budget(double amount) { this(amount, null); }
+    }
 
     record SpendMint(MintLocation mintLocation, double cost) implements BillPayload {}
 

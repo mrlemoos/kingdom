@@ -12,6 +12,7 @@ import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.treaty.TreatyService;
 import dev.mrlemoos.kingdom.treaty.TreatyState;
+import dev.mrlemoos.kingdom.war.tribute.WarDebtStore;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -28,6 +29,12 @@ public final class GazetteLiveStateReader {
     private final PollingDay pollingDay;
     private TreatyService treatyService;
     private KingdomService kingdomService;
+    private WarDebtStore warDebtStore;
+
+    public GazetteLiveStateReader withWarDebtStore(WarDebtStore store) {
+        warDebtStore = store;
+        return this;
+    }
 
     public GazetteLiveStateReader(
             EconomyService economyService,
@@ -63,8 +70,28 @@ public final class GazetteLiveStateReader {
                 wantedCount(kingdom),
                 kingdom.getCityState().permitCount(),
                 treasury,
-                treatyLine(kingdom));
+                treatyLine(kingdom),
+                financeLines(kingdom.getId()));
     }
+
+    private java.util.List<String> financeLines(String kingdomId) {
+        if (economyService == null) return java.util.List.of();
+        var account = economyService.kingdomEconomies().get(kingdomId);
+        if (account == null) return java.util.List.of();
+        return java.util.List.of(
+                "Overdraft: " + money(economyService.getOverdraft(kingdomId)),
+                "Gilt principal: " + money(economyService.getGiltPrincipal(kingdomId)),
+                "National debt: " + money(economyService.getNationalDebt(kingdomId)),
+                "Debt change yesterday: " + money(account.lastDebtChange()),
+                "Overdraft rate: " + account.activeRates().overdraftInterest(),
+                "Ground rent rate: " + account.activeRates().groundRent(),
+                "Gilt default: " + (account.giltDefault() ? "yes" : "no"),
+                "Ground rent collected: " + money(account.totalGroundRentRevenue()),
+                "Ground rent arrears: " + money(economyService.getTotalGroundRentArrears(kingdomId)),
+                "War debt: " + money(warDebtStore == null ? 0.0 : warDebtStore.totalDebtOwed(kingdomId)));
+    }
+
+    private static String money(double value) { return String.format(Locale.UK, "%.3f Corona", value); }
 
     private String treatyLine(Kingdom kingdom) {
         if (treatyService == null) return "";

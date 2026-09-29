@@ -55,6 +55,7 @@ public enum RealmHubSection {
                     LIVE_TREATY -> Optional.empty();
             case GAZETTE,
                     BUILD_PERMIT,
+                    GROUND_RENT,
                     POWER_PERMITS,
                     POWER_GAZETTE,
                     POWER_CAPITAL,
@@ -82,7 +83,7 @@ public enum RealmHubSection {
                     POWER_CROWN_SQUADS,
                     POWER_SQUADS,
                     POWER_MORALE_PARDON -> Optional.of(WAR);
-            case POWER_MINTS, POWER_WAR_DEBT, WALLET, PLACE_MINTS, PLACE_GRANARY -> Optional.of(TREASURY);
+            case POWER_MINTS, POWER_WAR_DEBT, WALLET, NATIONAL_DEBT, PLACE_MINTS, PLACE_GRANARY -> Optional.of(TREASURY);
         };
     }
 

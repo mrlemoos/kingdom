@@ -22,6 +22,7 @@ import dev.mrlemoos.kingdom.police.MechanicalJusticeService;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.treaty.TreatyService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.war.tribute.WarDebtStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -53,6 +54,8 @@ public final class TownCrierGuiListener implements Listener {
     private final KingdomService kingdomService;
     private final YamlKingdomStore store;
     private final GazetteLiveStateReader liveStateReader;
+
+    public void setWarDebtStore(WarDebtStore store) { liveStateReader.withWarDebtStore(store); }
 
     public TownCrierGuiListener(
             TownCrierService townCrierService,

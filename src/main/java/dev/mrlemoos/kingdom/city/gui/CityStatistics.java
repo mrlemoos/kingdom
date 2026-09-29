@@ -14,11 +14,22 @@ public record CityStatistics(
         double realmWealth,
         double gdpPerDay,
         double taxRevenue,
-        int tradesLastDay) {
+        int tradesLastDay,
+        List<String> financeLines) {
+
+    public CityStatistics(int members, int permitHolders, int villagers, double treasury, double realmWealth,
+            double gdpPerDay, double taxRevenue, int tradesLastDay) {
+        this(members, permitHolders, villagers, treasury, realmWealth, gdpPerDay, taxRevenue,
+                tradesLastDay, List.of());
+    }
+
+    public CityStatistics {
+        financeLines = List.copyOf(financeLines);
+    }
 
     /** The lore of the statistics item, one line each, uncoloured. */
     public List<String> lines() {
-        return List.of(
+        java.util.ArrayList<String> lines = new java.util.ArrayList<>(List.of(
                 "Subjects: " + members,
                 "Permit holders: " + permitHolders,
                 "Villagers: " + villagers,
@@ -26,7 +37,9 @@ public record CityStatistics(
                 "Realm wealth: " + corona(realmWealth),
                 "GDP: " + corona(gdpPerDay) + "/day",
                 "Tax revenue: " + corona(taxRevenue),
-                "Trades settled (last day): " + tradesLastDay);
+                "Trades settled (last day): " + tradesLastDay));
+        lines.addAll(financeLines);
+        return List.copyOf(lines);
     }
 
     private static String corona(double amount) {

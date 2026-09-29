@@ -17,6 +17,7 @@ import dev.mrlemoos.kingdom.city.gui.PermitRevokeConfirmGui;
 import dev.mrlemoos.kingdom.city.gui.StandingRosterGui;
 import dev.mrlemoos.kingdom.display.NoblePrefixDisplay;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.economy.model.EstateHolding;
 import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.helpers.ItemBuilder;
@@ -27,6 +28,7 @@ import dev.mrlemoos.kingdom.model.RankAuthority;
 import dev.mrlemoos.kingdom.model.TitleStyle;
 import dev.mrlemoos.kingdom.service.KingdomService;
 import dev.mrlemoos.kingdom.storage.YamlKingdomStore;
+import dev.mrlemoos.kingdom.storage.YamlEconomyStore;
 import dev.mrlemoos.kingdom.war.WarResult;
 import dev.mrlemoos.kingdom.war.roster.StandingRosterService;
 import java.util.ArrayList;
@@ -64,6 +66,9 @@ public final class LordMayorGuiListener implements Listener {
     private final NoblePrefixDisplay nobleDisplay;
     private final StandingRosterService standingRosterService;
     private final boolean warEnabled;
+    private YamlEconomyStore economyStore;
+
+    public void setEconomyStore(YamlEconomyStore economyStore) { this.economyStore = economyStore; }
 
     public LordMayorGuiListener(
             LordMayorService lordMayorService,
@@ -132,6 +137,10 @@ public final class LordMayorGuiListener implements Listener {
         }
 
         Optional<PlayerMembership> membership = kingdomService.getMembership(player.getUniqueId());
+        if (economyService != null && economyService.getGroundRentArrears(kingdomId.get(), player.getUniqueId()) > 0.0) {
+            openApply(player, kingdom.get());
+            return;
+        }
         switch (LordMayorCounter.action(membership, kingdomId.get())) {
             case REGISTER -> {
                 if (warEnabled
@@ -210,6 +219,17 @@ public final class LordMayorGuiListener implements Listener {
         if (event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
+        if (gui.isRentSlot(event.getSlot())) {
+            if (economyService == null) return;
+            double paid = economyService.payGroundRentArrears(gui.kingdomId(), player.getUniqueId());
+            player.sendMessage(c("&aPaid " + String.format(java.util.Locale.UK, "%.3f", paid)
+                    + " Corona. Remaining arrears: "
+                    + String.format(java.util.Locale.UK, "%.3f", economyService.getGroundRentArrears(
+                            gui.kingdomId(), player.getUniqueId())) + "."));
+            if (economyStore != null) economyStore.saveFrom(economyService);
+            kingdomService.getKingdom(gui.kingdomId()).ifPresent(kingdom -> openApply(player, kingdom));
+            return;
+        }
         if (!gui.isApplySlot(event.getSlot())) {
             return;
         }
@@ -224,6 +244,7 @@ public final class LordMayorGuiListener implements Listener {
             case EXEMPT -> player.sendMessage(
                     c("&eThe Crown builds by right. You need no build permit here."));
             case LICENSED -> player.sendMessage(c("&eYou already hold a build permit."));
+            case ARREARS -> player.sendMessage(c("&cPay your ground-rent arrears here before applying."));
             case ELIGIBLE -> {
                 CityResult result = cityService.grantPermit(gui.kingdomId(), applicantId);
                 if (result instanceof CityResult.Success) {
@@ -374,8 +395,24 @@ public final class LordMayorGuiListener implements Listener {
 
     private void openApply(Player player, Kingdom kingdom) {
         PermitApplicantStatus status = statusOf(kingdom.getId(), player.getUniqueId());
-        player.openInventory(
-                PermitApplyGui.create(kingdom.getId(), kingdom.getDisplayName(), status).getInventory());
+        double arrears = economyService == null ? 0.0
+                : economyService.getGroundRentArrears(kingdom.getId(), player.getUniqueId());
+        List<String> estates = new ArrayList<>();
+        double daily = 0.0;
+        if (economyService != null && realmWealthRates != null) {
+            var realm = economyService.kingdomEconomies().get(kingdom.getId());
+            if (realm != null) {
+                for (EstateHolding holding : realm.estates().values()) {
+                    if (holding.owner().equals(player.getUniqueId())) {
+                        estates.add(holding.type().configKey() + " at " + holding.x() + ", "
+                                + holding.y() + ", " + holding.z());
+                        daily += realmWealthRates.coronaValue(holding.type()) * realm.activeRates().groundRent();
+                    }
+                }
+            }
+        }
+        player.openInventory(PermitApplyGui.create(kingdom.getId(), kingdom.getDisplayName(), status,
+                arrears, daily, estates).getInventory());
     }
 
     private void openRegister(Player player, String kingdomId, int page) {
@@ -418,6 +455,19 @@ public final class LordMayorGuiListener implements Listener {
                 .filter(m -> kingdomId.equals(m.getKingdomId()))
                 .count();
         Map<UUID, ?> villagerWallets = economyService.villagerWallets().get(kingdomId);
+        List<String> finance = new ArrayList<>();
+        var account = economyService.kingdomEconomies().get(kingdomId);
+        if (account != null) {
+            finance.add("Overdraft: " + String.format(java.util.Locale.UK, "%.3f", economyService.getOverdraft(kingdomId)));
+            finance.add("Gilt principal: " + String.format(java.util.Locale.UK, "%.3f", economyService.getGiltPrincipal(kingdomId)));
+            finance.add("National debt: " + String.format(java.util.Locale.UK, "%.3f", economyService.getNationalDebt(kingdomId)));
+            finance.add("Debt change yesterday: " + String.format(java.util.Locale.UK, "%.3f", account.lastDebtChange()));
+            finance.add("Ground rent collected: " + String.format(java.util.Locale.UK, "%.3f", account.totalGroundRentRevenue()));
+            for (var debt : account.groundRentArrears().entrySet()) {
+                finance.add(nameOf(debt.getKey()) + " rent arrears: "
+                        + String.format(java.util.Locale.UK, "%.3f", debt.getValue()));
+            }
+        }
         return new CityStatistics(
                 members,
                 permitHolders,
@@ -426,7 +476,7 @@ public final class LordMayorGuiListener implements Listener {
                 economyService.getRealmWealth(kingdomId, realmWealthRates),
                 economyService.getLastDailyGdp(kingdomId),
                 economyService.getTotalTaxRevenue(kingdomId),
-                economyService.getLastDayTradesSettled(kingdomId));
+                economyService.getLastDayTradesSettled(kingdomId), finance);
     }
 
     private PermitApplicantStatus statusOf(String kingdomId, UUID playerId) {
@@ -443,6 +493,9 @@ public final class LordMayorGuiListener implements Listener {
         }
         if (cityService.isUnderPrisonSentence(playerId)) {
             return PermitApplicantStatus.PRISONER;
+        }
+        if (economyService != null && economyService.getGroundRentArrears(kingdomId, playerId) > 0.0) {
+            return PermitApplicantStatus.ARREARS;
         }
         return PermitApplicantStatus.ELIGIBLE;
     }

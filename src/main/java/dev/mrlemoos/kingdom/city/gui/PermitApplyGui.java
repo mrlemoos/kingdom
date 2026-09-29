@@ -19,6 +19,7 @@ public final class PermitApplyGui implements InventoryHolder {
 
     static final int SLOT_STATUS = 11;
     static final int SLOT_APPLY = 15;
+    static final int SLOT_RENT = 13;
 
     private final String kingdomId;
     private Inventory inventory;
@@ -33,10 +34,21 @@ public final class PermitApplyGui implements InventoryHolder {
 
     public static PermitApplyGui create(
             String kingdomId, String kingdomName, PermitApplicantStatus status) {
+        return create(kingdomId, kingdomName, status, 0.0, 0.0, java.util.List.of());
+    }
+
+    public static PermitApplyGui create(String kingdomId, String kingdomName, PermitApplicantStatus status,
+            double arrears, double dailyRent, java.util.List<String> estates) {
         PermitApplyGui gui = new PermitApplyGui(kingdomId);
         Inventory inventory = Bukkit.createInventory(gui, 27, TITLE);
         gui.inventory = inventory;
         populate(inventory, kingdomName, status);
+        ItemBuilder rent = new ItemBuilder(Material.EMERALD)
+                .displayAs(c(arrears > 0.0 ? "&ePay ground rent" : "&aGround rent"))
+                .lore(c("&7Arrears: " + String.format(java.util.Locale.UK, "%.3f", arrears) + " Corona"))
+                .lore(c("&7Daily charge: " + String.format(java.util.Locale.UK, "%.3f", dailyRent) + " Corona"));
+        for (String estate : estates) rent.lore(c("&7" + estate));
+        inventory.setItem(SLOT_RENT, rent.build());
         return gui;
     }
 
@@ -59,6 +71,7 @@ public final class PermitApplyGui implements InventoryHolder {
             case PRISONER -> "You are serving a prison sentence.";
             case EXEMPT -> "The Crown builds by right; you need no permit.";
             case LICENSED -> "You already hold a build permit.";
+            case ARREARS -> "Pay ground-rent arrears here before reapplying.";
             case ELIGIBLE -> "You hold no build permit.";
         };
     }
@@ -79,6 +92,8 @@ public final class PermitApplyGui implements InventoryHolder {
     public boolean isApplySlot(int slot) {
         return slot == SLOT_APPLY;
     }
+
+    public boolean isRentSlot(int slot) { return slot == SLOT_RENT; }
 
     @Override
     public Inventory getInventory() {

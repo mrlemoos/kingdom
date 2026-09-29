@@ -5,6 +5,7 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.city.BuildRefusalThrottle;
 import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyResult;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.model.Kingdom;
@@ -47,6 +48,9 @@ public final class BuildConductListener implements Listener {
     private final WarService warService;
     private final OccupationBuildGate occupationGate;
     private final BuildRefusalThrottle refusalThrottle = new BuildRefusalThrottle();
+    private EconomyService economyService;
+
+    public void setEconomyService(EconomyService economyService) { this.economyService = economyService; }
 
     public BuildConductListener(
             KingdomService kingdomService,
@@ -121,7 +125,7 @@ public final class BuildConductListener implements Listener {
         }
 
         if (!enforcer.config().enabled()) {
-            refuseWithoutPermit(player, kingdom.get(), actorId, event);
+            refuseWithoutPermit(player, kingdom.get(), actorId, block, actionType, event);
             return;
         }
 
@@ -131,7 +135,7 @@ public final class BuildConductListener implements Listener {
                 enforcer.evaluate(facts, acts, actorId, player.isOp());
 
         if (!decision.denied()) {
-            refuseWithoutPermit(player, kingdom.get(), actorId, event);
+            refuseWithoutPermit(player, kingdom.get(), actorId, block, actionType, event);
             return;
         }
 
@@ -191,11 +195,17 @@ public final class BuildConductListener implements Listener {
      * and the player told why, with no warrant and no loyalty drop. Operators are not exempt.
      */
     private void refuseWithoutPermit(
-            Player player, Kingdom kingdom, UUID actorId, org.bukkit.event.Cancellable event) {
+            Player player, Kingdom kingdom, UUID actorId, Block block,
+            BlockActionFacts.BlockActionType actionType, org.bukkit.event.Cancellable event) {
         if (cityService == null) {
             return;
         }
         if (cityService.mayBuild(kingdom.getId(), actorId)) {
+            return;
+        }
+        if (economyService != null && actionType == BlockActionFacts.BlockActionType.BREAK
+                && economyService.isOwnedEstate(kingdom.getId(), block.getWorld().getName(),
+                        block.getX(), block.getY(), block.getZ(), actorId)) {
             return;
         }
         event.setCancelled(true);

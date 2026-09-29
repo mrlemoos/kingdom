@@ -21,6 +21,8 @@ public enum RealmHubAction {
     OPEN_WARRANT_REGISTER,
     /** Opens the war debts the realm owes, to pay one. */
     OPEN_WAR_DEBT,
+    /** Opens the public debt ledger and the visitor's gilt holdings. */
+    OPEN_GILTS,
     /** Hands the Crown the place's foundation stone; a right-click offers to clear the site. */
     TAKE_FOUNDATION_STONE
 }

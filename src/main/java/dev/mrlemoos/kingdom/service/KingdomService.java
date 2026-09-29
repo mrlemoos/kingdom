@@ -16,6 +16,11 @@ public class KingdomService {
 
     private final Map<String, Kingdom> kingdoms = new HashMap<>();
     private final Map<UUID, PlayerMembership> memberships = new HashMap<>();
+    private java.util.function.BiConsumer<String, UUID> memberDeparture = (kingdomId, playerId) -> {};
+
+    public void setMemberDeparture(java.util.function.BiConsumer<String, UUID> listener) {
+        memberDeparture = listener;
+    }
 
     public KingdomResult createKingdom(String id, String displayName) {
         String normalised = Kingdom.normaliseId(id);
@@ -59,6 +64,10 @@ public class KingdomService {
         Optional<Kingdom> kingdom = getKingdom(kingdomId);
         if (kingdom.isEmpty()) {
             return KingdomResult.fail("Unknown kingdom.");
+        }
+        PlayerMembership previous = memberships.get(playerId);
+        if (previous != null && !previous.getKingdomId().equals(kingdom.get().getId())) {
+            memberDeparture.accept(previous.getKingdomId(), playerId);
         }
         PlayerMembership membership = memberships.computeIfAbsent(
                 playerId,

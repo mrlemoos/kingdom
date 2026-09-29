@@ -10,6 +10,8 @@ public enum PermitApplicantStatus {
     EXEMPT,
     /** Already licensed. */
     LICENSED,
+    /** Rent remains unpaid; the Mayor cannot issue a permit. */
+    ARREARS,
     /** A member in good standing who may apply. */
     ELIGIBLE
 }

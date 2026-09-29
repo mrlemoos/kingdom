@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.service;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
@@ -254,6 +255,11 @@ public final class ParliamentService {
     }
 
     public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount, String optionalTitle) {
+        return tableBudget(kingdomId, rank, proposerId, amount, null, optionalTitle);
+    }
+
+    public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount,
+            GiltTerms giltTerms, String optionalTitle) {
         if (rank != NobleRank.PREMIER) {
             return ParliamentResult.fail("Only the Premier may table a budget bill.");
         }
@@ -264,12 +270,15 @@ public final class ParliamentService {
         if (amount < 0) {
             return ParliamentResult.fail("Budget amount cannot be negative.");
         }
+        if (giltTerms != null && giltTerms.faceValue() > amount) {
+            return ParliamentResult.fail("Gilt face value cannot exceed the spending allowance in this Act.");
+        }
         return tableBill(
                 kingdomId,
                 proposerId,
                 BillType.BUDGET,
                 optionalTitle,
-                new BillPayload.Budget(amount));
+                new BillPayload.Budget(amount, giltTerms));
     }
 
     public ParliamentResult tableFiscalForVillagerPremier(

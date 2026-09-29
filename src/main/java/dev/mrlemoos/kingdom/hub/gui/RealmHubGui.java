@@ -170,8 +170,10 @@ public final class RealmHubGui implements InventoryHolder {
             case RITES -> Material.CANDLE;
             case GAZETTE -> Material.PAPER;
             case BUILD_PERMIT -> Material.BRICKS;
+            case GROUND_RENT -> Material.EMERALD;
             case ARREST_REWARD -> Material.GOLD_NUGGET;
             case WALLET -> Material.GOLD_NUGGET;
+            case NATIONAL_DEBT -> Material.PAPER;
             case LIVE_ELECTION -> Material.LECTERN;
             case LIVE_POLLING -> Material.PAPER;
             case LIVE_DIVISION -> Material.LIME_BANNER;

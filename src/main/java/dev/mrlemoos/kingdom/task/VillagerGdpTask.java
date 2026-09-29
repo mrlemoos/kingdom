@@ -4,6 +4,9 @@ import dev.mrlemoos.kingdom.calendar.RealmCalendarService;
 import dev.mrlemoos.kingdom.calendar.Season;
 import dev.mrlemoos.kingdom.calendar.SeasonProfile;
 import dev.mrlemoos.kingdom.city.GranaryGazette;
+import dev.mrlemoos.kingdom.city.SeasonGazette;
+import dev.mrlemoos.kingdom.model.city.GazettePost;
+import dev.mrlemoos.kingdom.model.city.GazettePostKind;
 import dev.mrlemoos.kingdom.city.HearthGazette;
 import dev.mrlemoos.kingdom.economy.EconomyCoordinator;
 import dev.mrlemoos.kingdom.feedback.DailyRealmReport;
@@ -12,6 +15,10 @@ import dev.mrlemoos.kingdom.economy.income.EconomyConfig;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.service.PlayerTaxResult;
 import dev.mrlemoos.kingdom.economy.service.PlayerTaxService;
+import dev.mrlemoos.kingdom.economy.territory.KingdomTerritoryResolver;
+import dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates;
+import dev.mrlemoos.kingdom.economy.model.EstateHolding;
+import dev.mrlemoos.kingdom.city.CityService;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipant;
 import dev.mrlemoos.kingdom.economy.villager.VillagerEconomicParticipants;
@@ -42,6 +49,7 @@ import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.hearth.HearthDayService;
 import dev.mrlemoos.kingdom.hearth.HearthSite;
 import dev.mrlemoos.kingdom.model.Kingdom;
+import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.model.election.MpSeat;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -59,6 +67,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -100,6 +109,11 @@ public final class VillagerGdpTask implements Runnable {
     private ShortfallWatch shortfallWatch;
     private dev.mrlemoos.kingdom.church.ChurchService churchService;
     private ConscriptionService conscriptionService;
+    private CityService cityService;
+    private RealmWealthRates wealthRates;
+    private KingdomTerritoryResolver territoryResolver;
+    private LoyaltyService loyaltyService;
+    private long settlingRealmDay = -1L;
     /**
      * Kingdoms already told their granary is full. Memory only, and deliberately so: nothing of the
      * tally is written down but the wheat under a bale, and a restart may say it again.
@@ -154,7 +168,15 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     public void setPlayerTaxServiceCreditHook(LoyaltyService loyaltyService, java.util.function.LongSupplier currentMcDay) {
+        this.loyaltyService = loyaltyService;
         playerTaxService.setServiceCreditHook(loyaltyService, currentMcDay);
+    }
+
+    public void setGroundRent(CityService cityService, RealmWealthRates rates,
+            KingdomTerritoryResolver territoryResolver) {
+        this.cityService = cityService;
+        this.wealthRates = rates;
+        this.territoryResolver = territoryResolver;
     }
 
     /**
@@ -221,7 +243,7 @@ public final class VillagerGdpTask implements Runnable {
     }
 
     public void schedule(long intervalTicks) {
-        long interval = intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS;
+        long interval = Math.min(intervalTicks > 0 ? intervalTicks : DEFAULT_INTERVAL_TICKS, 100L);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this, interval, interval);
     }
 
@@ -229,76 +251,104 @@ public final class VillagerGdpTask implements Runnable {
     public void run() {
         EconomyConfig config = coordinator.config();
         EconomyService economyService = coordinator.economyService();
-        SeasonProfile season = currentSeasonProfile();
-        boolean dirty = false;
-        // The shortfall warning is claimed once for the whole realm, before any kingdom is visited:
-        // it falls on the same two days for all of them, and must go out but once on each.
-        long realmDay = currentRealmDay();
-        ShortfallWatch watch = this.shortfallWatch;
-        boolean warnOfShortfall = watch != null && watch.claim(realmDay);
-        boolean granaryDirty = warnOfShortfall;
-
+        long today = currentRealmDay();
+        Map<Long, Boolean> warningDays = new HashMap<>();
         for (Kingdom kingdom : kingdomService.listKingdoms()) {
+            var account = economyService.kingdomEconomies().get(kingdom.getId());
+            long last = account == null ? Long.MIN_VALUE : account.lastFinanceDay();
+            long first = last == Long.MIN_VALUE ? today : last + 1;
+            if (today < 0 || first > today) continue;
+            // ponytail: at most three elapsed days per sweep; later sweeps drain the rest without
+            // dropping a day or holding one server tick for an unbounded clock jump.
+            long through = Math.min(today, first + 2);
             List<String> regionIds = kingdom.getWorldGuardRegions();
-            if (regionIds.isEmpty()) {
-                continue;
-            }
-
             String worldName = kingdomService.resolveWorldName(kingdom);
             World world = Bukkit.getWorld(worldName);
-            if (world == null) {
-                continue;
-            }
-
-            List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionIds, config);
-            List<MpSeat> seatedVillagerMps = kingdom.getElectionState().seatsView().values().stream().toList();
-            List<VillagerEconomicParticipant> participants =
-                    VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
-
-            granaryDirty |= warnOfLowHearthFuel(world, kingdom, regionIds);
-            Map<UUID, Double> coldYieldFactors = settleHearths(world, kingdom, regionIds, season);
-            long epochDay = world.getFullTime() / 24000L;
-            // The granary is settled before the day's yield is reckoned: what the store could not
-            // feed today is what hunger cuts that same day's work by.
-            granaryDirty |= settleGranary(world, kingdom, regionIds, season, epochDay, realmDay, warnOfShortfall);
-            HungerDayOutcome hunger = settleHunger(world, kingdom, regionIds, realmDay);
-            Map<UUID, Double> yieldFactors = PrivationYield.combine(coldYieldFactors, hunger.yieldFactors());
-            granaryDirty |= answerForTheFamine(kingdom, hunger, realmDay, epochDay);
-            double treasuryBefore = economyService.getTreasuryBalance(kingdom.getId());
-            double taxBefore = economyService.getTotalTaxRevenue(kingdom.getId());
-            VillagerEconomyDayResult day = processor.processKingdomDay(
-                    kingdom.getId(),
-                    participants,
-                    economyService,
-                    config,
-                    villagerEconomyConfig,
-                    epochDay,
-                    random,
-                    season,
-                    chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season),
-                    yieldFactors);
-            reportPlayerTax(kingdom.getId(), playerTaxService.settle(
-                    kingdom.getId(), memberIds(kingdom.getId()), day.incomeTaxCollected()));
-            readTheDayToTheRealm(kingdom, participants, economyService, day, treasuryBefore, taxBefore);
-            // Villagers whose rites were never held: the whole estate escheats to the Crown.
-            if (churchService != null) {
-                double lapsed = churchService.escheatLapsedVillagerFunerals(kingdom.getId());
-                if (lapsed > 0.0d) {
-                    economyService.creditTreasury(kingdom.getId(), lapsed);
+            for (long dayNumber = first; dayNumber <= through; dayNumber++) {
+                settlingRealmDay = dayNumber;
+                SeasonProfile season = currentSeasonProfile();
+                long epochDay = calendarService == null ? dayNumber : calendarService.epochWorldDay() + dayNumber;
+                boolean warnOfShortfall = warningDays.computeIfAbsent(dayNumber,
+                        day -> shortfallWatch != null && shortfallWatch.claim(day));
+                boolean granaryDirty = false;
+                List<VillagerEconomicParticipant> participants = List.of();
+                Map<UUID, Double> yieldFactors = Map.of();
+                if (world != null && !regionIds.isEmpty()) {
+                    List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionIds, config);
+                    List<MpSeat> seatedVillagerMps = kingdom.getElectionState().seatsView().values().stream().toList();
+                    participants = VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
+                    granaryDirty |= warnOfLowHearthFuel(world, kingdom, regionIds);
+                    Map<UUID, Double> cold = settleHearths(world, kingdom, regionIds, season);
+                    granaryDirty |= settleGranary(world, kingdom, regionIds, season, epochDay, dayNumber, warnOfShortfall);
+                    HungerDayOutcome hunger = settleHunger(world, kingdom, regionIds, dayNumber);
+                    yieldFactors = PrivationYield.combine(cold, hunger.yieldFactors());
+                    granaryDirty |= answerForTheFamine(kingdom, hunger, dayNumber, epochDay);
+                }
+                double treasuryBefore = economyService.getTreasuryBalance(kingdom.getId());
+                double taxBefore = economyService.getTotalTaxRevenue(kingdom.getId());
+                VillagerEconomyDayResult day = processor.processKingdomDay(
+                        kingdom.getId(), participants, economyService, config, villagerEconomyConfig,
+                        epochDay, random, season,
+                        chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season), yieldFactors);
+                reportPlayerTax(kingdom.getId(), playerTaxService.settle(
+                        kingdom.getId(), memberIds(kingdom.getId()), day.incomeTaxCollected()));
+                reconcileEstates(kingdom, economyService);
+                settleRent(kingdom, economyService);
+                boolean previouslyDefaulted = economyService.isGiltDefault(kingdom.getId());
+                boolean newDefault = economyService.settleGilts(kingdom.getId(), dayNumber);
+                var financeAccount = economyService.kingdomEconomies().get(kingdom.getId());
+                if (financeAccount != null && financeAccount.giltIssues().stream()
+                        .anyMatch(issue -> issue.maturityDay() == settlingRealmDay)) {
+                    postFinanceNotice(kingdom, "Gilts mature",
+                            "The Crown's gilts have reached maturity. Available treasury Corona has been paid to holders; unpaid principal remains due.",
+                            epochDay);
                     granaryDirty = true;
                 }
+                if (newDefault) {
+                    for (UUID member : memberIds(kingdom.getId())) {
+                        if (loyaltyService != null) loyaltyService.recordActBreach(member);
+                    }
+                    RealmFeedback.kingdomMessage(kingdomService, kingdom.getId(),
+                            "The Crown has defaulted on gilt payments. Every subject's loyalty falls.");
+                    postFinanceNotice(kingdom, "Gilt default",
+                            "The Crown has missed gilt payments. Principal remains due and every subject's political loyalty falls once for this default.", epochDay);
+                    granaryDirty = true;
+                } else if (previouslyDefaulted && !economyService.isGiltDefault(kingdom.getId())) {
+                    RealmFeedback.kingdomMessage(kingdomService, kingdom.getId(), "The gilt default has cleared.");
+                    postFinanceNotice(kingdom, "Gilt default cleared",
+                            "All overdue gilt principal has been repaid.", epochDay);
+                    granaryDirty = true;
+                }
+                if (churchService != null) {
+                    double lapsed = churchService.escheatLapsedVillagerFunerals(kingdom.getId());
+                    if (lapsed > 0.0d) {
+                        economyService.creditTreasury(kingdom.getId(), lapsed);
+                        granaryDirty = true;
+                    }
+                }
+                economyService.finishFinanceDay(kingdom.getId(), dayNumber);
+                readTheDayToTheRealm(kingdom, participants, economyService, day, treasuryBefore, taxBefore);
+                decayFieldMorale(kingdom, season);
+                economyStore.saveFrom(economyService);
+                YamlKingdomStore store = this.kingdomStore;
+                if (granaryDirty && store != null) store.saveFrom(kingdomService);
             }
-            decayFieldMorale(kingdom, season);
-            dirty = true;
+            if (through == today) {
+                var notices = economyService.kingdomEconomies().get(kingdom.getId());
+                if (notices != null) {
+                    Set<UUID> recipients = new HashSet<>(notices.pendingFinancePayments().keySet());
+                    recipients.addAll(notices.pendingGiltReceipts().keySet());
+                    for (UUID recipient : recipients) {
+                        Player player = Bukkit.getPlayer(recipient);
+                        if (player == null) continue;
+                        String summary = economyService.takeFinanceSummary(kingdom.getId(), recipient);
+                        if (summary != null) player.sendMessage(summary);
+                    }
+                    economyStore.saveFrom(economyService);
+                }
+            }
         }
-
-        if (dirty) {
-            economyStore.saveFrom(economyService);
-        }
-        YamlKingdomStore store = this.kingdomStore;
-        if (granaryDirty && store != null) {
-            store.saveFrom(kingdomService);
-        }
+        settlingRealmDay = -1L;
     }
 
     private boolean warnOfLowHearthFuel(World world, Kingdom kingdom, List<String> regions) {
@@ -619,7 +669,7 @@ public final class VillagerGdpTask implements Runnable {
             return;
         }
         RealmCalendarService calendar = this.calendarService;
-        long realmDay = calendar == null ? 0L : calendar.currentRealmDay();
+        long realmDay = currentRealmDay();
         MusterService muster = this.musterService;
         Set<UUID> mustered = muster == null ? Set.of() : muster.answeredMembers(kingdomId);
         LevyDayOutcome outcome = levy.settleDay(kingdomId, mustered, season, realmDay);
@@ -649,7 +699,7 @@ public final class VillagerGdpTask implements Runnable {
             return;
         }
         RealmCalendarService calendar = this.calendarService;
-        long realmDay = calendar == null ? 0L : calendar.currentRealmDay();
+        long realmDay = currentRealmDay();
         List<UUID> worn = decay.decayDay(war.get().id(), kingdom.getId(), season, realmDay);
         if (!worn.isEmpty()) {
             RealmFeedback.kingdomMessage(
@@ -673,12 +723,14 @@ public final class VillagerGdpTask implements Runnable {
 
     /** The season in force; spring before the calendar is set. */
     private Season currentSeason() {
+        if (settlingRealmDay >= 0L) return Season.ofDay(settlingRealmDay);
         RealmCalendarService service = this.calendarService;
         return service == null ? Season.SPRING : service.currentSeason();
     }
 
     /** The realm day; before the epoch, and so never a warning day, until the calendar is set. */
     private long currentRealmDay() {
+        if (settlingRealmDay >= 0L) return settlingRealmDay;
         RealmCalendarService service = this.calendarService;
         return service == null ? -1L : service.currentRealmDay();
     }
@@ -718,6 +770,47 @@ public final class VillagerGdpTask implements Runnable {
                 .filter(membership -> kingdomId.equals(membership.getKingdomId()))
                 .map(PlayerMembership::getPlayerId)
                 .toList();
+    }
+
+    private void reconcileEstates(Kingdom kingdom, EconomyService economy) {
+        KingdomTerritoryResolver resolver = territoryResolver;
+        if (resolver == null) return;
+        var account = economy.kingdomEconomies().get(kingdom.getId());
+        if (account == null) return;
+        for (EstateHolding holding : account.estates().values()) {
+            World world = Bukkit.getWorld(holding.worldName());
+            if (world != null && (world.getBlockAt(holding.x(), holding.y(), holding.z()).getType() != holding.type().material()
+                    || !resolver.owningKingdomId(holding.worldName(), holding.x(), holding.y(), holding.z())
+                            .filter(kingdom.getId()::equals).isPresent())) {
+                economy.removeEstate(kingdom.getId(), holding.worldName(), holding.x(), holding.y(), holding.z());
+            }
+        }
+    }
+
+    private void settleRent(Kingdom kingdom, EconomyService economy) {
+        Map<UUID, NobleRank> ranks = new HashMap<>();
+        for (PlayerMembership member : kingdomService.getMembershipsView().values()) {
+            if (kingdom.getId().equals(member.getKingdomId())) ranks.put(member.getPlayerId(), member.getRank());
+        }
+        Map<UUID, Double> shortfalls = economy.settleGroundRent(kingdom.getId(),
+                kingdom.getCityState().hasCapital(), ranks,
+                wealthRates == null ? RealmWealthRates.defaults() : wealthRates);
+        CityService city = cityService;
+        for (var entry : shortfalls.entrySet()) {
+            if (city != null) city.revokePermit(kingdom.getId(), entry.getKey());
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player != null) {
+                player.sendMessage("Ground rent short by " + corona(entry.getValue())
+                        + " Corona. Arrears: " + corona(economy.getGroundRentArrears(
+                                kingdom.getId(), entry.getKey()))
+                        + ". Pay at the Lord Mayor, or break your own estate to stop future rent.");
+            }
+        }
+    }
+
+    private static void postFinanceNotice(Kingdom kingdom, String title, String body, long mcDay) {
+        kingdom.getCityState().addGazettePost(new GazettePost(title, body,
+                SeasonGazette.REALM_AUTHOR, mcDay, GazettePostKind.ANNOUNCEMENT, Optional.empty()));
     }
 
     private void reportPlayerTax(String kingdomId, PlayerTaxResult settlement) {

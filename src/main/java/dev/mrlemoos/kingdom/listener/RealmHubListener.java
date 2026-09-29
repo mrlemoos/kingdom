@@ -11,6 +11,9 @@ import dev.mrlemoos.kingdom.hub.RealmHubSection;
 import dev.mrlemoos.kingdom.hub.RealmHubSnapshot;
 import dev.mrlemoos.kingdom.hub.RealmHubSnapshotFactory;
 import dev.mrlemoos.kingdom.hub.RealmHubView;
+import dev.mrlemoos.kingdom.hub.RealmHubTopic;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
+import dev.mrlemoos.kingdom.mint.GiltMintGui;
 import dev.mrlemoos.kingdom.hub.gui.RealmHubGui;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
 import dev.mrlemoos.kingdom.service.KingdomService;
@@ -46,6 +49,21 @@ public final class RealmHubListener implements Listener {
     private Consumer<Player> warDebtOpener;
     private BiConsumer<Player, FoundationStone> stoneTaker;
     private BiConsumer<Player, FoundationStone> siteClearer;
+    private EconomyService economyService;
+    private dev.mrlemoos.kingdom.war.tribute.WarDebtStore warDebtStore;
+
+    public RealmHubListener withWarDebtStore(dev.mrlemoos.kingdom.war.tribute.WarDebtStore store) {
+        this.warDebtStore = store;
+        return this;
+    }
+    private dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates wealthRates;
+
+    public RealmHubListener withFinance(EconomyService economyService,
+            dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates wealthRates) {
+        this.economyService = economyService;
+        this.wealthRates = wealthRates;
+        return this;
+    }
 
     public RealmHubListener(KingdomService kingdomService, RealmHubSnapshotFactory snapshots) {
         this.kingdomService = Objects.requireNonNull(kingdomService, "kingdomService");
@@ -113,7 +131,48 @@ public final class RealmHubListener implements Listener {
 
     /** Opens one hub section at the given page. */
     public void openSection(Player player, RealmHubSection section, int page) {
-        List<RealmHubEntry> entries = RealmHubView.section(snapshots.of(player), section);
+        List<RealmHubEntry> entries = new java.util.ArrayList<>(RealmHubView.section(snapshots.of(player), section));
+        if (section == RealmHubSection.TREASURY && economyService != null) {
+            kingdomService.getMembership(player.getUniqueId()).ifPresent(member -> {
+                String id = member.getKingdomId();
+                var account = economyService.kingdomEconomies().get(id);
+                if (account != null) {
+                    entries.add(RealmHubEntry.usable(RealmHubTopic.NATIONAL_DEBT, "National Debt and Gilts",
+                            List.of("Treasury: " + account.treasuryBalance(),
+                                    "Overdraft: " + economyService.getOverdraft(id),
+                                    "Gilt principal: " + economyService.getGiltPrincipal(id),
+                                    "National debt: " + economyService.getNationalDebt(id),
+                                    "Change yesterday: " + account.lastDebtChange(),
+                                    "Ground rent: " + account.activeRates().groundRent(),
+                                    "Your rent arrears: " + economyService.getGroundRentArrears(id, player.getUniqueId()),
+                                    "Click to inspect gilts. Buy at the issuing mint."),
+                            RealmHubAction.OPEN_GILTS));
+                }
+            });
+        }
+        if (section == RealmHubSection.CITY && economyService != null) {
+            kingdomService.getMembership(player.getUniqueId()).ifPresent(member -> {
+                String id = member.getKingdomId();
+                var account = economyService.kingdomEconomies().get(id);
+                if (account != null) {
+                    List<String> lines = new java.util.ArrayList<>();
+                    lines.add("Rate: " + account.activeRates().groundRent());
+                    lines.add("Arrears: " + economyService.getGroundRentArrears(id, player.getUniqueId()) + " Corona");
+                    double daily = 0.0;
+                    for (var holding : account.estates().values()) {
+                        if (holding.owner().equals(player.getUniqueId())) {
+                            lines.add(holding.type().configKey() + " at " + holding.x() + ", " + holding.y() + ", " + holding.z());
+                            daily += wealthRates.coronaValue(holding.type()) * account.activeRates().groundRent();
+                        }
+                    }
+                    lines.add("Daily charge: " + daily + " Corona");
+                    lines.add("Right-click the Lord Mayor to pay and reapply for a permit.");
+                    lines.add("If unlicensed, you may break your own estate to stop future rent.");
+                    entries.add(RealmHubEntry.usable(RealmHubTopic.GROUND_RENT, "Ground Rent", lines,
+                            RealmHubAction.NONE));
+                }
+            });
+        }
         player.openInventory(Objects.requireNonNull(RealmHubGui.section(section, entries, page).getInventory()));
     }
 
@@ -184,6 +243,14 @@ public final class RealmHubListener implements Listener {
             case OPEN_TREATY_REGISTER -> open(player, treatyRegisterOpener, "The treaty register is not available.");
             case OPEN_WARRANT_REGISTER -> open(player, warrantRegisterOpener, "The warrant register is not available.");
             case OPEN_WAR_DEBT -> open(player, warDebtOpener, "War debt is not available.");
+            case OPEN_GILTS -> {
+                if (economyService != null) kingdomService.getMembership(player.getUniqueId()).ifPresent(member ->
+                        player.openInventory(GiltMintGui.create(member.getKingdomId(), player.getUniqueId(), economyService,
+                                member.getRank() == dev.mrlemoos.kingdom.model.NobleRank.KING
+                                        || member.getRank() == dev.mrlemoos.kingdom.model.NobleRank.QUEEN,
+                                0, warDebtStore == null ? 0.0 : warDebtStore.totalDebtOwed(member.getKingdomId()))
+                                .getInventory()));
+            }
             case NONE, TAKE_FOUNDATION_STONE -> {
                 // The lore names the command to type; nothing to open.
             }

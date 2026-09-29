@@ -7,6 +7,9 @@ import dev.mrlemoos.kingdom.economy.villager.EmeraldVillagerTradeSettlement;
 import dev.mrlemoos.kingdom.economy.villager.VillagerIncomeTaxCalculator;
 import dev.mrlemoos.kingdom.economy.model.FiscalProposal;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.EstateHolding;
+import dev.mrlemoos.kingdom.economy.model.GiltIssue;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.IncomeLocation;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
@@ -18,11 +21,14 @@ import dev.mrlemoos.kingdom.economy.wealth.WealthBlockType;
 import dev.mrlemoos.kingdom.loyalty.LoyaltyService;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
+import java.math.BigDecimal;
 
 public class EconomyService {
 
@@ -61,6 +67,239 @@ public class EconomyService {
         return economyFor(kingdomId).treasuryBalance();
     }
 
+    public double getOverdraft(String kingdomId) {
+        return Math.max(0.0, -getTreasuryBalance(kingdomId));
+    }
+
+    public double getNationalDebt(String kingdomId) {
+        return getOverdraft(kingdomId) + getGiltPrincipal(kingdomId);
+    }
+
+    public double getGiltPrincipal(String kingdomId) {
+        return economyFor(kingdomId).giltIssues().stream().mapToDouble(GiltIssue::principal).sum();
+    }
+
+    public double getGiltHolding(String kingdomId, UUID holder) {
+        return economyFor(kingdomId).giltIssues().stream().mapToDouble(issue -> issue.holding(holder)).sum();
+    }
+
+    public boolean isGiltDefault(String kingdomId) {
+        return economyFor(kingdomId).giltDefault();
+    }
+
+    /** Removes one persisted, combined settlement notice after its player can read it. */
+    public String takeFinanceSummary(String kingdomId, UUID player) {
+        KingdomEconomy economy = kingdomEconomies.get(kingdomId);
+        if (economy == null) return null;
+        Double rentPaid = economy.takeFinancePayment(player);
+        Double giltReceived = economy.takeGiltReceipt(player);
+        if (rentPaid == null && giltReceived == null) return null;
+        List<String> details = new ArrayList<>();
+        if (rentPaid != null) {
+            details.add("ground rent paid " + money(rentPaid) + ", arrears "
+                    + money(economy.groundRentArrears(player))
+                    + "; visit the Lord Mayor to pay arrears or reapply for a permit");
+        }
+        if (giltReceived != null) {
+            double due = economy.giltIssues().stream()
+                    .mapToDouble(issue -> issue.duePrincipal().getOrDefault(player, 0.0)).sum();
+            details.add("gilt payments received " + money(giltReceived) + ", overdue principal "
+                    + money(due) + "; visit the issuing mint to inspect your holding");
+        }
+        return "Finance settlement for " + kingdomId + ": " + String.join("; ", details) + ".";
+    }
+
+    private static String money(double amount) {
+        return BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString() + " Corona";
+    }
+
+    public void recordEstatePlacement(String kingdomId, String world, int x, int y, int z,
+            WealthBlockType type, UUID owner) {
+        if (type != null && type.isEstate() && owner != null) {
+            economyFor(kingdomId).putEstate(new EstateHolding(world, x, y, z, type, owner));
+        }
+    }
+
+    public void removeEstate(String kingdomId, String world, int x, int y, int z) {
+        economyFor(kingdomId).removeEstate(EstateHolding.key(world, x, y, z));
+    }
+
+    public void releaseEstateOwner(String kingdomId, UUID owner) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        for (EstateHolding holding : economy.estates().values()) {
+            if (holding.owner().equals(owner)) economy.removeEstate(holding.key());
+        }
+    }
+
+    public boolean isOwnedEstate(String kingdomId, String world, int x, int y, int z, UUID owner) {
+        EstateHolding holding = economyFor(kingdomId).estates().get(EstateHolding.key(world, x, y, z));
+        return holding != null && holding.owner().equals(owner);
+    }
+
+    public double getGroundRentArrears(String kingdomId, UUID owner) {
+        return economyFor(kingdomId).groundRentArrears(owner);
+    }
+
+    public double getTotalGroundRentArrears(String kingdomId) {
+        return economyFor(kingdomId).groundRentArrears().values().stream().mapToDouble(Double::doubleValue).sum();
+    }
+
+    public double payGroundRentArrears(String kingdomId, UUID owner) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        double paid = Math.min(economy.groundRentArrears(owner), getWalletBalance(owner));
+        if (paid > 0.0) {
+            debitWallet(owner, paid);
+            creditTreasury(kingdomId, paid);
+            economy.recordGroundRentRevenue(paid);
+            economy.setGroundRentArrears(owner, economy.groundRentArrears(owner) - paid);
+        }
+        if (paid > 0.0) economy.addFinancePayment(owner, paid);
+        return paid;
+    }
+
+    /** Call after player income tax. Absent owners lose future rent, not earlier arrears. */
+    public Map<UUID, Double> settleGroundRent(String kingdomId, boolean hasCapital,
+            Map<UUID, NobleRank> members, RealmWealthRates values) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        Map<UUID, Double> newArrears = new HashMap<>();
+        for (UUID debtor : economy.groundRentArrears().keySet()) {
+            if (members.containsKey(debtor)) payGroundRentArrears(kingdomId, debtor);
+        }
+        for (EstateHolding holding : economy.estates().values()) {
+            NobleRank rank = members.get(holding.owner());
+            if (!members.containsKey(holding.owner())) {
+                economy.removeEstate(holding.key());
+                continue;
+            }
+            if (!hasCapital || rank == NobleRank.KING || rank == NobleRank.QUEEN || rank == NobleRank.PRINCE) {
+                continue;
+            }
+            double due = values.coronaValue(holding.type()) * economy.activeRates().groundRent();
+            if (due <= 0.0) continue;
+            double paid = Math.min(due, getWalletBalance(holding.owner()));
+            economy.addFinancePayment(holding.owner(), paid);
+            if (paid > 0.0) {
+                debitWallet(holding.owner(), paid);
+                creditTreasury(kingdomId, paid);
+                economy.recordGroundRentRevenue(paid);
+            }
+            double shortfall = due - paid;
+            if (shortfall > 0.0) {
+                economy.setGroundRentArrears(holding.owner(), economy.groundRentArrears(holding.owner()) + shortfall);
+                newArrears.merge(holding.owner(), shortfall, Double::sum);
+            }
+        }
+        return Map.copyOf(newArrears);
+    }
+
+    public EconomyResult openGiltSale(String kingdomId, UUID monarch, long realmDay) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        GiltTerms terms = economy.giltAuthority();
+        if (terms == null || realmDay > economy.giltAuthorisedDay() + 7) {
+            return EconomyResult.fail("Gilt authority has lapsed. Parliament must pass a new BUDGET Act.");
+        }
+        if (economy.mintCount() == 0) {
+            return EconomyResult.fail("Site a mint before opening a gilt sale.");
+        }
+        if (economy.giltIssues().stream().anyMatch(GiltIssue::isOpen)) {
+            return EconomyResult.fail("A gilt sale is already open.");
+        }
+        economy.addGiltIssue(new GiltIssue(terms, monarch, realmDay));
+        economy.setGiltAuthority(null, -1);
+        return EconomyResult.ok("Gilt sale opened. Unsold face will be gifted to the issuing monarch when it closes.");
+    }
+
+    public EconomyResult buyGilt(String kingdomId, UUID buyer, int face, long realmDay) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        GiltIssue open = economy.giltIssues().stream().filter(GiltIssue::isOpen).findFirst().orElse(null);
+        if (open == null || realmDay >= open.openedDay() + 7) {
+            return EconomyResult.fail("No gilt sale is open at this mint.");
+        }
+        if (face <= 0 || face > open.remainingFace() || getWalletBalance(buyer) < face) {
+            return EconomyResult.fail("Choose a whole Corona amount within the remaining face and your wallet.");
+        }
+        debitWallet(buyer, face);
+        open.buy(buyer, face);
+        creditTreasury(kingdomId, face);
+        if (open.remainingFace() == 0.0) open.close(realmDay);
+        return EconomyResult.ok("Bought " + face + " Corona of gilts.");
+    }
+
+    /** Pay current coupons before overdue principal, pro rata across all issues and holders. */
+    public boolean settleGilts(String kingdomId, long realmDay) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        if (realmDay <= economy.lastGiltSettledDay()) return false;
+        boolean previouslyDefaulted = economy.giltDefault();
+        for (GiltIssue issue : economy.giltIssues()) {
+            if (issue.isOpen() && realmDay >= issue.openedDay() + 7) issue.close(issue.openedDay() + 7);
+        }
+        List<GiltPayment> coupons = new ArrayList<>();
+        double couponTotal = 0.0;
+        for (GiltIssue issue : economy.giltIssues()) {
+            if (issue.isOpen() || realmDay <= issue.closedDay()) continue;
+            for (var holding : issue.holdings().entrySet()) {
+                double coupon = holding.getValue() * issue.terms().couponRate();
+                if (coupon > 0.0) {
+                    coupons.add(new GiltPayment(issue, holding.getKey(), coupon));
+                    couponTotal += coupon;
+                }
+            }
+        }
+        double couponScale = couponTotal == 0.0 ? 1.0 : Math.min(1.0, Math.max(0.0, economy.treasuryBalance()) / couponTotal);
+        for (GiltPayment payment : coupons) {
+            double paid = debitTreasury(kingdomId, payment.amount() * couponScale);
+            if (paid > 0.0) {
+                creditWalletDirect(payment.holder(), paid);
+                economy.addGiltReceipt(payment.holder(), paid);
+                payment.issue().recordPayment(payment.holder(), paid);
+            }
+            payment.issue().capitalise(payment.holder(), payment.amount() - paid);
+            if (paid == 0.0) economy.addGiltReceipt(payment.holder(), 0.0);
+        }
+        List<GiltPayment> principals = new ArrayList<>();
+        double principalTotal = 0.0;
+        for (GiltIssue issue : economy.giltIssues()) {
+            issue.mature(realmDay);
+            for (var due : issue.duePrincipal().entrySet()) {
+                principals.add(new GiltPayment(issue, due.getKey(), due.getValue()));
+                principalTotal += due.getValue();
+            }
+        }
+        double principalScale = principalTotal == 0.0 ? 1.0 : Math.min(1.0, Math.max(0.0, economy.treasuryBalance()) / principalTotal);
+        for (GiltPayment payment : principals) {
+            double paid = debitTreasury(kingdomId, payment.amount() * principalScale);
+            if (paid > 0.0) {
+                creditWalletDirect(payment.holder(), paid);
+                payment.issue().repay(payment.holder(), paid);
+                payment.issue().recordPayment(payment.holder(), paid);
+            }
+            economy.addGiltReceipt(payment.holder(), paid);
+        }
+        economy.setGiltDefault(economy.giltIssues().stream().anyMatch(issue -> !issue.duePrincipal().isEmpty()));
+        economy.setLastGiltSettledDay(realmDay);
+        return !previouslyDefaulted && economy.giltDefault();
+    }
+
+    private record GiltPayment(GiltIssue issue, UUID holder, double amount) {}
+
+    public void closeDebtDay(String kingdomId) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        if (economy.treasuryBalance() < 0.0) {
+            economy.setTreasuryBalance(economy.treasuryBalance()
+                    * (1.0 + economy.activeRates().overdraftInterest()));
+        }
+    }
+
+    public void finishFinanceDay(String kingdomId, long realmDay) {
+        KingdomEconomy economy = economyFor(kingdomId);
+        if (realmDay <= economy.lastFinanceDay()) return;
+        closeDebtDay(kingdomId);
+        double total = getNationalDebt(kingdomId);
+        economy.setLastDebtChange(total - economy.lastNationalDebt());
+        economy.setLastNationalDebt(total);
+        economy.setLastFinanceDay(realmDay);
+    }
+
     public CreditResult creditWallet(
             UUID playerId,
             double gross,
@@ -88,7 +327,7 @@ public class EconomyService {
     }
 
     public void creditTreasury(String kingdomId, double amount) {
-        if (amount < 0) {
+        if (!Double.isFinite(amount) || amount < 0) {
             throw new IllegalArgumentException("Treasury credit cannot be negative.");
         }
         KingdomEconomy economy = economyFor(kingdomId);
@@ -113,11 +352,11 @@ public class EconomyService {
      *     when the treasury balance is insufficient
      */
     public double debitTreasury(String kingdomId, double amount) {
-        if (amount <= 0) {
+        if (!Double.isFinite(amount) || amount <= 0) {
             return 0.0;
         }
         KingdomEconomy economy = economyFor(kingdomId);
-        double available = economy.treasuryBalance();
+        double available = Math.max(0.0, economy.treasuryBalance());
         double transferred = Math.min(available, amount);
         if (transferred > 0) {
             economy.setTreasuryBalance(available - transferred);
@@ -242,7 +481,7 @@ public class EconomyService {
             return;
         }
 
-        double available = Math.min(economy.treasuryBalance(), totalDue);
+        double available = Math.min(Math.max(0.0, economy.treasuryBalance()), totalDue);
         if (available <= 0.0) {
             return;
         }
@@ -431,11 +670,11 @@ public class EconomyService {
                 economy.treasuryBalance(),
                 economy.territoryWealthCounts(),
                 getTotalActiveVillagerWalletBalance(kingdomId),
-                rates);
+                rates) - getGiltPrincipal(kingdomId);
     }
 
     public void creditWalletDirect(UUID playerId, double amount) {
-        if (amount < 0) {
+        if (!Double.isFinite(amount) || amount < 0) {
             throw new IllegalArgumentException("Direct wallet credit cannot be negative.");
         }
         if (amount > 0) {
@@ -565,10 +804,19 @@ public class EconomyService {
     }
 
     public EconomyResult enactBudget(String kingdomId, double amount) {
-        if (amount < 0) {
+        return enactBudget(kingdomId, amount, null, -1L);
+    }
+
+    public EconomyResult enactBudget(String kingdomId, double amount, GiltTerms giltTerms, long realmDay) {
+        if (!Double.isFinite(amount) || amount < 0) {
             return EconomyResult.fail("Approved budget cannot be negative.");
         }
-        economyFor(kingdomId).budget().approve(amount);
+        if (giltTerms != null && giltTerms.faceValue() > amount) {
+            return EconomyResult.fail("Gilt face value cannot exceed this Act's spending allowance.");
+        }
+        KingdomEconomy economy = economyFor(kingdomId);
+        economy.budget().approve(amount);
+        economy.setGiltAuthority(giltTerms, realmDay);
         return EconomyResult.ok("Treasury budget enacted.");
     }
 
@@ -581,13 +829,6 @@ public class EconomyService {
         if (!economy.budget().canSpend(amount)) {
             return EconomyResult.fail("Spend exceeds approved treasury budget.");
         }
-        double treasury = economy.treasuryBalance();
-        if (treasury < amount) {
-            return EconomyResult.fail("Insufficient Corona in kingdom treasury (have "
-                    + formatCorona(treasury) + ", need " + formatCorona(amount)
-                    + "). Treasury grows from tax and villager GDP.");
-        }
-
         economy.setTreasuryBalance(economy.treasuryBalance() - amount);
         economy.budget().recordSpend(amount);
         return EconomyResult.ok("Treasury spend recorded.");

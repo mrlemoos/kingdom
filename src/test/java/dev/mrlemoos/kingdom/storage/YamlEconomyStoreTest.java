@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalProposal;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.model.TreasuryBudget;
@@ -25,6 +26,47 @@ class YamlEconomyStoreTest {
 
     private static final UUID ALICE = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID PREMIER = UUID.fromString("00000000-0000-0000-0000-000000000003");
+
+    @Test
+    void roundTripPreservesGiltAuthorityAndHoldings() {
+        EconomyService source = new EconomyService();
+        source.placeRoyalMint("northmarch", new MintLocation("world", 10, 64, 10), 2);
+        source.enactBudget("northmarch", 100, new GiltTerms(100, 0.001, 7), 2);
+        source.openGiltSale("northmarch", ALICE, 3);
+        source.settleGilts("northmarch", 10);
+        source.creditTreasury("northmarch", 1);
+        source.settleGilts("northmarch", 11);
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        assertEquals(100, loaded.getGiltHolding("northmarch", ALICE), 1e-9);
+        assertEquals(100, loaded.getGiltPrincipal("northmarch"), 1e-9);
+        assertEquals(11, loaded.kingdomEconomies().get("northmarch").lastGiltSettledDay());
+        assertTrue(loaded.kingdomEconomies().get("northmarch").pendingGiltReceipts().containsKey(ALICE));
+        assertEquals(0.1, loaded.kingdomEconomies().get("northmarch").giltIssues().get(0).paid(ALICE), 1e-9);
+    }
+
+    @Test
+    void roundTripPreservesEstateOwnerAndRentArrears() {
+        EconomyService source = new EconomyService();
+        source.recordEstatePlacement("northmarch", "world", 1, 64, 1, WealthBlockType.BEACON, ALICE);
+        source.settleGroundRent("northmarch", true, Map.of(ALICE, NobleRank.KNIGHT),
+                dev.mrlemoos.kingdom.economy.wealth.RealmWealthRates.defaults());
+
+        YamlConfiguration config = new YamlConfiguration();
+        YamlEconomyStore.writeConfiguration(config, source);
+        EconomyService loaded = new EconomyService();
+        YamlEconomyStore.applyConfiguration(config, loaded);
+
+        assertTrue(loaded.isOwnedEstate("northmarch", "world", 1, 64, 1, ALICE));
+        assertEquals(0.5, loaded.getGroundRentArrears("northmarch", ALICE), 1e-9);
+        assertEquals(0.0, loaded.kingdomEconomies().get("northmarch").pendingFinancePayments().get(ALICE), 1e-9);
+        assertTrue(loaded.takeFinanceSummary("northmarch", ALICE).contains("arrears 0.5 Corona"));
+        assertEquals(null, loaded.takeFinanceSummary("northmarch", ALICE));
+    }
 
     @Test
     void roundTripPreservesWalletsAndKingdomFiscalState() {

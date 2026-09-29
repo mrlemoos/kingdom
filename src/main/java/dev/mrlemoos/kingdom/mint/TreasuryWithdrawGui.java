@@ -24,6 +24,7 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
     static final int SLOT_ALL = 16;
     static final int SLOT_CUSTOM = 22;
     static final int SLOT_DEPOSIT = 18;
+    static final int SLOT_GILTS = 20;
 
     private final String kingdomId;
     private Inventory inventory;
@@ -47,6 +48,10 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
         gui.inventory = inventory;
         populate(inventory, walletBalance);
         inventory.setItem(SLOT_DEPOSIT, depositButton(nuggetsHeld));
+        inventory.setItem(SLOT_GILTS, new ItemBuilder(Material.PAPER)
+                .displayAs(c("&6Gilts and public debt"))
+                .lore(c("&7View debt, holdings and sales at this mint"))
+                .build());
         return gui;
     }
 
@@ -87,6 +92,8 @@ public final class TreasuryWithdrawGui implements InventoryHolder {
     public boolean isCustomSlot(int slot) {
         return slot == SLOT_CUSTOM;
     }
+
+    public boolean isGiltsSlot(int slot) { return slot == SLOT_GILTS; }
 
     @Override
     public Inventory getInventory() {

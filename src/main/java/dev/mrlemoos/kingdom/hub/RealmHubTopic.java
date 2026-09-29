@@ -21,10 +21,14 @@ public enum RealmHubTopic {
     GAZETTE,
     /** Your licence to place and break blocks inside the realm's territory. */
     BUILD_PERMIT,
+    /** Estate charges and arrears owed at the city hall. */
+    GROUND_RENT,
     /** Posting an arrest reward on an active warrant, at the court. */
     ARREST_REWARD,
     /** Depositing and withdrawing Corona at the Lord of the Treasury. */
     WALLET,
+    /** Public debt, gilt holdings and the Crown's authorised sale. */
+    NATIONAL_DEBT,
 
     /** An election is under way. */
     LIVE_ELECTION,

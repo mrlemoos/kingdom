@@ -16,8 +16,24 @@ _Avoid_: Account, balance, pocket
 A kingdom's collective wealth pool. Fed by tax; spent on realm-level purposes.
 _Avoid_: Bank, vault, national account
 
+**National debt**:
+The sum of a kingdom treasury's overdraft and outstanding gilt principal. War debt is reported separately; overdraft interest and gilt coupons follow their own terms.
+_Avoid_: War debt, treasury balance, budget deficit
+
+**Overdraft interest**:
+The daily charge on a kingdom treasury's negative balance at the rate enacted by Parliament. It deepens the overdraft and is separate from gilt coupons and villager wallet interest.
+_Avoid_: Gilt coupon, villager wallet interest, war debt interest
+
+**Gilt**:
+A kingdom bond authorised by a BUDGET Act, sold for Corona or gifted from an unsold allocation to the issuing monarch. Its holder receives the Act's daily coupon and is owed its outstanding principal at maturity.
+_Avoid_: Treasury withdrawal, war debt, player loan
+
+**Gilt default**:
+A shortfall in a due gilt coupon or principal, including capitalised unpaid coupons due before maturity. It remains in effect while any such payment is overdue; entering default lowers every member's political loyalty once and gives seated player MPs cause to consider a motion of no confidence.
+_Avoid_: War debt, treasury overdraft, automatic no-confidence motion
+
 **Realm wealth**:
-A kingdom's total economic standing: treasury Corona plus the valued worth of material reserves and estates in linked territory, plus the sum of active productive villager wallet balances. Frozen villager wallets are excluded. Informational and for comparison; does not change what the treasury can spend.
+A kingdom's total economic standing: treasury Corona plus the valued worth of material reserves and estates in linked territory, plus active productive villager wallets, minus outstanding gilt principal. Frozen villager wallets are excluded. Informational and for comparison; it does not change what the treasury can spend.
 _Avoid_: Net worth, GDP, total assets
 
 **Material reserves**:
@@ -25,8 +41,16 @@ The Corona worth of precious blocks placed inside a kingdom's WorldGuard region:
 _Avoid_: Stockpile, ore wealth, block GDP
 
 **Estate**:
-A significant structure inside kingdom territory detected automatically by scanning for beacon, conduit, or lodestone blocks. Each type has a fixed Corona worth in config. No manual registration.
+A significant structure inside kingdom territory detected automatically by scanning for beacon, conduit, or lodestone blocks. Each type has a fixed Corona worth in config; new player-placed blocks identify their placer for ground rent, while public works and older unowned blocks remain unrented. No manual registration.
 _Avoid_: Plot, homestead, land deed, property title
+
+**Ground rent**:
+The daily Corona charge owed by the member who placed an estate block in linked territory, calculated from that block type's configured value. Unowned estates and estates of Kings, Queens, Princes, and Princesses owe none.
+_Avoid_: Build permit fee, land tax, property deed
+
+**Ground-rent arrears**:
+Unpaid ground rent owed by an estate's owner to the territory kingdom. It revokes the owner's build permit and prevents reissue until paid; unlike a player income-tax shortfall, it remains owed.
+_Avoid_: Player tax debt, warrant, build fine
 
 **Public work**:
 An authorised treasury spend that places one estate block—beacon, conduit, or lodestone—inside linked territory. The Premier prepares a site and type, tables a spend bill, and on royal assent the realm places the block (no survival materials) and debits the treasury by that type's Estate Corona worth, counting against the approved treasury budget. Realm wealth still counts the block only through the ordinary Estate scan; the spend does not register an estate by hand.
@@ -157,7 +181,7 @@ The pair of bills tabled automatically when a Premier villager is appointed afte
 _Avoid_: Starter budget, auto-fiscal, opening bills
 
 **Inaugural FISCAL bill**:
-The first bill in an inaugural fiscal package. Proposes fiscal rates adjusted from the kingdom's current enacted rates: each rate field—base tax, per-rank modifiers, foreign-income surcharge, transfer fees, villager wallet interest, and tariff—moves by exactly one percentage point according to the seated Premier villager's **profession vote bias** on FISCAL bills: aye lowers, nay raises, abstain leaves every field unchanged.
+The first bill in an inaugural fiscal package. Proposes fiscal rates adjusted from the kingdom's current enacted rates: base tax, per-rank modifiers, foreign-income surcharge, transfer fees, villager wallet interest, and tariff move by one percentage point; overdraft interest and ground rent move by 0.1 percentage point within their 0–1% ranges. The seated Premier villager's **profession vote bias** on FISCAL bills sets the direction: aye lowers, nay raises, abstain leaves rates unchanged.
 _Avoid_: Policy bill, rate shuffle, default fiscal
 
 **Full villager parliament**:

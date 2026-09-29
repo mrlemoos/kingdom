@@ -24,9 +24,16 @@ public final class ParliamentEnactment {
 
     public static EconomyResult enact(
             AssentedActDraft draft, EconomyService economyService, int maxMints, EstateBlockPlacer estatePlacer) {
+        return enact(draft, economyService, maxMints, estatePlacer, 0L);
+    }
+
+    public static EconomyResult enact(
+            AssentedActDraft draft, EconomyService economyService, int maxMints, EstateBlockPlacer estatePlacer,
+            long financeDay) {
         return switch (draft.payload()) {
             case BillPayload.Fiscal fiscal -> economyService.applyFiscalRates(draft.kingdomId(), fiscal.rates());
-            case BillPayload.Budget budget -> economyService.enactBudget(draft.kingdomId(), budget.amount());
+            case BillPayload.Budget budget -> economyService.enactBudget(
+                    draft.kingdomId(), budget.amount(), budget.giltTerms(), financeDay);
             case BillPayload.SpendMint mint -> economyService.placeMint(
                     draft.kingdomId(), mint.mintLocation(), mint.cost(), maxMints);
             case BillPayload.SpendPublicWork work -> economyService.placePublicWork(
@@ -84,6 +91,19 @@ public final class ParliamentEnactment {
             TreatyService treatyService,
             int maxMints,
             EstateBlockPlacer estatePlacer) {
+        return enactAssented(draft, economyService, warService, demobilisationService,
+                treatyService, maxMints, estatePlacer, 0L);
+    }
+
+    public static AssentedEnactmentResult enactAssented(
+            AssentedActDraft draft,
+            EconomyService economyService,
+            WarService warService,
+            DemobilisationService demobilisationService,
+            TreatyService treatyService,
+            int maxMints,
+            EstateBlockPlacer estatePlacer,
+            long financeDay) {
         return switch (draft.payload()) {
             case BillPayload.War ignored -> {
                 if (warService == null) {
@@ -112,7 +132,7 @@ public final class ParliamentEnactment {
                 };
             }
             default -> {
-                EconomyResult economyResult = enact(draft, economyService, maxMints, estatePlacer);
+                EconomyResult economyResult = enact(draft, economyService, maxMints, estatePlacer, financeDay);
                 yield switch (economyResult) {
                     case EconomyResult.Success success -> AssentedEnactmentResult.ok(success.message());
                     case EconomyResult.Failure failure -> AssentedEnactmentResult.fail(failure.message());

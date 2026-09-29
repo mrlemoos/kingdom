@@ -137,20 +137,7 @@ public final class KingdomFiscalHandler {
     }
 
     private boolean handleFiscalReject(CommandSender sender) {
-        Optional<Player> player = requirePlayer(sender);
-        if (player.isEmpty()) {
-            return true;
-        }
-        Optional<PlayerMembership> membership = requireMembership(player.get());
-        if (membership.isEmpty()) {
-            return true;
-        }
-        NobleRank rank = membership.get().getRank();
-        EconomyResult result = economyService.rejectProposal(membership.get().getKingdomId(), rank);
-        sender.sendMessage(formatEconomy(result));
-        if (result instanceof EconomyResult.Success) {
-            economyStore.saveFrom(economyService);
-        }
+        sender.sendMessage(error("Fiscal business is handled in the Parliament GUI. Type /kingdom to open the Realm Hub."));
         return true;
     }
 

@@ -46,14 +46,14 @@ class CrownSquadServiceTest {
     }
 
     @Test
-    void purchaseFailsWhenTreasuryHasInsufficientBalanceDespiteApprovedBudget() {
+    void approvedCrownSquadSpendCanOverdrawTreasury() {
         economyService.enactBudget(KINGDOM_ID, 500.0);
 
         WarResult result = crownSquadService.purchase(KINGDOM_ID);
 
-        assertInstanceOf(WarResult.Failure.class, result);
-        assertTrue(crownSquadService.unitsOf(KINGDOM_ID).isEmpty());
-        assertEquals(0, crownSquadService.countOf(KINGDOM_ID));
+        assertInstanceOf(WarResult.Success.class, result);
+        assertEquals(-50.0, economyService.getTreasuryBalance(KINGDOM_ID));
+        assertEquals(1, crownSquadService.countOf(KINGDOM_ID));
     }
 
     @Test

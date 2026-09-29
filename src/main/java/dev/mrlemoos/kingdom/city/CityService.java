@@ -1,6 +1,7 @@
 package dev.mrlemoos.kingdom.city;
 
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
+import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.model.Kingdom;
 import dev.mrlemoos.kingdom.model.NobleRank;
 import dev.mrlemoos.kingdom.model.PlayerMembership;
@@ -30,6 +31,9 @@ public final class CityService {
 
     private final KingdomService kingdomService;
     private PrisonStatusPort prisonStatusPort;
+    private EconomyService economyService;
+
+    public void setEconomyService(EconomyService economyService) { this.economyService = economyService; }
 
     public CityService(KingdomService kingdomService) {
         this(kingdomService, PrisonStatusPort.none());
@@ -252,6 +256,9 @@ public final class CityService {
         }
         if (prisonStatusPort.isUnderPrisonSentence(playerId)) {
             return CityResult.fail("A prisoner may not be issued a build permit.");
+        }
+        if (economyService != null && economyService.getGroundRentArrears(kingdomId, playerId) > 0.0) {
+            return CityResult.fail("Pay your ground-rent arrears at the Lord Mayor before applying.");
         }
         KingdomCityState city = kingdom.get().getCityState();
         if (!city.grantPermit(playerId, grantedAtMs)) {

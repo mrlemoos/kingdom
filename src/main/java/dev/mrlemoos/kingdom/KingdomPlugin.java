@@ -281,6 +281,10 @@ public final class KingdomPlugin extends JavaPlugin {
                 economyService = new EconomyService(getConfig().getDouble("economy.starting-treasury", 100.0));
                 // Paying income tax while out of favour is an act of service on the political track.
                 economyService.setServiceCreditHook(loyaltyService, realmCalendarService::currentRealmDay);
+                kingdomService.setMemberDeparture((kingdomId, playerId) -> {
+                        economyService.releaseEstateOwner(kingdomId, playerId);
+                        economyStore.saveFrom(economyService);
+                });
                 economyStore = new YamlEconomyStore(this);
                 InMemoryWarDebtStore warDebtStore = new InMemoryWarDebtStore();
                 economyStore.setWarDebtStore(warDebtStore);
@@ -537,6 +541,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 kingdomService);
                 CityService cityService = new CityService(
                                 kingdomService, policeTrialService::isUnderPrisonSentence);
+                cityService.setEconomyService(economyService);
                 policeTrialService.setBuildPermitRevoker(cityService::revokeAllPermits);
                 LordMayorService lordMayorService = new LordMayorService(this, kingdomService);
                 TownCrierService townCrierService = new TownCrierService(this, kingdomService);
@@ -597,6 +602,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                 villagerPremierInauguralService,
                                 warService,
                                 demobilisationService);
+                parliamentHandler.setFinanceDayClock(realmCalendarService::currentRealmDay);
                 ResignCommand resignCommand = new ResignCommand(
                                 this,
                                 kingdomService,
@@ -688,7 +694,8 @@ public final class KingdomPlugin extends JavaPlugin {
                                 new JoinReminderListener(
                                                 kingdomService,
                                                 getConfig().getBoolean("join-reminder", true),
-                                                getConfig().getStringList("join-message")),
+                                                getConfig().getStringList("join-message"),
+                                                economyCoordinator.economyService(), economyStore),
                                 this);
                 getServer().getPluginManager().registerEvents(
                                 new EconomyActivityListener(economyCoordinator, villagerMpEntityService), this);
@@ -702,14 +709,14 @@ public final class KingdomPlugin extends JavaPlugin {
                                                                 CoronaMerchantStockRotation.fromPluginConfig(getConfig()))),
                                 this);
                 getServer().getPluginManager().registerEvents(
-                                new TerritoryWealthListener(this, economyService, territoryResolver, economyStore),
+                                new TerritoryWealthListener(this, economyService, territoryResolver, economyStore,
+                                                kingdomService),
                                 this);
                 BuildConductEnforcer buildConductEnforcer = new BuildConductEnforcer(
                                 new ActBreachDetector(),
                                 BuildEnforcementConfig.fromPluginConfig(getConfig()),
                                 System::currentTimeMillis);
-                getServer().getPluginManager().registerEvents(
-                                new BuildConductListener(
+                BuildConductListener buildConductListener = new BuildConductListener(
                                                 kingdomService,
                                                 territoryResolver,
                                                 buildConductEnforcer,
@@ -717,14 +724,16 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 loyaltyService,
                                                 cityService,
                                                 warService,
-                                                occupationBuildGate),
-                                this);
-                getServer().getPluginManager().registerEvents(
+                                                occupationBuildGate);
+                buildConductListener.setEconomyService(economyService);
+                getServer().getPluginManager().registerEvents(buildConductListener, this);
+                dev.mrlemoos.kingdom.listener.LordMayorGuiListener mayorGuiListener =
                                 new dev.mrlemoos.kingdom.listener.LordMayorGuiListener(
                                                 lordMayorService, cityService, kingdomService, store,
                                                 economyService, realmWealthRates, nobleDisplay,
-                                                standingRosterService, getConfig().getBoolean("war.enabled", false)),
-                                this);
+                                                standingRosterService, getConfig().getBoolean("war.enabled", false));
+                mayorGuiListener.setEconomyStore(economyStore);
+                getServer().getPluginManager().registerEvents(mayorGuiListener, this);
                 dev.mrlemoos.kingdom.listener.HonoursGuiListener honoursGuiListener =
                                 new dev.mrlemoos.kingdom.listener.HonoursGuiListener(
                                                 kingdomService, store, nobleDisplay);
@@ -744,6 +753,7 @@ public final class KingdomPlugin extends JavaPlugin {
                                                 realmCalendarService,
                                                 hubPollingDay,
                                                 treatyService);
+                townCrierGuiListener.setWarDebtStore(warDebtStore);
                 getServer().getPluginManager().registerEvents(townCrierGuiListener, this);
 
                 dev.mrlemoos.kingdom.listener.MusterGuiListener musterGuiListener =
@@ -1005,10 +1015,14 @@ public final class KingdomPlugin extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(
                                 new TreasuryBriefingListener(kingdomService, economyService, territoryResolver, this),
                                 this);
-                getServer().getPluginManager().registerEvents(
-                                new TreasuryLordListener(treasuryLordService, economyService, kingdomService,
-                                                economyStore, store, crownSquadService, crownSquadEntityService, warService),
-                                this);
+                TreasuryLordListener treasuryLordListener = new TreasuryLordListener(
+                                treasuryLordService, economyService, kingdomService,
+                                economyStore, store, crownSquadService, crownSquadEntityService, warService);
+                treasuryLordListener.setPlugin(this);
+                treasuryLordListener.setFinanceDayClock(realmCalendarService::currentRealmDay);
+                treasuryLordListener.setWarDebtStore(warDebtStore);
+                getServer().getPluginManager().registerEvents(treasuryLordListener, this);
+                realmHubListener.withFinance(economyService, realmWealthRates).withWarDebtStore(warDebtStore);
                 getServer().getPluginManager().registerEvents(parliamentGuiListener, this);
                 getServer().getPluginManager().registerEvents(
                                 new PollCardListener(kingdomService, pollCardDelivery, electionHandler,
@@ -1129,6 +1143,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 VillagerGdpTask gdpTask = new VillagerGdpTask(
                                 this, economyCoordinator, kingdomService, economyStore, villagerEconomyConfig);
                 gdpTask.setCalendarService(realmCalendarService);
+                gdpTask.setGroundRent(cityService, realmWealthRates, territoryResolver);
                 gdpTask.setPlayerTaxServiceCreditHook(loyaltyService, realmCalendarService::currentRealmDay);
                 gdpTask.setChurchService(churchService);
                 gdpTask.setConscriptionService(conscriptionService);

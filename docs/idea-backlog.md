@@ -89,9 +89,9 @@ Treaty bills, trade pacts, and non-aggression treaties are shipped. Alliance and
 | Idea | Sketch | Rides on |
 |---|---|---|
 | ~~**Per-player tax hook**~~ | Shipped: daily member share, personal feedback, and service credit on positive payment. | Daily GDP + income tax settlement, `RealmFeedback` |
-| **National debt** | The treasury may go negative; daily interest accrues against it; the balance and its trend show in **State of the Realm**. Nothing is blocked — bills simply get expensive. | Treasury, daily processor order, State of the Realm item |
-| **Gilts** | The Crown issues bonds against a BUDGET line; players buy with Corona, take a daily coupon from the treasury, redeem at maturity. An unpayable coupon is a **default**: loyalty drop, and the Commons may table no confidence. | Budget bills, wallet transfers, daily processor, `NO_CONFIDENCE` |
-| **Ground rent** | Estates inside linked territory owe the Crown a daily rent per valued block, collected with the other daily lines. Non-payment revokes the build permit before it revokes anything else. | Estate/realm-wealth scan, build permits |
+| **National debt** | [Specified](spec-crown-finance.md): approved budget spending may overdraw; Parliament sets daily interest; debt also includes gilt principal. | Treasury, daily processor order, State of the Realm item |
+| **Gilts** | [Specified](spec-crown-finance.md): BUDGET Acts authorise sales; purchased and Crown-gifted holdings earn coupons and principal; shortfalls cause default. | Budget bills, wallet transfers, daily processor, `NO_CONFIDENCE` |
+| **Ground rent** | [Specified](spec-crown-finance.md): player-owned estates owe value-based daily rent; arrears revoke permits; royal and unowned estates are exempt. | Estate/realm-wealth scan, build permits |
 
 ## Law — reuses the warrant → trial → sentence pipeline
 

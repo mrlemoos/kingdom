@@ -1152,8 +1152,17 @@ public final class YamlKingdomStore {
                 config.set(path + ".cross-fee", fiscal.rates().crossKingdomTransferFee());
                 config.set(path + ".villager-wallet-interest", fiscal.rates().villagerWalletInterest());
                 config.set(path + ".tariff", fiscal.rates().tariff());
+                config.set(path + ".overdraft-interest", fiscal.rates().overdraftInterest());
+                config.set(path + ".ground-rent", fiscal.rates().groundRent());
             }
-            case BillPayload.Budget budget -> config.set(path + ".amount", budget.amount());
+            case BillPayload.Budget budget -> {
+                config.set(path + ".amount", budget.amount());
+                if (budget.giltTerms() != null) {
+                    config.set(path + ".gilt.face", budget.giltTerms().faceValue());
+                    config.set(path + ".gilt.coupon", budget.giltTerms().couponRate());
+                    config.set(path + ".gilt.maturity-days", budget.giltTerms().maturityDays());
+                }
+            }
             case BillPayload.SpendMint mint -> {
                 config.set(path + ".world", mint.mintLocation().worldName());
                 config.set(path + ".x", mint.mintLocation().x());
@@ -1207,8 +1216,15 @@ public final class YamlKingdomStore {
                     section.getDouble("cross-fee"),
                     section.getDouble("villager-wallet-interest", 0.0),
                     section.getDouble("tariff", 0.0),
-                    FiscalRates.defaults().rankModifiers()));
-            case BUDGET -> new BillPayload.Budget(section.getDouble("amount"));
+                    FiscalRates.defaults().rankModifiers(),
+                    section.getDouble("overdraft-interest", 0.001),
+                    section.getDouble("ground-rent", 0.001)));
+            case BUDGET -> {
+                ConfigurationSection gilt = section.getConfigurationSection("gilt");
+                yield new BillPayload.Budget(section.getDouble("amount"), gilt == null ? null
+                        : new dev.mrlemoos.kingdom.economy.model.GiltTerms(
+                                gilt.getInt("face"), gilt.getDouble("coupon"), gilt.getInt("maturity-days")));
+            }
             case SPEND_MINT -> new BillPayload.SpendMint(
                     new MintLocation(
                             section.getString("world"),

@@ -3,6 +3,7 @@ package dev.mrlemoos.kingdom.command;
 import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.service.EconomyService;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryLocation;
 import dev.mrlemoos.kingdom.economy.territory.TerritoryResolver;
@@ -66,6 +67,15 @@ public final class ParliamentHandler {
     private ParliamentSiting parliamentSiting;
     private Consumer<Player> hubGuiOpener;
     private java.util.function.BiConsumer<Player, String> referendumBallotOpener;
+    private java.util.function.LongSupplier financeDayClock = () -> 0L;
+
+    public void setFinanceDayClock(java.util.function.LongSupplier clock) {
+        financeDayClock = clock;
+    }
+
+    public long financeDay() { return financeDayClock.getAsLong(); }
+
+    public EconomyService economyService() { return economyService; }
 
     public ParliamentHandler(
             ParliamentService parliamentService,
@@ -418,7 +428,8 @@ public final class ParliamentHandler {
             return true;
         };
         AssentedEnactmentResult enacted = ParliamentEnactment.enactAssented(
-                draft.get(), economyService, warService, demobilisationService, treatyService, maxMints, estatePlacer);
+                draft.get(), economyService, warService, demobilisationService, treatyService, maxMints, estatePlacer,
+                financeDay());
         if (enacted instanceof AssentedEnactmentResult.Failure failure) {
             player.sendMessage(error("Royal assent recorded but enactment failed: " + failure.message()));
             kingdomStore.saveFrom(kingdomService);
@@ -520,6 +531,11 @@ public final class ParliamentHandler {
     public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount,
             String title) {
         return parliamentService.tableBudget(kingdomId, rank, proposerId, amount, title);
+    }
+
+    public ParliamentResult tableBudget(String kingdomId, NobleRank rank, UUID proposerId, double amount,
+            GiltTerms giltTerms, String title) {
+        return parliamentService.tableBudget(kingdomId, rank, proposerId, amount, giltTerms, title);
     }
 
     public ParliamentResult tableSpendMint(String kingdomId, NobleRank rank, UUID proposerId, String title) {

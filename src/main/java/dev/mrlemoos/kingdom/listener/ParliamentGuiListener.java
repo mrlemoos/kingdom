@@ -5,6 +5,7 @@ import static dev.mrlemoos.kingdom.helpers.ColourEncoder.c;
 import dev.mrlemoos.kingdom.command.ParliamentHandler;
 import dev.mrlemoos.kingdom.command.ResignCommand;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.feedback.RealmFeedback;
 import dev.mrlemoos.kingdom.model.NobleRank;
@@ -589,15 +590,20 @@ public final class ParliamentGuiListener implements Listener {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.FISCAL, kingdomId, player.getUniqueId()));
+        FiscalRates active = handler.economyService().kingdomEconomies().get(kingdomId) == null
+                ? FiscalRates.defaults()
+                : handler.economyService().kingdomEconomies().get(kingdomId).activeRates();
+        player.sendMessage(c("&7Current overdraft " + active.overdraftInterest()
+                + ", ground rent " + active.groundRent() + ". Both must be between 0 and 0.01."));
         player.sendMessage(
-                c("&bType fiscal rates: ") + c("&fbase foreign transferFee crossFee interest tariff [title]") + c("&7 (or 'cancel')"));
+                c("&bType fiscal rates: ") + c("&fbase foreign transferFee crossFee interest tariff overdraft groundRent") + c("&7 (or 'cancel')"));
     }
 
     private void startBudgetCustomPrompt(Player player, String kingdomId) {
         player.closeInventory();
         chatSessions.start(new ParliamentChatSessions.Session(
                 ParliamentChatSessions.SessionType.BUDGET_CUSTOM, kingdomId, player.getUniqueId()));
-        player.sendMessage(c("&bType the budget amount in chat (or 'cancel'):"));
+        player.sendMessage(c("&bType spending allowance, then optional gilt face, daily coupon and maturity days: &f100 [50 0.001 30]&b (or 'cancel')."));
     }
 
     private void tableBudget(Player player, PlayerMembership membership, double amount, String title) {
@@ -850,60 +856,51 @@ public final class ParliamentGuiListener implements Listener {
     private void handleFiscalChat(
             Player player, ParliamentChatSessions.Session session, String message, PlayerMembership membership) {
         String[] parts = message.split("\\s+");
-        if (parts.length < 6) {
-            player.sendMessage(handler.error("Need six numbers: base foreign transferFee crossFee interest tariff [title]"));
+        if (parts.length != 8) {
+            player.sendMessage(handler.error("Need eight numbers: base foreign transferFee crossFee interest tariff overdraft groundRent."));
             return;
         }
-
-        String title = null;
-        int rateCount = parts.length;
-        if (parts.length > 6) {
-            try {
-                Double.parseDouble(parts[parts.length - 1]);
-            } catch (NumberFormatException ex) {
-                String last = parts[parts.length - 1];
-                title = last.startsWith("\"") && last.endsWith("\"") && last.length() > 1
-                        ? last.substring(1, last.length() - 1)
-                        : last;
-                rateCount = parts.length - 1;
-            }
-        }
-        if (rateCount < 6) {
-            player.sendMessage(handler.error("Need six numbers: base foreign transferFee crossFee interest tariff [title]"));
-            return;
-        }
-
-        int offset = rateCount - 6;
         try {
             FiscalRates proposed = new FiscalRates(
-                    Double.parseDouble(parts[offset]),
-                    Double.parseDouble(parts[offset + 1]),
-                    Double.parseDouble(parts[offset + 2]),
-                    Double.parseDouble(parts[offset + 3]),
-                    Double.parseDouble(parts[offset + 4]),
-                    Double.parseDouble(parts[offset + 5]),
-                    FiscalRates.defaults().rankModifiers());
+                    Double.parseDouble(parts[0]),
+                    Double.parseDouble(parts[1]),
+                    Double.parseDouble(parts[2]),
+                    Double.parseDouble(parts[3]),
+                    Double.parseDouble(parts[4]),
+                    Double.parseDouble(parts[5]),
+                    FiscalRates.defaults().rankModifiers(),
+                    Double.parseDouble(parts[6]),
+                    Double.parseDouble(parts[7]));
             ParliamentResult result = handler.tableFiscal(
                     session.kingdomId(),
                     membership.getRank(),
                     membership.getPlayerId(),
                     proposed,
-                    title);
+                    null);
             chatSessions.cancel(player.getUniqueId());
             handler.finish(player, result);
-        } catch (NumberFormatException ex) {
-            player.sendMessage(handler.error("All fiscal rates must be numbers."));
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(handler.error(ex.getMessage()));
         }
     }
 
     private void handleBudgetCustomChat(
             Player player, ParliamentChatSessions.Session session, String message, PlayerMembership membership) {
         try {
-            double amount = Double.parseDouble(message);
+            String[] parts = message.split("\\s+");
+            if (parts.length != 1 && parts.length != 4) {
+                player.sendMessage(handler.error("Use: allowance [gilt face coupon maturityDays]."));
+                return;
+            }
+            double amount = Double.parseDouble(parts[0]);
+            GiltTerms gilt = parts.length == 4
+                    ? new GiltTerms(Integer.parseInt(parts[1]), Double.parseDouble(parts[2]), Integer.parseInt(parts[3]))
+                    : null;
             chatSessions.cancel(player.getUniqueId());
-            tableBudget(player, membership, amount, null);
-        } catch (NumberFormatException ex) {
-            player.sendMessage(handler.error("Budget amount must be a number."));
+            handler.finish(player, handler.tableBudget(
+                    membership.getKingdomId(), membership.getRank(), membership.getPlayerId(), amount, gilt, null));
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(handler.error(ex.getMessage()));
         }
     }
 

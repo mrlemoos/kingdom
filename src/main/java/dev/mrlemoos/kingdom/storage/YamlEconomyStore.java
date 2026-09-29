@@ -1,7 +1,10 @@
 package dev.mrlemoos.kingdom.storage;
 
 import dev.mrlemoos.kingdom.economy.model.FiscalProposal;
+import dev.mrlemoos.kingdom.economy.model.EstateHolding;
 import dev.mrlemoos.kingdom.economy.model.FiscalRates;
+import dev.mrlemoos.kingdom.economy.model.GiltIssue;
+import dev.mrlemoos.kingdom.economy.model.GiltTerms;
 import dev.mrlemoos.kingdom.economy.model.KingdomEconomy;
 import dev.mrlemoos.kingdom.economy.model.MintLocation;
 import dev.mrlemoos.kingdom.economy.model.TreasuryBudget;
@@ -94,10 +97,49 @@ public final class YamlEconomyStore {
             config.set(kingdomPath + ".total-gdp-revenue", economy.totalGdpRevenue());
             config.set(kingdomPath + ".last-daily-gdp", economy.lastDailyGdp());
             config.set(kingdomPath + ".last-day-trades-settled", economy.lastDayTradesSettled());
+            if (economy.lastFinanceDay() != Long.MIN_VALUE) {
+                config.set(kingdomPath + ".last-finance-day", economy.lastFinanceDay());
+            }
+            config.set(kingdomPath + ".last-national-debt", economy.lastNationalDebt());
+            config.set(kingdomPath + ".last-debt-change", economy.lastDebtChange());
             writeFiscalRates(config, kingdomPath + ".active-rates", economy.activeRates());
             economy.pendingProposal().ifPresent(proposal -> writeProposal(config, kingdomPath + ".pending-proposal", proposal));
             config.set(kingdomPath + ".budget.approved", economy.budget().approvedAmount());
             config.set(kingdomPath + ".budget.spent", economy.budget().spentAmount());
+            config.set(kingdomPath + ".gilt.authorised-day", economy.giltAuthorisedDay());
+            if (economy.giltAuthority() != null) {
+                writeGiltTerms(config, kingdomPath + ".gilt.authority", economy.giltAuthority());
+            }
+            config.set(kingdomPath + ".gilt.last-settled-day", economy.lastGiltSettledDay());
+            config.set(kingdomPath + ".gilt.default", economy.giltDefault());
+            config.set(kingdomPath + ".ground-rent.total-revenue", economy.totalGroundRentRevenue());
+            economy.groundRentArrears().forEach((debtor, amount) ->
+                    config.set(kingdomPath + ".ground-rent.arrears." + debtor, amount));
+            economy.pendingFinancePayments().forEach((player, amount) ->
+                    config.set(kingdomPath + ".finance-notices.rent-paid." + player, amount));
+            economy.pendingGiltReceipts().forEach((player, amount) ->
+                    config.set(kingdomPath + ".finance-notices.gilt-received." + player, amount));
+            int estateIndex = 0;
+            for (EstateHolding holding : economy.estates().values()) {
+                String estatePath = kingdomPath + ".ground-rent.estates." + estateIndex++;
+                config.set(estatePath + ".world", holding.worldName());
+                config.set(estatePath + ".x", holding.x());
+                config.set(estatePath + ".y", holding.y());
+                config.set(estatePath + ".z", holding.z());
+                config.set(estatePath + ".type", holding.type().configKey());
+                config.set(estatePath + ".owner", holding.owner().toString());
+            }
+            int issueIndex = 0;
+            for (GiltIssue issue : economy.giltIssues()) {
+                String issuePath = kingdomPath + ".gilt.issues." + issueIndex++;
+                writeGiltTerms(config, issuePath + ".terms", issue.terms());
+                config.set(issuePath + ".monarch", issue.issuingMonarch().toString());
+                config.set(issuePath + ".opened-day", issue.openedDay());
+                config.set(issuePath + ".closed-day", issue.closedDay());
+                issue.holdings().forEach((holder, amount) -> config.set(issuePath + ".holdings." + holder, amount));
+                issue.duePrincipal().forEach((holder, amount) -> config.set(issuePath + ".due." + holder, amount));
+                issue.payments().forEach((holder, amount) -> config.set(issuePath + ".paid." + holder, amount));
+            }
             writeTerritoryWealthCounts(config, kingdomPath + ".territory-wealth", economy.territoryWealthCounts());
             writeMintLocations(config, kingdomPath + ".mints", economy.mintLocations());
         }
@@ -182,7 +224,76 @@ public final class YamlEconomyStore {
         KingdomEconomy economy = new KingdomEconomy(
                 treasury, totalTaxRevenue, totalGdpRevenue, lastDailyGdp, activeRates, pendingProposal, budget, mints, territoryWealthCounts);
         economy.setLastDayTradesSettled(lastDayTradesSettled);
+        economy.setLastFinanceDay(entry.getLong("last-finance-day", Long.MIN_VALUE));
+        economy.setLastNationalDebt(entry.getDouble("last-national-debt"));
+        economy.setLastDebtChange(entry.getDouble("last-debt-change"));
+        readGiltHoldings(entry.getConfigurationSection("finance-notices.rent-paid"))
+                .forEach(economy::addFinancePayment);
+        readGiltHoldings(entry.getConfigurationSection("finance-notices.gilt-received"))
+                .forEach(economy::addGiltReceipt);
+        ConfigurationSection rent = entry.getConfigurationSection("ground-rent");
+        if (rent != null) {
+            economy.setTotalGroundRentRevenue(rent.getDouble("total-revenue"));
+            readGiltHoldings(rent.getConfigurationSection("arrears")).forEach(economy::setGroundRentArrears);
+            ConfigurationSection estates = rent.getConfigurationSection("estates");
+            if (estates != null) {
+                for (String key : estates.getKeys(false)) {
+                    ConfigurationSection holding = estates.getConfigurationSection(key);
+                    if (holding == null) continue;
+                    WealthBlockType.fromConfigKey(holding.getString("type"))
+                            .filter(WealthBlockType::isEstate)
+                            .ifPresent(type -> economy.putEstate(new EstateHolding(
+                                    holding.getString("world"), holding.getInt("x"), holding.getInt("y"),
+                                    holding.getInt("z"), type, UUID.fromString(holding.getString("owner")))));
+                }
+            }
+        }
+        ConfigurationSection gilt = entry.getConfigurationSection("gilt");
+        if (gilt != null) {
+            ConfigurationSection authority = gilt.getConfigurationSection("authority");
+            economy.setGiltAuthority(authority == null ? null : readGiltTerms(authority), gilt.getLong("authorised-day", -1));
+            economy.setLastGiltSettledDay(gilt.getLong("last-settled-day", -1));
+            economy.setGiltDefault(gilt.getBoolean("default"));
+            ConfigurationSection issues = gilt.getConfigurationSection("issues");
+            if (issues != null) {
+                for (String key : issues.getKeys(false)) {
+                    ConfigurationSection issue = issues.getConfigurationSection(key);
+                    if (issue == null || issue.getConfigurationSection("terms") == null) continue;
+                    economy.addGiltIssue(new GiltIssue(
+                            readGiltTerms(issue.getConfigurationSection("terms")),
+                            UUID.fromString(issue.getString("monarch")),
+                            issue.getLong("opened-day"),
+                            issue.getLong("closed-day", -1),
+                            readGiltHoldings(issue.getConfigurationSection("holdings")),
+                            readGiltHoldings(issue.getConfigurationSection("due")),
+                            readGiltHoldings(issue.getConfigurationSection("paid"))));
+                }
+            }
+        }
         return economy;
+    }
+
+    private static void writeGiltTerms(FileConfiguration config, String path, GiltTerms terms) {
+        config.set(path + ".face", terms.faceValue());
+        config.set(path + ".coupon", terms.couponRate());
+        config.set(path + ".maturity-days", terms.maturityDays());
+    }
+
+    private static GiltTerms readGiltTerms(ConfigurationSection section) {
+        return new GiltTerms(section.getInt("face"), section.getDouble("coupon"), section.getInt("maturity-days"));
+    }
+
+    private static Map<UUID, Double> readGiltHoldings(ConfigurationSection section) {
+        Map<UUID, Double> holdings = new HashMap<>();
+        if (section == null) return holdings;
+        for (String key : section.getKeys(false)) {
+            try {
+                holdings.put(UUID.fromString(key), section.getDouble(key));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore malformed old holdings instead of dropping the rest of the economy.
+            }
+        }
+        return holdings;
     }
 
     private static void writeFiscalRates(FileConfiguration config, String path, FiscalRates rates) {
@@ -192,6 +303,8 @@ public final class YamlEconomyStore {
         config.set(path + ".cross-kingdom-transfer-fee", rates.crossKingdomTransferFee());
         config.set(path + ".villager-wallet-interest", rates.villagerWalletInterest());
         config.set(path + ".tariff", rates.tariff());
+        config.set(path + ".overdraft-interest", rates.overdraftInterest());
+        config.set(path + ".ground-rent", rates.groundRent());
         for (Map.Entry<NobleRank, Double> modifier : rates.rankModifiers().entrySet()) {
             config.set(path + ".rank-modifiers." + modifier.getKey().name().toLowerCase(), modifier.getValue());
         }
@@ -221,7 +334,9 @@ public final class YamlEconomyStore {
                 section.getDouble("cross-kingdom-transfer-fee", FiscalRates.defaults().crossKingdomTransferFee()),
                 section.getDouble("villager-wallet-interest", FiscalRates.defaults().villagerWalletInterest()),
                 section.getDouble("tariff", FiscalRates.defaults().tariff()),
-                rankModifiers);
+                rankModifiers,
+                section.getDouble("overdraft-interest", FiscalRates.defaults().overdraftInterest()),
+                section.getDouble("ground-rent", FiscalRates.defaults().groundRent()));
     }
 
     private static void writeProposal(FileConfiguration config, String path, FiscalProposal proposal) {
