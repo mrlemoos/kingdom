@@ -40,8 +40,8 @@ public final class HearthDayService {
         Objects.requireNonNull(config, "config");
 
         if (!hearthsRequired) {
-            for (ColdSubject subject : subjects) {
-                ledger.clear(kingdomId, subject.villagerId());
+            for (UUID villagerId : ledger.allView().getOrDefault(kingdomId, Map.of()).keySet()) {
+                ledger.clear(kingdomId, villagerId);
             }
             return new ColdDayOutcome(0, Map.of(), Set.of());
         }

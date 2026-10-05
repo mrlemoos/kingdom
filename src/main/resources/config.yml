@@ -608,13 +608,13 @@ granary:
   # What a hungry villager yields, as a share of a fed one's. Cold and hunger keep separate ledgers
   # and both bite: a villager frozen and starving at once yields this times the cold's own factor.
   hunger-yield-factor: 0.5
-  # Hungry days before the yield is cut, before the villager downs tools (told on its nametag as
-  # [starving]), and before it stands in the lot that takes one villager a day. Nought turns a step
-  # off altogether. Seated villager MPs, the Premier villager, the villager Speaker, Lords of the
-  # Treasury and the Town Crier go hungry but never strike and never starve.
+  # Hungry days before yield is cut, before the villager downs tools (shown as [starving]), and
+  # before a famine grievance is recorded. Hunger never kills villagers. Nought turns a step off.
+  # Seated villager MPs, the Premier villager, the villager Speaker, Lords of the Treasury and the
+  # Town Crier go hungry but never strike or count towards a famine grievance.
   hunger-yield-days: 1
   hunger-strike-days: 3
-  hunger-starve-days: 7
+  hunger-starve-days: 7 # retained key; now the non-lethal famine threshold
   # Steps every subject's political loyalty falls while the realm's villagers starve, entered in
   # Hansard as a grievance and cried to the realm once for the famine. Nought leaves loyalty alone.
   # No motion is ever tabled for it: the House must choose that for itself.

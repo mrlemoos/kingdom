@@ -4,10 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The winter day's reckoning at the table: an unfed realm lengthens every villager's run of hungry
- * days, a fed one wipes the slate, and from the seventh day the lot takes one of them.
+ * days, while a fed day wipes the slate without harming villagers.
  */
 class HungerDayServiceTest {
 
@@ -26,30 +23,12 @@ class HungerDayServiceTest {
     private static final GranaryConfig CONFIG = GranaryConfig.defaults();
 
     private InMemoryHungerLedgerStore ledger;
-    private final List<List<UUID>> lotsDrawn = new ArrayList<>();
     private HungerDayService service;
-
-    /** The lot as a test can see it: the first name in the hat, and every hat it was offered. */
-    private StarvationLot firstOfTheLot() {
-        return candidates -> {
-            lotsDrawn.add(List.copyOf(candidates));
-            return candidates.isEmpty() ? Optional.empty() : Optional.of(candidates.get(0));
-        };
-    }
-
-    /** A lot that reads the hat and takes nobody, so a run of hungry days is never cut short. */
-    private StarvationLot mercifulLot() {
-        return candidates -> {
-            lotsDrawn.add(List.copyOf(candidates));
-            return Optional.empty();
-        };
-    }
 
     @BeforeEach
     void setUp() {
         ledger = new InMemoryHungerLedgerStore();
-        lotsDrawn.clear();
-        service = new HungerDayService(ledger, firstOfTheLot());
+        service = new HungerDayService(ledger);
     }
 
     private static HungerSubject subject(UUID id) {
@@ -86,55 +65,52 @@ class HungerDayServiceTest {
         unfedDay(270L, subject(FIRST));
         unfedDay(271L, subject(FIRST));
         assertEquals(2, ledger.hungryDays(KINGDOM, FIRST));
+        ledger.setHungryDays(KINGDOM, SECOND, 69);
 
         HungerDayOutcome fed = service.settleDay(KINGDOM, List.of(subject(FIRST)), false, 272L, CONFIG);
 
         assertEquals(0, ledger.hungryDays(KINGDOM, FIRST));
+        assertEquals(0, ledger.hungryDays(KINGDOM, SECOND));
         assertEquals(1.0, fed.yieldFactorFor(FIRST), 1e-9);
         assertEquals(Set.of(), fed.striking());
-        assertTrue(fed.starved().isEmpty());
     }
 
     @Test
-    void theSeventhUnfedDayTakesOneVillagerAndOneOnly() {
-        for (long day = 270L; day < 276L; day++) {
-            HungerDayOutcome outcome = service.settleDay(
-                    KINGDOM, List.of(subject(FIRST), subject(SECOND)), true, day, CONFIG);
-            assertTrue(outcome.starved().isEmpty());
+    void prolongedHungerRemainsReversible() {
+        HungerDayOutcome last = null;
+        for (long day = 270L; day < 300L; day++) {
+            last = unfedDay(day, subject(FIRST), subject(SECOND));
         }
+        assertTrue(last != null && last.famine());
+        assertEquals(Set.of(FIRST, SECOND), last.starving());
+        assertEquals(30, ledger.hungryDays(KINGDOM, FIRST));
+        assertEquals(30, ledger.hungryDays(KINGDOM, SECOND));
 
-        HungerDayOutcome seventh = unfedDay(276L, subject(FIRST), subject(SECOND));
-
-        assertTrue(seventh.famine());
-        assertEquals(Set.of(FIRST, SECOND), seventh.starving());
-        assertTrue(seventh.starved().isPresent());
-        assertEquals(FIRST, seventh.starved().get());
+        HungerDayOutcome fed = service.settleDay(
+                KINGDOM, List.of(subject(FIRST), subject(SECOND)), false, 300L, CONFIG);
+        assertFalse(fed.famine());
         assertEquals(0, ledger.hungryDays(KINGDOM, FIRST));
-        assertEquals(7, ledger.hungryDays(KINGDOM, SECOND));
+        assertEquals(0, ledger.hungryDays(KINGDOM, SECOND));
     }
 
     @Test
-    void theLotIsDrawnOnlyFromThoseSevenDaysHungry() {
-        service = new HungerDayService(ledger, mercifulLot());
+    void aLateArrivalStartsItsOwnHungerCount() {
         for (long day = 270L; day <= 276L; day++) {
             service.settleDay(KINGDOM, List.of(subject(FIRST)), true, day, CONFIG);
         }
-        // The second villager arrives late and has one hungry day behind it, so is never in the hat.
         HungerDayOutcome outcome = service.settleDay(
                 KINGDOM, List.of(subject(SECOND), subject(FIRST)), true, 277L, CONFIG);
 
-        assertEquals(List.of(FIRST), lotsDrawn.get(lotsDrawn.size() - 1));
         assertEquals(Set.of(FIRST), outcome.starving());
         assertEquals(1, ledger.hungryDays(KINGDOM, SECOND));
     }
 
     @Test
-    void theSparedNeitherStrikeNorStarveButStillGoShort() {
+    void theSparedNeitherStrikeNorEnterFamineButStillGoShort() {
         HungerSubject spared = new HungerSubject(SPARED, true);
         for (long day = 270L; day <= 278L; day++) {
             HungerDayOutcome each = service.settleDay(KINGDOM, List.of(spared), true, day, CONFIG);
             assertTrue(each.striking().isEmpty());
-            assertTrue(each.starved().isEmpty());
             assertTrue(each.starving().isEmpty());
         }
         HungerDayOutcome tenth = service.settleDay(KINGDOM, List.of(spared), true, 279L, CONFIG);
@@ -142,23 +118,18 @@ class HungerDayServiceTest {
         assertEquals(10, ledger.hungryDays(KINGDOM, SPARED));
         assertTrue(HungerRamp.starves(ledger.hungryDays(KINGDOM, SPARED), CONFIG));
         assertEquals(CONFIG.hungerYieldFactor(), tenth.yieldFactorFor(SPARED), 1e-9);
-        assertTrue(lotsDrawn.isEmpty());
         assertFalse(tenth.famine());
     }
 
     @Test
-    void aSecondSweepInTheSameRealmDayNeitherLengthensTheHungerNorTakesAnother() {
+    void aSecondSweepInTheSameRealmDayDoesNotLengthenHunger() {
         for (long day = 270L; day <= 276L; day++) {
             service.settleDay(KINGDOM, List.of(subject(FIRST), subject(SECOND)), true, day, CONFIG);
         }
         assertEquals(7, ledger.hungryDays(KINGDOM, SECOND));
-        int lots = lotsDrawn.size();
-
         HungerDayOutcome again = unfedDay(276L, subject(FIRST), subject(SECOND));
 
         assertEquals(7, ledger.hungryDays(KINGDOM, SECOND));
-        assertEquals(lots, lotsDrawn.size());
-        assertTrue(again.starved().isEmpty());
         assertEquals(CONFIG.hungerYieldFactor(), again.yieldFactorFor(SECOND), 1e-9);
     }
 
@@ -171,15 +142,4 @@ class HungerDayServiceTest {
         assertEquals(0, ledger.hungryDays("southreach", FIRST));
     }
 
-    @Test
-    void theRandomLotOnlyEverDrawsFromTheHat() {
-        StarvationLot lot = StarvationLot.random(new Random(1234L));
-
-        assertTrue(lot.draw(List.of()).isEmpty());
-        for (int attempt = 0; attempt < 50; attempt++) {
-            Optional<UUID> drawn = lot.draw(List.of(FIRST, SECOND));
-            assertTrue(drawn.isPresent());
-            assertTrue(drawn.get().equals(FIRST) || drawn.get().equals(SECOND));
-        }
-    }
 }

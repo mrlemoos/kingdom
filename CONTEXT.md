@@ -93,7 +93,7 @@ A productive villager's personal Corona balance on the ledger, keyed by the vill
 _Avoid_: NPC account, villager balance, mob wallet
 
 **Frozen villager wallet**:
-A villager wallet whose balance persists on the ledger but receives no villager GDP and participates in no villager trades while the villager is not productive. Economic activity resumes when the same villager UUID becomes productive again.
+A villager wallet whose balance persists on the ledger but receives no villager GDP and participates in no villager trades while the loaded villager is not productive. An unloaded villager is unknown, not unproductive; unloading its chunk does not freeze its wallet. Economic activity resumes when the same villager UUID becomes productive again.
 _Avoid_: Dormant wallet, inactive account, suspended balance
 
 **Villager wallet escheatment**:
@@ -1126,12 +1126,12 @@ How many bales a kingdom stands short of seeing the winter through at its presen
 _Avoid_: Deficit, arrears, debt, warning
 
 **Hunger**:
-The state of a villager on a winter day whose kingdom could not draw its **winter ration**. It bites by degrees, on a ledger of its own kept beside **cold**: the first day costs part of its yield, the third sends it on **strike**, and from the seventh it may **starve**. A fed day wipes the slate. Cold and hunger both bite at once — their yield cuts multiply, either alone calls a strike — and the nametag shows the worse of the two.
+The state of a villager on a winter day whose kingdom could not draw its **winter ration**. It bites by degrees, on a ledger of its own kept beside **cold**: the first day costs part of its yield, the third sends it on **strike**, and from the seventh it counts towards the **famine grievance**. A fed day wipes the slate for loaded and unloaded villagers. Cold and hunger both bite at once — their yield cuts multiply, either alone calls a strike — and the nametag shows the worse of the two. Hunger never kills villagers.
 _Avoid_: Famine, malnutrition, food debuff, saturation
 
 **Starvation**:
-The death of one villager a day, chosen at random from those left **hungry** seven days or more. Seated **villager MPs**, the **Premier** villager, the **villager Speaker**, **Lords of the Treasury** and the **Town Crier** are spared, as they are spared the strike.
-_Avoid_: Culling, despawn, population decay
+Severe, reversible **hunger** after seven unfed days. It counts towards a **famine grievance** but never kills the villager. Seated **villager MPs**, the **Premier** villager, the **villager Speaker**, **Lords of the Treasury** and the **Town Crier** do not count towards it.
+_Avoid_: Culling, despawn, population decay, death
 
 **Famine grievance**:
 The political price of leaving the realm unfed: while villagers starve, subject loyalty falls a step, the grievance is entered in **Hansard** and the realm is told. It tables nothing — a **motion of no confidence** still needs two seated MPs to choose it — on the pattern of **winter censure**.

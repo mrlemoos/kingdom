@@ -3,10 +3,10 @@ package dev.mrlemoos.kingdom.granary;
 /**
  * How hunger bites, by degrees: a day the realm's ration could not be drawn costs a villager part of
  * its yield, by the {@link GranaryConfig#hungerStrikeDays()}th it downs tools as any unpaid villager
- * does, and from the {@link GranaryConfig#hungerStarveDays()}th it stands in the lot to be taken.
+ * does, and from the {@link GranaryConfig#hungerStarveDays()}th it counts towards a famine grievance.
  *
  * <p>Deliberately the same shape as {@link dev.mrlemoos.kingdom.hearth.ColdRamp}, and deliberately a
- * ledger of its own: cold and hunger bite at once, and only hunger kills.
+ * ledger of its own: cold and hunger bite at once, but neither kills.
  */
 public final class HungerRamp {
 
@@ -27,7 +27,7 @@ public final class HungerRamp {
         return threshold > 0 && hungryDays >= threshold;
     }
 
-    /** Whether the villager has gone hungry long enough to stand in the lot. */
+    /** Whether the villager has gone hungry long enough to count towards a famine grievance. */
     public static boolean starves(int hungryDays, GranaryConfig config) {
         int threshold = config.hungerStarveDays();
         return threshold > 0 && hungryDays >= threshold;

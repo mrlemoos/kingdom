@@ -565,12 +565,30 @@ public class EconomyService {
         if (kingdomWallets == null) {
             return;
         }
+        syncVillagerWalletActivity(kingdomId, activeVillagerIds, Set.copyOf(kingdomWallets.keySet()), epochDay);
+    }
+
+    /** Unloaded villagers are unknown, not unproductive. Only observed villagers may newly freeze. */
+    public void syncVillagerWalletActivity(
+            String kingdomId, Set<UUID> activeVillagerIds, Set<UUID> observedVillagerIds, long epochDay) {
+        Map<UUID, VillagerWalletState> kingdomWallets = villagerWallets.get(kingdomId);
+        if (kingdomWallets == null) {
+            return;
+        }
         for (Map.Entry<UUID, VillagerWalletState> entry : kingdomWallets.entrySet()) {
             if (activeVillagerIds.contains(entry.getKey())) {
                 entry.getValue().markActive();
-            } else if (entry.getValue().balance() > 0.0) {
+            } else if (observedVillagerIds.contains(entry.getKey()) && entry.getValue().balance() > 0.0) {
                 entry.getValue().markFrozen(epochDay);
             }
+        }
+    }
+
+    /** A known death freezes its wallet immediately when no church takes the estate. */
+    public void freezeVillagerWallet(String kingdomId, UUID villagerId, long epochDay) {
+        VillagerWalletState wallet = villagerWalletFor(kingdomId, villagerId);
+        if (wallet != null && wallet.balance() > 0.0) {
+            wallet.markFrozen(epochDay);
         }
     }
 

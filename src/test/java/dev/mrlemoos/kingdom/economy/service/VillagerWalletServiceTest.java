@@ -55,6 +55,27 @@ class VillagerWalletServiceTest {
     }
 
     @Test
+    void unloadedVillagerKeepsActiveWalletWhileLoadedUnproductiveVillagerFreezes() {
+        service.creditVillagerGdp("northmarch", VILLAGER, 2.0);
+
+        service.syncVillagerWalletActivity("northmarch", Set.of(), Set.of(), 5L);
+        assertFalse(service.isVillagerWalletFrozen("northmarch", VILLAGER));
+
+        service.syncVillagerWalletActivity("northmarch", Set.of(), Set.of(VILLAGER), 6L);
+        assertTrue(service.isVillagerWalletFrozen("northmarch", VILLAGER));
+    }
+
+    @Test
+    void villagerDeathFreezesWalletWithoutWaitingForDailyScan() {
+        service.creditVillagerGdp("northmarch", VILLAGER, 2.0);
+
+        service.freezeVillagerWallet("northmarch", VILLAGER, 8L);
+
+        assertTrue(service.isVillagerWalletFrozen("northmarch", VILLAGER));
+        assertEquals(8L, service.getVillagerWalletFrozenSince("northmarch", VILLAGER).orElseThrow());
+    }
+
+    @Test
     void escheatmentMovesFrozenBalanceToTreasury() {
         service.creditVillagerGdp("northmarch", VILLAGER, 4.0);
         service.syncVillagerWalletActivity("northmarch", Set.of(), 10L);

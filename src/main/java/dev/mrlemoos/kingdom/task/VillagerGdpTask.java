@@ -272,8 +272,12 @@ public final class VillagerGdpTask implements Runnable {
                         day -> shortfallWatch != null && shortfallWatch.claim(day));
                 boolean granaryDirty = false;
                 List<VillagerEconomicParticipant> participants = List.of();
+                Set<UUID> observedVillagerIds = new HashSet<>();
                 Map<UUID, Double> yieldFactors = Map.of();
                 if (world != null && !regionIds.isEmpty()) {
+                    for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                        observedVillagerIds.add(villager.getUniqueId());
+                    }
                     List<VillagerEconomicParticipant> productive = collectProductiveParticipants(world, kingdom, regionIds, config);
                     List<MpSeat> seatedVillagerMps = kingdom.getElectionState().seatsView().values().stream().toList();
                     participants = VillagerEconomicParticipants.merge(productive, seatedVillagerMps);
@@ -289,7 +293,8 @@ public final class VillagerGdpTask implements Runnable {
                 VillagerEconomyDayResult day = processor.processKingdomDay(
                         kingdom.getId(), participants, economyService, config, villagerEconomyConfig,
                         epochDay, random, season,
-                        chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season), yieldFactors);
+                        chargedKingdomId -> chargeLevyUpkeep(kingdom, chargedKingdomId, season), yieldFactors,
+                        observedVillagerIds);
                 reportPlayerTax(kingdom.getId(), playerTaxService.settle(
                         kingdom.getId(), memberIds(kingdom.getId()), day.incomeTaxCollected()));
                 reconcileEstates(kingdom, economyService);
@@ -560,13 +565,13 @@ public final class VillagerGdpTask implements Runnable {
 
     /**
      * The winter day at the table: a realm that could not draw its whole ration leaves every
-     * villager a day hungrier, a realm that could wipes the slate, and from the seventh hungry day
-     * the lot takes one of those still starving. Only the hungry-day counts outlive the day.
+     * villager a day hungrier, while a full ration wipes the slate. Only hungry-day counts outlive
+     * the day; hunger never kills a villager.
      */
     private HungerDayOutcome settleHunger(World world, Kingdom kingdom, List<String> regionIds, long realmDay) {
         HungerDayService hunger = this.hungerDayService;
         if (hunger == null) {
-            return new HungerDayOutcome(Map.of(), Set.of(), Set.of(), Optional.empty());
+            return new HungerDayOutcome(Map.of(), Set.of(), Set.of());
         }
         GranaryConfig config = this.granaryConfig != null ? this.granaryConfig : GranaryConfig.defaults();
         HungerDayOutcome outcome = hunger.settleDay(
@@ -580,16 +585,13 @@ public final class VillagerGdpTask implements Runnable {
                             + (outcome.striking().size() == 1 ? " villager has" : " villagers have")
                             + " left off work for want of bread.");
         }
-        if (outcome.starved().isPresent()) {
-            takeByStarvation(world, kingdom, outcome.starved().get());
-        }
-        if (villagerMpEntityService != null && (!outcome.striking().isEmpty() || outcome.starved().isPresent())) {
+        if (villagerMpEntityService != null && !outcome.striking().isEmpty()) {
             villagerMpEntityService.reconcileAllTerritoryVillagerNametags();
         }
         return outcome;
     }
 
-    /** Every villager standing in the kingdom's territory, and which of them never starve. */
+    /** Every villager standing in the kingdom's territory, and which of them never strike. */
     private List<HungerSubject> collectHungerSubjects(World world, List<String> regionIds) {
         List<HungerSubject> subjects = new ArrayList<>();
         String worldName = world.getName();
@@ -601,21 +603,6 @@ public final class VillagerGdpTask implements Runnable {
             subjects.add(new HungerSubject(villager.getUniqueId(), neverStrikes(villager)));
         }
         return subjects;
-    }
-
-    /** The one the lot took. */
-    private void takeByStarvation(World world, Kingdom kingdom, UUID villagerId) {
-        for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-            if (!villager.getUniqueId().equals(villagerId)) {
-                continue;
-            }
-            // ponytail: starvation kills outright rather than wearing the villager down over ticks —
-            // the ledger already spent seven days getting here, and a death is what the realm sees.
-            villager.setHealth(0.0);
-            RealmFeedback.kingdomMessage(
-                    kingdomService, kingdom.getId(), "A villager has starved to death for want of bread.");
-            return;
-        }
     }
 
     /**

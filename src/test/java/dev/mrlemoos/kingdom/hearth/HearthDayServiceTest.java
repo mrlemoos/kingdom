@@ -144,6 +144,7 @@ class HearthDayServiceTest {
     void noHearthIsAskedForOutsideWinter() {
         service.settleDay(KINGDOM, List.of(), List.of(subject(NEAR, 0.0)), CONFIG, true);
         assertEquals(1, ledger.coldDays(KINGDOM, NEAR));
+        ledger.setColdDays(KINGDOM, FAR, 81);
 
         FakeFuel fuel = new FakeFuel(64);
         ColdDayOutcome outcome = service.settleDay(
@@ -154,5 +155,6 @@ class HearthDayServiceTest {
         assertEquals(1.0, outcome.yieldFactorFor(NEAR), 1e-9);
         assertEquals(Set.of(), outcome.striking());
         assertEquals(0, ledger.coldDays(KINGDOM, NEAR));
+        assertEquals(0, ledger.coldDays(KINGDOM, FAR));
     }
 }

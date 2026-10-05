@@ -68,10 +68,15 @@ public final class ChurchRitesListener implements Listener {
             return;
         }
         Optional<String> kingdomId = kingdomAt(villager.getLocation());
-        if (kingdomId.isEmpty() || !churchService.hasChurch(kingdomId.get())) {
+        if (kingdomId.isEmpty()) {
             return;
         }
         UUID villagerId = villager.getUniqueId();
+        if (!churchService.hasChurch(kingdomId.get())) {
+            economyService.freezeVillagerWallet(
+                    kingdomId.get(), villagerId, villager.getWorld().getFullTime() / 24000L);
+            return;
+        }
         double held = economyService.takeVillagerWallet(kingdomId.get(), villagerId);
         if (held > 0.0d) {
             churchService.holdVillagerFuneralRecord(kingdomId.get(), villagerId, held);

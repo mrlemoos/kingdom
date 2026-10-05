@@ -1,6 +1,8 @@
 package dev.mrlemoos.kingdom.economy.villager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.mrlemoos.kingdom.calendar.Season;
 import dev.mrlemoos.kingdom.calendar.SeasonProfile;
@@ -133,5 +135,26 @@ class VillagerEconomyProcessorTest {
         // The cold farmer keeps half of the 0.4 gross, net of the default income tax; the butcher is warm.
         assertEquals(0.18, service.getVillagerWalletBalance("northmarch", FARMER), 1e-9);
         assertEquals(0.45, service.getVillagerWalletBalance("northmarch", BUTCHER), 1e-9);
+    }
+
+    @Test
+    void dailySettlementDoesNotFreezeWalletForUnloadedVillager() {
+        EconomyService service = new EconomyService();
+        service.replaceState(Map.of(), Map.of(), Map.of("northmarch", new KingdomEconomy()));
+        service.creditVillagerWalletDirect("northmarch", FARMER, 10.0);
+        VillagerEconomyProcessor processor = new VillagerEconomyProcessor();
+        VillagerEconomyConfig noTrades = new VillagerEconomyConfig(1, 0, 0.0, 30, List.of());
+
+        processor.processKingdomDay("northmarch", List.of(), service, EconomyConfig.defaults(),
+                noTrades, 10L, new Random(1), SeasonProfile.defaults(Season.SPRING), null,
+                Map.of(), Set.of());
+
+        assertFalse(service.isVillagerWalletFrozen("northmarch", FARMER));
+
+        processor.processKingdomDay("northmarch", List.of(), service, EconomyConfig.defaults(),
+                noTrades, 11L, new Random(1), SeasonProfile.defaults(Season.SPRING), null,
+                Map.of(), Set.of(FARMER));
+
+        assertTrue(service.isVillagerWalletFrozen("northmarch", FARMER));
     }
 }

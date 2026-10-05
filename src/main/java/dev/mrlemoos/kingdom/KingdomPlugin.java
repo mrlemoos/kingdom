@@ -117,7 +117,6 @@ import dev.mrlemoos.kingdom.granary.GranaryConfig;
 import dev.mrlemoos.kingdom.granary.GranaryTheftLog;
 import dev.mrlemoos.kingdom.granary.HungerDayService;
 import dev.mrlemoos.kingdom.granary.InMemoryHungerLedgerStore;
-import dev.mrlemoos.kingdom.granary.StarvationLot;
 import dev.mrlemoos.kingdom.granary.ShortfallWatch;
 import dev.mrlemoos.kingdom.hearth.HearthConfig;
 import dev.mrlemoos.kingdom.hearth.HearthDayService;
@@ -1157,7 +1156,7 @@ public final class KingdomPlugin extends JavaPlugin {
                 gdpTask.setHearths(new HearthDayService(coldLedgerStore), hearthConfig, villagerMpEntityService);
                 gdpTask.setGranary(granaryConfig, store, shortfallWatch);
                 gdpTask.setHunger(
-                                new HungerDayService(hungerLedgerStore, StarvationLot.random(new java.util.Random())),
+                                new HungerDayService(hungerLedgerStore),
                                 famineGrievanceService);
                 gdpTask.setFieldMoraleDecay(
                                 new FieldMoraleDecayService(moraleService, militaryParticipantRegistry), warService);

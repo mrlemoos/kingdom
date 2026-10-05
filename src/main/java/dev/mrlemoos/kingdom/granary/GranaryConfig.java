@@ -15,7 +15,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  * @param hungerYieldFactor what a hungry villager yields, as a share of a fed one's
  * @param hungerYieldDays   hungry days before the yield is cut
  * @param hungerStrikeDays  hungry days before the villager downs tools
- * @param hungerStarveDays  hungry days before the villager may be taken by the lot
+ * @param hungerStarveDays  hungry days before the villager counts towards a famine grievance
  * @param famineTierSteps   steps a subject's political loyalty falls while the realm starves
  */
 public record GranaryConfig(

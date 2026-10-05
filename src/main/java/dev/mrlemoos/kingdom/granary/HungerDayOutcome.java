@@ -1,17 +1,15 @@
 package dev.mrlemoos.kingdom.granary;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * What the winter day's reckoning at the table came to: what each villager yields for the hunger
- * behind it, who has gone hungry long enough to down tools, who stands in the lot, and which one of
- * them the lot took.
+ * behind it, who has gone hungry long enough to down tools, and who remains starving.
  */
 public record HungerDayOutcome(
-        Map<UUID, Double> yieldFactors, Set<UUID> striking, Set<UUID> starving, Optional<UUID> starved) {
+        Map<UUID, Double> yieldFactors, Set<UUID> striking, Set<UUID> starving) {
 
     public HungerDayOutcome {
         yieldFactors = Map.copyOf(yieldFactors);
@@ -24,7 +22,7 @@ public record HungerDayOutcome(
         return factor == null ? 1.0 : factor.doubleValue();
     }
 
-    /** Whether the realm is starving: somebody stands in the lot, spared or taken. */
+    /** Whether the realm is starving: somebody has remained unfed past the famine threshold. */
     public boolean famine() {
         return !starving.isEmpty();
     }

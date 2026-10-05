@@ -95,6 +95,23 @@ public final class VillagerEconomyProcessor {
             SeasonProfile season,
             Consumer<String> levyUpkeepCharge,
             Map<UUID, Double> villagerYieldFactors) {
+        return processKingdomDay(kingdomId, participants, economyService, economyConfig, villagerConfig,
+                epochDay, random, season, levyUpkeepCharge, villagerYieldFactors, null);
+    }
+
+    /** Observed IDs distinguish a loaded unproductive villager from one in an unloaded chunk. */
+    public VillagerEconomyDayResult processKingdomDay(
+            String kingdomId,
+            List<VillagerEconomicParticipant> participants,
+            EconomyService economyService,
+            EconomyConfig economyConfig,
+            VillagerEconomyConfig villagerConfig,
+            long epochDay,
+            Random random,
+            SeasonProfile season,
+            Consumer<String> levyUpkeepCharge,
+            Map<UUID, Double> villagerYieldFactors,
+            Set<UUID> observedVillagerIds) {
         Map<UUID, Double> yieldFactors = villagerYieldFactors == null ? Map.of() : villagerYieldFactors;
         double totalGdp = 0.0;
         double incomeTax = 0.0;
@@ -113,7 +130,11 @@ public final class VillagerEconomyProcessor {
         for (VillagerEconomicParticipant participant : participants) {
             activeIds.add(participant.villagerId());
         }
-        economyService.syncVillagerWalletActivity(kingdomId, activeIds, epochDay);
+        if (observedVillagerIds == null) {
+            economyService.syncVillagerWalletActivity(kingdomId, activeIds, epochDay);
+        } else {
+            economyService.syncVillagerWalletActivity(kingdomId, activeIds, observedVillagerIds, epochDay);
+        }
 
         List<VillagerTradeSettlement> plannedTrades = tradeService.planTrades(
                 villagerConfig.tradeEdges(),
